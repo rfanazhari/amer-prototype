@@ -33,7 +33,15 @@ func main() {
 		}()
 		os.Exit(1)
 	})
-	if err := runtime.Run(ctx, runtime.Config{DatabaseURL: os.Getenv("DATABASE_URL"), Address: address, ShutdownStarted: shutdownStarted}, logs); err != nil {
+	if err := runtime.Run(ctx, runtime.Config{
+		DatabaseURL:         os.Getenv("DATABASE_URL"),
+		Address:             address,
+		ShutdownStarted:     shutdownStarted,
+		OpenAIAPIKey:        os.Getenv("OPENAI_API_KEY"),
+		OpenAIRealtimeModel: os.Getenv("OPENAI_REALTIME_MODEL"),
+		OpenAIRealtimeVoice: os.Getenv("OPENAI_REALTIME_VOICE"),
+		OpenAIRealtimeURL:   os.Getenv("OPENAI_REALTIME_URL"),
+	}, logs); err != nil {
 		txn := logs.Start("", "service failure", logmanager.TxnTypeOther)
 		txn.NoticeError(err)
 		txn.End()

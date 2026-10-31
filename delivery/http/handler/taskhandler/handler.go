@@ -23,6 +23,7 @@ import (
 
 var errInput = errors.New("invalid input")
 
+// Handler translates Task HTTP requests and envelopes through injected application operation interfaces.
 type Handler struct {
 	Create     taskusecase.CreateOperation
 	Start      taskusecase.StartOperation
@@ -31,15 +32,21 @@ type Handler struct {
 	Detail     taskquery.DetailOperation
 	LogError   func(error)
 }
+
+// envelope keeps status and data present on every response, with error included only on failures.
 type envelope struct {
 	Status string     `json:"status"`
 	Data   any        `json:"data"`
 	Error  *errorBody `json:"error,omitempty"`
 }
+
+// errorBody carries a stable public code and a localized message without technical causes.
 type errorBody struct {
 	Code    string `json:"code"`
 	Message string `json:"message"`
 }
+
+// taskBody formats application results for JSON while retaining null optional timestamps.
 type taskBody struct {
 	ID          string  `json:"id"`
 	Title       string  `json:"title"`
@@ -49,25 +56,35 @@ type taskBody struct {
 	CreatedAt   string  `json:"createdAt"`
 	CompletedAt *string `json:"completedAt"`
 }
+
+// createRequest accepts client-owned creation fields; unknown and system-owned fields are rejected.
 type createRequest struct {
 	Title   string          `json:"title"`
 	DueDate json.RawMessage `json:"dueDate"`
 }
+
+// emptyRequest permits an empty action object without accepting unexpected fields.
 type emptyRequest struct{}
 
+// dateRequest preserves the distinction between an omitted dueDate and an explicit null.
 type dateRequest struct {
 	DueDate json.RawMessage `json:"dueDate"`
 }
 
+// respond writes the standard JSON envelope and selected HTTP status.
 func respond(w http.ResponseWriter, status int, body envelope) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(body)
 }
+
+// fail localizes a stable error code and emits an empty data object in the error envelope.
 func fail(w http.ResponseWriter, r *http.Request, status int, code string) {
 	msg := translations.Message(r.Header.Get("Accept-Language"), code)
 	respond(w, status, envelope{Status: "error", Data: map[string]any{}, Error: &errorBody{Code: code, Message: msg}})
 }
+
+// readJSON accepts one bounded JSON object, rejects unknown fields and trailing documents, and optionally permits an absent body.
 func readJSON(r *http.Request, dst any, emptyAllowed bool) error {
 	body, err := io.ReadAll(io.LimitReader(r.Body, 1048577))
 	if err != nil || len(body) > 1048576 {
@@ -90,6 +107,8 @@ func readJSON(r *http.Request, dst any, emptyAllowed bool) error {
 	}
 	return nil
 }
+
+// parseDate accepts a null or RFC3339 instant with at most millisecond precision and normalizes valid offsets to UTC.
 func parseDate(raw json.RawMessage) (*time.Time, error) {
 	if len(raw) == 0 || string(raw) == "null" {
 		return nil, nil
@@ -117,6 +136,8 @@ func parseDate(raw json.RawMessage) (*time.Time, error) {
 	v = v.UTC()
 	return &v, nil
 }
+
+// formatted renders an optional UTC instant with exactly three fractional digits.
 func formatted(v *time.Time) *string {
 	if v == nil {
 		return nil
@@ -124,10 +145,14 @@ func formatted(v *time.Time) *string {
 	s := v.UTC().Format("2006-01-02T15:04:05.000Z")
 	return &s
 }
+
+// details maps the detached application result into transport timestamp strings and nullable fields.
 func details(task *dto.Task) taskBody {
 	created := formatted(&task.CreatedAt)
 	return taskBody{ID: task.ID, Title: task.Title, Status: task.Status, DueDate: formatted(task.DueDate), Overdue: task.Overdue, CreatedAt: *created, CompletedAt: formatted(task.CompletedAt)}
 }
+
+// sendError maps typed failures to safe HTTP errors. Technical wrappers take precedence over their underlying business error causes.
 func (h Handler) sendError(w http.ResponseWriter, r *http.Request, err error) {
 	var technical errs.Technical
 	if errors.As(err, &technical) {
@@ -153,10 +178,13 @@ func (h Handler) sendError(w http.ResponseWriter, r *http.Request, err error) {
 		fail(w, r, 500, errs.InternalError)
 	}
 }
+
+// ShuttingDown reports admission refusal using the standard localized 503 envelope.
 func ShuttingDown(w http.ResponseWriter, r *http.Request) {
 	fail(w, r, http.StatusServiceUnavailable, errs.ShuttingDown)
 }
 
+// ServeHTTP dispatches the Task and health routes, validates transport input and delegates business operations to application interfaces.
 func (h Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path == "/health" {
 		if r.Method != http.MethodGet {

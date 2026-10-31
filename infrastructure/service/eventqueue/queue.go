@@ -11,6 +11,7 @@ import (
 
 var ErrUnavailable = service.ErrEventUnavailable
 
+// Queue owns bounded, process-local event capacity and one supervised consumer. Accepted events are not durable across process termination.
 type Queue struct {
 	Capacity  int
 	Consume   func(event.TaskCompleted)
@@ -28,11 +29,13 @@ type Queue struct {
 	err       error
 }
 
+// Reservation owns one capacity slot and resolves it exactly once through Publish or Cancel.
 type Reservation struct {
 	queue *Queue
 	once  sync.Once
 }
 
+// Start initializes capacity and the consumer lifetime once. Ordinary subscriber errors are reported without retry; panics become terminal worker errors.
 func (q *Queue) Start() {
 	q.mu.Lock()
 	defer q.mu.Unlock()
@@ -89,18 +92,21 @@ func (q *Queue) ForceStop() {
 	}
 }
 
+// Done exposes consumer termination after Start for runtime supervision.
 func (q *Queue) Done() <-chan struct{} {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 	return q.done
 }
 
+// Err returns the terminal consumer failure, if any, under synchronization.
 func (q *Queue) Err() error {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 	return q.err
 }
 
+// Reserve nonblockingly holds capacity for a pending transaction; a full or stopping queue returns ErrUnavailable.
 func (q *Queue) Reserve() (service.Reservation, error) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
@@ -116,14 +122,17 @@ func (q *Queue) Reserve() (service.Reservation, error) {
 	}
 }
 
+// Publish enqueues a committed completion once and resolves the pending reservation.
 func (r *Reservation) Publish(e event.TaskCompleted) {
 	r.once.Do(func() { r.queue.events <- e; r.queue.pending.Done() })
 }
 
+// Cancel releases an unused reservation once without publishing an event.
 func (r *Reservation) Cancel() {
 	r.once.Do(func() { <-r.queue.slots; r.queue.pending.Done() })
 }
 
+// Shutdown stops new reservations, waits for outstanding reservations and drains accepted events until the caller deadline. Timeout does not establish worker termination.
 func (q *Queue) Shutdown(ctx context.Context) error {
 	q.mu.Lock()
 	if !q.started {

@@ -19,6 +19,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// TestCompleteCommitFailureCancelsReservation checks that a reported commit failure releases capacity without publishing.
 func TestCompleteCommitFailureCancelsReservation(t *testing.T) {
 	now := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	title, err := valueobject.NewTitle("task")
@@ -44,6 +45,7 @@ func TestCompleteCommitFailureCancelsReservation(t *testing.T) {
 	reservation.AssertNotCalled(t, "Publish", mock.Anything)
 }
 
+// TestCompletePublishesAfterCommit checks that publication occurs only after reported transaction success.
 func TestCompletePublishesAfterCommit(t *testing.T) {
 	now := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	title, err := valueobject.NewTitle("task")
@@ -69,6 +71,7 @@ func TestCompletePublishesAfterCommit(t *testing.T) {
 	require.NoError(t, err)
 }
 
+// completionFailureCase defines a rejected completion and its persistence/publication expectations.
 type completionFailureCase struct {
 	name                  string
 	state                 enum.TaskState
@@ -76,6 +79,7 @@ type completionFailureCase struct {
 	wantErr               bool
 }
 
+// TestCompleteRejectsBeforePublication checks forbidden transitions, missing records and queue refusal without persisted mutation.
 func TestCompleteRejectsBeforePublication(t *testing.T) {
 	tests := []completionFailureCase{{"todo", enum.Todo, false, false, true}, {"already done", enum.Done, false, false, true}, {"missing", enum.InProgress, false, true, true}, {"queue full", enum.InProgress, true, false, true}}
 	for _, tt := range tests {

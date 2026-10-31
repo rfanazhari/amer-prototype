@@ -27,6 +27,7 @@ import (
 	"gorm.io/gorm/logger"
 )
 
+// store opens an authorized integration database, prepares its schema and registers pool cleanup.
 func store(t *testing.T) taskrepository.Store {
 	t.Helper()
 	url := os.Getenv("TEST_DATABASE_URL")
@@ -41,6 +42,8 @@ func store(t *testing.T) taskrepository.Store {
 	require.NoError(t, db.AutoMigrate(&taskrepository.Model{}))
 	return taskrepository.Store{DB: db}
 }
+
+// storedTask creates a uniquely identified persisted fixture through public domain operations.
 func storedTask(t *testing.T, repository taskrepository.Store, started bool) *aggregate.Task {
 	t.Helper()
 	title, err := valueobject.NewTitle("integration task")
@@ -53,6 +56,8 @@ func storedTask(t *testing.T, repository taskrepository.Store, started bool) *ag
 	require.NoError(t, repository.Create(context.Background(), task))
 	return task
 }
+
+// TestConcurrentTransitionsAreSerialized checks that concurrent commands cannot apply the same state transition more than once.
 func TestConcurrentTransitionsAreSerialized(t *testing.T) {
 	repository := store(t)
 	task := storedTask(t, repository, false)
@@ -83,6 +88,8 @@ func TestConcurrentTransitionsAreSerialized(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, enum.InProgress, loaded.Snapshot().Status)
 }
+
+// TestQueueRefusalRollsBackDatabaseAndRepeatedCompletionAddsNoEvent checks real rollback on capacity refusal and absence of duplicate completion events.
 func TestQueueRefusalRollsBackDatabaseAndRepeatedCompletionAddsNoEvent(t *testing.T) {
 	repository := store(t)
 	task := storedTask(t, repository, true)
@@ -115,6 +122,8 @@ func TestQueueRefusalRollsBackDatabaseAndRepeatedCompletionAddsNoEvent(t *testin
 	require.NoError(t, queue.Shutdown(ctx))
 	require.Len(t, events, 1)
 }
+
+// TestCorruptStoredTitleIsTechnicalFailure checks classification of malformed persisted data as an internal failure.
 func TestCorruptStoredTitleIsTechnicalFailure(t *testing.T) {
 	repository := store(t)
 	task := storedTask(t, repository, false)
@@ -127,6 +136,7 @@ func TestCorruptStoredTitleIsTechnicalFailure(t *testing.T) {
 	require.ErrorIs(t, err, valueobject.ErrInvalidTitle)
 }
 
+// TestCommitFailureCancelsEventReservation checks rollback and absent publication when a deferred database constraint rejects commit.
 func TestCommitFailureCancelsEventReservation(t *testing.T) {
 	repository := store(t)
 	task := storedTask(t, repository, true)

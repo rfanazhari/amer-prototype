@@ -13,10 +13,13 @@ const (
 // Technical preserves diagnostic causes while preventing business error mapping.
 type Technical struct{ Cause error }
 
+// Error returns a diagnostic description suitable for internal logging, including a cause when present.
 func (e Technical) Error() string {
 	if e.Cause == nil {
 		return "technical failure"
 	}
 	return "technical failure: " + e.Cause.Error()
 }
+
+// Unwrap preserves the underlying cause for internal error inspection.
 func (e Technical) Unwrap() error { return e.Cause }

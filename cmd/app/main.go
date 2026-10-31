@@ -11,6 +11,7 @@ import (
 	"github.com/rfanazhari/amer-prototype/infrastructure/runtime"
 )
 
+// main loads environment settings, initializes masked logging and signals, and runs composition under a process shutdown watchdog.
 func main() {
 	logs := logmanager.NewApplication(logmanager.WithAppName("amer-prototype"), logmanager.WithService("amer-prototype"), logmanager.WithSkipHeaders(), logmanager.WithMaskingConfig([]logmanager.MaskingConfig{
 		{FieldPattern: "authorization", Type: logmanager.FullMask}, {FieldPattern: "cookie", Type: logmanager.FullMask}, {FieldPattern: "password", Type: logmanager.FullMask}, {FieldPattern: "token", Type: logmanager.FullMask}, {FieldPattern: "email", Type: logmanager.FullMask}, {FieldPattern: "api_key", Type: logmanager.FullMask},

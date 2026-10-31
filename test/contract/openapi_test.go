@@ -7,6 +7,7 @@ import (
 	"testing"
 )
 
+// TestOpenAPIContract validates the machine-readable endpoint specification and schema references.
 func TestOpenAPIContract(t *testing.T) {
 	loader := openapi3.NewLoader()
 	document, err := loader.LoadFromFile("../../docs/api/openapi.yaml")

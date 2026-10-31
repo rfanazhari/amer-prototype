@@ -14,6 +14,7 @@ import (
 	"time"
 )
 
+// rescheduleCase defines date, state and missing-record combinations for rescheduling.
 type rescheduleCase struct {
 	name                    string
 	state                   enum.TaskState
@@ -21,6 +22,7 @@ type rescheduleCase struct {
 	clear, missing, wantErr bool
 }
 
+// TestReschedule checks date replacement, clearing, exact boundaries and rejected mutation isolation.
 func TestReschedule(t *testing.T) {
 	tests := []rescheduleCase{{"equality", enum.Todo, 0, false, false, false}, {"future", enum.InProgress, time.Hour, false, false, false}, {"past", enum.Todo, -time.Millisecond, false, false, true}, {"clear", enum.InProgress, 0, true, false, false}, {"done", enum.Done, time.Hour, false, false, true}, {"missing", enum.Todo, 0, false, true, true}}
 	for _, tt := range tests {

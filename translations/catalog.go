@@ -14,6 +14,7 @@ var (
 	bundle = load()
 )
 
+// load embeds and parses the authoritative English and Indonesian TOML catalogs, failing initialization on invalid catalog data.
 func load() *i18n.Bundle {
 	b := i18n.NewBundle(language.English)
 	b.RegisterUnmarshalFunc("toml", toml.Unmarshal)
@@ -29,6 +30,7 @@ func load() *i18n.Bundle {
 	return b
 }
 
+// Message selects a localized error message using language preferences, with a safe fallback for an unknown code.
 func Message(locale, code string) string {
 	result, err := i18n.NewLocalizer(bundle, locale).Localize(&i18n.LocalizeConfig{MessageID: code})
 	if err != nil {

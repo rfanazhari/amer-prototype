@@ -15,11 +15,13 @@ import (
 	"time"
 )
 
+// createCase defines creation input and dependency-failure expectations.
 type createCase struct {
 	name, title                   string
 	past, persistFailure, wantErr bool
 }
 
+// TestCreate checks creation results, validation and persistence failure through the public operation.
 func TestCreate(t *testing.T) {
 	tests := []createCase{{"create", "\u2003Prepare report ", false, false, false}, {"empty", "", false, false, true}, {"overlong", strings.Repeat("界", 101), false, false, true}, {"past", "task", true, false, true}, {"persistence failure", "task", false, true, true}}
 	for _, tt := range tests {

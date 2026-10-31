@@ -14,6 +14,7 @@ import (
 	"gorm.io/gorm/clause"
 )
 
+// Model maps the tasks table and its schema constraints independently of domain and API types.
 type Model struct {
 	ID          string `gorm:"type:uuid;primaryKey"`
 	Title       string `gorm:"not null"`
@@ -24,10 +25,13 @@ type Model struct {
 	CompletedAt *time.Time
 }
 
+// TableName fixes the persistence table name used by GORM.
 func (Model) TableName() string { return "tasks" }
 
+// Store implements task persistence through a shared, runtime-owned GORM database pool.
 type Store struct{ DB *gorm.DB }
 
+// utcPointer copies an optional driver timestamp into canonical UTC.
 func utcPointer(value *time.Time) *time.Time {
 	if value == nil {
 		return nil
@@ -36,10 +40,13 @@ func utcPointer(value *time.Time) *time.Time {
 	return &canonical
 }
 
+// fromTask maps detached domain facts to a storage model for persistence.
 func fromTask(task *aggregate.Task) Model {
 	s := task.Snapshot()
 	return Model{ID: s.ID, Title: s.Title.String(), Status: s.Status.String(), DueDate: s.DueDate, CreatedAt: s.CreatedAt, CompletedAt: s.CompletedAt}
 }
+
+// toTask validates and restores stored history with UTC instants. Corrupt values are classified as technical failures.
 func toTask(m Model) (*aggregate.Task, error) {
 	title, err := valueobject.NewTitle(m.Title)
 	if err != nil {
@@ -54,10 +61,14 @@ func toTask(m Model) (*aggregate.Task, error) {
 	}
 	return task, nil
 }
+
+// Create persists a new task using the caller context and preserves database errors.
 func (s Store) Create(ctx context.Context, task *aggregate.Task) error {
 	model := fromTask(task)
 	return s.DB.WithContext(ctx).Create(&model).Error
 }
+
+// Find restores a task by identity and translates absence to the application not-found category.
 func (s Store) Find(ctx context.Context, id string) (*aggregate.Task, error) {
 	var model Model
 	err := s.DB.WithContext(ctx).First(&model, "id = ?", id).Error
@@ -69,6 +80,8 @@ func (s Store) Find(ctx context.Context, id string) (*aggregate.Task, error) {
 	}
 	return toTask(model)
 }
+
+// Update holds a PostgreSQL row lock while validating and persisting a mutation. Callback, update and commit failures roll back the transaction.
 func (s Store) Update(ctx context.Context, id string, change func(*aggregate.Task) error) (*aggregate.Task, error) {
 	var result *aggregate.Task
 	err := s.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {

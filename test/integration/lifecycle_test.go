@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// databaseURL labels an integration connection so lifecycle checks can observe its server sessions without exposing credentials.
 func databaseURL(t *testing.T, label string) string {
 	t.Helper()
 	parsed, err := url.Parse(os.Getenv("TEST_DATABASE_URL"))
@@ -24,6 +25,8 @@ func databaseURL(t *testing.T, label string) string {
 	parsed.RawQuery = query.Encode()
 	return parsed.String()
 }
+
+// TestPartialStartupFailureClosesDatabase checks release of database acquisitions when HTTP binding fails later in startup.
 func TestPartialStartupFailureClosesDatabase(t *testing.T) {
 	repository := store(t)
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
@@ -41,6 +44,8 @@ func TestPartialStartupFailureClosesDatabase(t *testing.T) {
 		return err == nil && count == 0
 	}, time.Second, 10*time.Millisecond)
 }
+
+// TestCancellationDuringMigrationClosesAcquisitions checks cancellation during a blocked schema operation and absence of remaining labeled sessions.
 func TestCancellationDuringMigrationClosesAcquisitions(t *testing.T) {
 	repository := store(t)
 	lock := repository.DB.Begin()
@@ -85,6 +90,7 @@ func TestCancellationDuringMigrationClosesAcquisitions(t *testing.T) {
 	}, time.Second, 10*time.Millisecond)
 }
 
+// TestShutdownCancelsActiveDatabaseRequest checks forced cancellation of an HTTP request blocked on a PostgreSQL row lock.
 func TestShutdownCancelsActiveDatabaseRequest(t *testing.T) {
 	repository := store(t)
 	task := storedTask(t, repository, false)

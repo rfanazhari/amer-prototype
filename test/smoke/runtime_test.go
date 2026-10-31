@@ -20,30 +20,40 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// taskResponse decodes the task facts asserted by real HTTP scenarios.
 type taskResponse struct {
 	ID          string  `json:"id"`
 	Status      string  `json:"status"`
 	DueDate     *string `json:"dueDate"`
 	CompletedAt *string `json:"completedAt"`
 }
+
+// errorResponse decodes stable public error classification from HTTP failures.
 type errorResponse struct {
 	Code string `json:"code"`
 }
+
+// response decodes the standard success/error envelope used by the smoke harness.
 type response struct {
 	Status string         `json:"status"`
 	Data   taskResponse   `json:"data"`
 	Error  *errorResponse `json:"error"`
 }
+
+// fixture owns an actual composed service and its idempotent shutdown observation.
 type fixture struct {
 	url      string
 	shutdown <-chan time.Time
 	stop     func() error
 }
 
+// start runs the real composition with an optional controlled completion subscriber.
 func start(t *testing.T, subscriber func(context.Context, event.TaskCompleted) error) fixture {
 	t.Helper()
 	return startWithListener(t, subscriber, nil)
 }
+
+// startWithListener starts composition on an ephemeral loopback listener and registers bounded cleanup; an optional listener seam enables deterministic server failures.
 func startWithListener(t *testing.T, subscriber func(context.Context, event.TaskCompleted) error, listen func(context.Context, string, string) (net.Listener, error)) fixture {
 	t.Helper()
 	databaseURL := os.Getenv("TEST_DATABASE_URL")
@@ -84,6 +94,8 @@ func startWithListener(t *testing.T, subscriber func(context.Context, event.Task
 	}
 	return fixture{}
 }
+
+// request sends a bounded real HTTP request and validates its status, content type and JSON envelope.
 func request(t *testing.T, url, method, path, body string, status int) response {
 	t.Helper()
 	client := http.Client{Timeout: 2 * time.Second}
@@ -101,6 +113,8 @@ func request(t *testing.T, url, method, path, body string, status int) response 
 	require.NoError(t, json.Unmarshal(data, &result))
 	return result
 }
+
+// complete creates, starts and completes a task through the real API, returning its generated identity.
 func complete(t *testing.T, service fixture) string {
 	t.Helper()
 	created := request(t, service.url, "POST", "/tasks", `{"title":"integration task"}`, 201)
@@ -110,6 +124,7 @@ func complete(t *testing.T, service fixture) string {
 	return id
 }
 
+// TestHealthAndShutdown checks health through actual composition and successful bounded termination.
 func TestHealthAndShutdown(t *testing.T) {
 	service := start(t, nil)
 	result := request(t, service.url, "GET", "/health", "", 200)
@@ -117,6 +132,8 @@ func TestHealthAndShutdown(t *testing.T) {
 	require.Nil(t, result.Error)
 	require.NoError(t, service.stop())
 }
+
+// TestTaskAPIFlow checks the full task lifecycle, rescheduling, finality, not-found handling and completion consumption through HTTP.
 func TestTaskAPIFlow(t *testing.T) {
 	events := make(chan event.TaskCompleted, 2)
 	service := start(t, func(_ context.Context, e event.TaskCompleted) error { events <- e; return nil })
@@ -147,6 +164,8 @@ func TestTaskAPIFlow(t *testing.T) {
 	require.Len(t, events, 1)
 	require.Equal(t, id, (<-events).TaskID)
 }
+
+// TestShutdownDrainsAcceptedEvent checks that shutdown keeps an accepted subscriber job alive until graceful completion.
 func TestShutdownDrainsAcceptedEvent(t *testing.T) {
 	entered := make(chan struct{})
 	release := make(chan struct{})
@@ -182,6 +201,8 @@ func TestShutdownDrainsAcceptedEvent(t *testing.T) {
 		t.Fatal("accepted event not consumed")
 	}
 }
+
+// TestShutdownReportsBlockedSubscriber checks timeout reporting and cancellation when a subscriber cannot drain.
 func TestShutdownReportsBlockedSubscriber(t *testing.T) {
 	entered := make(chan struct{})
 	service := start(t, func(ctx context.Context, _ event.TaskCompleted) error { close(entered); <-ctx.Done(); return ctx.Err() })
@@ -197,6 +218,7 @@ func TestShutdownReportsBlockedSubscriber(t *testing.T) {
 	require.Less(t, time.Since(beginning), appruntime.ShutdownBudget)
 }
 
+// TestPersistenceAcrossRuntimeRestart checks that a task remains available after the composed service is stopped and restarted.
 func TestPersistenceAcrossRuntimeRestart(t *testing.T) {
 	first := start(t, nil)
 	created := request(t, first.url, "POST", "/tasks", `{"title":"persistent task"}`, 201)
@@ -207,6 +229,7 @@ func TestPersistenceAcrossRuntimeRestart(t *testing.T) {
 	require.NoError(t, second.stop())
 }
 
+// TestUnexpectedConsumerExitStopsComposition checks worker supervision without rolling back an accepted completion.
 func TestUnexpectedConsumerExitStopsComposition(t *testing.T) {
 	service := start(t, func(context.Context, event.TaskCompleted) error { panic("verification worker failure") })
 	id := complete(t, service)
@@ -221,6 +244,8 @@ func TestUnexpectedConsumerExitStopsComposition(t *testing.T) {
 	require.Equal(t, "done", persisted.Data.Status)
 	require.NoError(t, next.stop())
 }
+
+// TestUnexpectedHTTPExitStopsComposition checks propagation and cleanup after a real listener exits unexpectedly.
 func TestUnexpectedHTTPExitStopsComposition(t *testing.T) {
 	bound := make(chan net.Listener, 1)
 	service := startWithListener(t, nil, func(ctx context.Context, network, address string) (net.Listener, error) {

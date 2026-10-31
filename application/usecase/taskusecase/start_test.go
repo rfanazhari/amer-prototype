@@ -13,6 +13,7 @@ import (
 	"testing"
 )
 
+// startCase defines the existing state and missing-record behavior of a start scenario.
 type startCase struct {
 	name    string
 	state   enum.TaskState
@@ -20,6 +21,7 @@ type startCase struct {
 	wantErr bool
 }
 
+// TestStart checks valid, repeated, final-state and missing-task start operations.
 func TestStart(t *testing.T) {
 	tests := []startCase{{"todo", enum.Todo, false, false}, {"already started", enum.InProgress, false, true}, {"done", enum.Done, false, true}, {"missing", enum.Todo, true, true}}
 	for _, tt := range tests {

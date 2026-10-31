@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// startupCase defines invalid startup configuration or cancellation before acquisition.
 type startupCase struct {
 	name    string
 	cfg     appruntime.Config
@@ -16,6 +17,7 @@ type startupCase struct {
 	wantErr bool
 }
 
+// TestStartupValidationAndCancellation checks required configuration and cancellation before resource acquisition.
 func TestStartupValidationAndCancellation(t *testing.T) {
 	logs := logmanager.NewApplication(logmanager.WithAppName("runtime-test"))
 	tests := []startupCase{

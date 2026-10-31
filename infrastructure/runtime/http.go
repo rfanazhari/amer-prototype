@@ -21,8 +21,8 @@ type httpRuntime struct {
 	done     chan struct{}
 }
 
-// httpServer assembles the HTTP server with logging context, admission gating and a request lifetime that permits graceful shutdown.
-func httpServer(handler http.Handler, logs *logmanager.Application) *httpRuntime {
+// HTTPServer assembles the HTTP server with logging context, admission gating and a request lifetime that permits graceful shutdown.
+func HTTPServer(handler http.Handler, logs *logmanager.Application) *httpRuntime {
 	workCtx, cancel := context.WithCancel(context.Background())
 	transport := &httpRuntime{cancel: cancel, done: make(chan struct{})}
 	transport.server = &http.Server{BaseContext: func(net.Listener) context.Context { return workCtx }, Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -42,14 +42,19 @@ func httpServer(handler http.Handler, logs *logmanager.Application) *httpRuntime
 	return transport
 }
 
-// stopAdmission atomically rejects new work and starts observing completion of already admitted handlers.
-func (h *httpRuntime) stopAdmission() {
+// StopAdmission atomically rejects new work and starts observing completion of already admitted handlers.
+func (h *httpRuntime) StopAdmission() {
 	h.mu.Lock()
 	if !h.stopping {
 		h.stopping = true
 		go func() { h.active.Wait(); close(h.done) }()
 	}
 	h.mu.Unlock()
+}
+
+// ServeHTTP exposes the admission-gated handler for verification of new-work rejection.
+func (h *httpRuntime) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	h.server.Handler.ServeHTTP(w, r)
 }
 
 // wait observes active-handler completion after admission is stopped, without treating a deadline as completed work.

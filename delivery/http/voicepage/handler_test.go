@@ -180,10 +180,8 @@ func TestVoicePageScriptLifecycle(t *testing.T) {
 			require.Contains(t, start, "createDataChannel")
 			require.Contains(t, start, "oai-events")
 
-			for _, body := range []string{stop, release} {
-				require.Contains(t, body, ".stop(")
-				require.Contains(t, body, ".close(")
-			}
+			require.Contains(t, release, ".stop(")
+			require.Contains(t, release, ".close(")
 			require.Contains(t, stop, "releaseSession")
 			require.Contains(t, permission, "releaseSession")
 			require.Contains(t, setupFail, "releaseSession")
@@ -192,6 +190,47 @@ func TestVoicePageScriptLifecycle(t *testing.T) {
 			require.NotContains(t, setupFail, "startConversation(")
 			require.NotContains(t, drop, "startConversation(")
 			require.NotContains(t, drop, "new RTCPeerConnection")
+			require.NotContains(t, script, "setInterval")
+		})
+	}
+}
+
+// terminalCase is one source rule that keeps a finished attempt on its designed status.
+type terminalCase struct {
+	name string
+}
+
+// TestVoicePageTerminalStates checks setup, stop, gathering failure, and a recoverable ICE state.
+func TestVoicePageTerminalStates(t *testing.T) {
+	tests := []terminalCase{
+		{name: "local release does not replace the designed status"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			script := scriptFrom(t, pageBody(t))
+			start := functionBody(t, script, "startConversation")
+			stop := functionBody(t, script, "stopConversation")
+			release := functionBody(t, script, "releaseSession")
+			permission := functionBody(t, script, "handlePermissionDenied")
+			setupFail := functionBody(t, script, "handleSetupFailure")
+			drop := functionBody(t, script, "handleDrop")
+			gather := functionBody(t, script, "waitForIce")
+
+			require.Less(t, indexOf(t, setupFail, "stopping = true"), indexOf(t, setupFail, "releaseSession"))
+			require.Less(t, indexOf(t, permission, "stopping = true"), indexOf(t, permission, "releaseSession"))
+			require.Less(t, indexOf(t, drop, "stopping = true"), indexOf(t, drop, "releaseSession"))
+			require.Contains(t, stop, "stopping = true")
+			require.Contains(t, stop, `setStatus("Idle")`)
+			require.NotContains(t, stop, "stopping = false")
+			require.Less(t, indexOf(t, release, "dataChannel = null"), indexOf(t, release, ".close("))
+			require.Less(t, indexOf(t, release, "peerConnection = null"), indexOf(t, release, "connection.close"))
+			require.Contains(t, start, "event.target !== dataChannel")
+			require.Contains(t, start, `state === "failed"`)
+			require.NotContains(t, start, `"disconnected"`)
+			require.Contains(t, start, `err.name === "IceGatheringError"`)
+			require.Contains(t, gather, "IceGatheringError")
+			require.Contains(t, gather, "iceGatheringLimitMs")
+			require.Contains(t, gather, "reject(")
 			require.NotContains(t, script, "setInterval")
 		})
 	}

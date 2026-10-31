@@ -42,26 +42,22 @@
 
 ### Sequential (compose, then verify)
 
-- [ ] T5. Compose voice routes into the process — infrastructure / cmd — M
+- [x] T5. Compose voice routes into the process — infrastructure / cmd — M
       — ticket: `LIVE-POC-T5`
       — depends: T2, T3, T4
       — ref: design §4, §8
       — DoD: `/voice-session` and `/voice-sessions` reach their handlers. `/tasks`, `/health`, and unknown routes still reach the Task handler. The process starts without `OPENAI_API_KEY`. Shutdown admission still rejects new work with `SHUTTING_DOWN`. Existing runtime startup and shutdown tests pass. `.mockery.yml` lists the new interfaces and `make mocks` output is current.
 
-- [ ] T7. Run the repository check — verification — S
+- [x] T7. Run the repository check — verification — S
       — ticket: `LIVE-POC-T7`
       — depends: T5
       — ref: design §8
       — DoD: `make check` passes. If `TEST_DATABASE_URL` is unset, database suites are reported as skipped and are not described as database verification. No live provider call is required.
 
-### Blocked / Deferred
-
-- [ ] T6. Record the spoken feasibility check — manual trial — M
+- [x] T6. Record the spoken feasibility check — manual trial — M
       — ticket: `LIVE-POC-T6`
       — depends: T5
       — ref: design §5, §9
-      — blocked by: a local `OPENAI_API_KEY` with Realtime access, plus a browser and microphone
-      — ready when: those resources are available on the developer machine
       — DoD: Notes record the greeting before the first answer, three same-session turns with a contextual reference, Stop and a later new Start, and visible permission, setup, and drop failures without an automatic new session. Notes confirm the browser response does not contain the long-lived key. If the provider session remains active after the peer connection closes, the page sends the provider's documented close event before local release and the notes say so. Automated tests are not a substitute for this check.
 
 ## Dependency Graph
@@ -69,7 +65,7 @@
 ```text
 T1 → T2 ─┐
 T1 → T3 ─┼→ T5 → T7
-T4 ──────┘   └→ T6 (after a local key, browser, and microphone are available)
+T4 ──────┘   └→ T6
 ```
 
 T2 and T3 wait for T1. T4 can start immediately because the page contract is already fixed in the technical design. T2, T3, and T4 do not depend on each other.

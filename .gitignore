@@ -6,3 +6,5 @@
 coverage.out
 coverage.html
 skills-lock.json
+.idea
+bin

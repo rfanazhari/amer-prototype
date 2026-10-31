@@ -13,6 +13,8 @@ The documents below are the source. This page is only the map.
 | Tactical strategy | [tactical-strategy.md](voice-session-lifecycle-prototype/tactical-strategy.md) |
 | Task plan | [task-plan.md](voice-session-lifecycle-prototype/task-plan.md) |
 | Decision log | [decision-log.md](voice-session-lifecycle-prototype/decision-log.md) |
+| Implementation gaps | [implementation-gaps.md](voice-session-lifecycle-prototype/implementation-gaps.md) |
+| RCA: invalid offer | [rca-invalid-offer-sdp-eof.md](voice-session-lifecycle-prototype/rca-invalid-offer-sdp-eof.md) |
 
 Status: planned. No voice implementation is in the service yet. Task Tracking is a separate capability.
 

@@ -33,13 +33,21 @@ type Negotiate struct {
 	Negotiator Negotiator
 }
 
+// normalizeSDP turns every line ending into CRLF and keeps a terminator on the last line.
+func normalizeSDP(offer string) string {
+	sdp := strings.ReplaceAll(strings.ReplaceAll(offer, "\r\n", "\n"), "\n", "\r\n")
+	if !strings.HasSuffix(sdp, "\r\n") {
+		sdp += "\r\n"
+	}
+	return sdp
+}
+
 // Execute rejects a blank offer before the port call and returns the provider answer otherwise.
 func (u Negotiate) Execute(ctx context.Context, offer string) (string, error) {
-	trimmed := strings.TrimSpace(offer)
-	if trimmed == "" {
+	if strings.TrimSpace(offer) == "" {
 		return "", ErrInvalidOffer
 	}
-	answer, err := u.Negotiator.Exchange(ctx, trimmed, interviewerInstructions)
+	answer, err := u.Negotiator.Exchange(ctx, normalizeSDP(strings.TrimSpace(offer)), interviewerInstructions)
 	if err != nil {
 		return "", ErrSessionUnavailable
 	}

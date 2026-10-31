@@ -13,7 +13,8 @@ Build the setup operation and its provider port first, then the HTTP contract an
 | Task HTTP handler | `delivery/http/handler/taskhandler/handler.go` | Envelope shape, strict JSON, localized errors, and the fallback for non-voice routes | Fit for the public JSON contract. Its request types and route parser are Task-specific, so the voice handlers do not call into it. Unknown routes remain its 404. |
 | Error codes and catalogs | `pkg/errs/codes.go`, `translations/errors.en.toml`, `translations/errors.id.toml` | Stable public codes and `Accept-Language` | `SESSION_UNAVAILABLE` is added beside the current codes. Existing Task codes stay. |
 | Runtime composition | `infrastructure/runtime/runtime.go`, `infrastructure/runtime/http.go`, `cmd/app/main.go` | Process startup, listener, shutdown admission, and log masking | Voice settings are passed through `Config`. Startup still requires `DATABASE_URL`. An empty `OPENAI_API_KEY` must not block Task startup. Shutdown admission already returns `SHUTTING_DOWN` before the handler runs. |
-| Log masking | `cmd/app/main.go` | Masks `authorization`, `token`, and `api_key` | Covers the provider credential if a log field uses those names. The adapter still must not log the key or the provider body. |
+| Log masking | `cmd/app/main.go` | Masks `authorization`, `token`, and `api_key` | Covers the provider credential if a log field uses those names. The public error still must not include the key or the provider body. |
+| Outbound HTTP | `github.com/SALT-Indonesia/salt-pkg/clientmanager` v0.10.1 | Provider `POST` from `infrastructure/service/realtimecall` | `CallBytes` posts JSON to `POST /v1/live/sessions` and reads `transport.sdp`. The configured realtime calls URL is rewritten to that path. The call needs the logmanager transaction that `HTTPServer` already puts on the request context. This release matches `logmanager` v1.44.1. |
 | Architecture checks | `test/architecture/dependencies_test.go`, `test/architecture/documentation_test.go` | Layer direction and required comments | New voice types follow the same import rules. Domain imports do not change. |
 | OpenAPI validation | `test/contract/openapi_test.go`, `docs/api/openapi.yaml` | Structural contract check | The check validates the document. Handler tests still prove the route behavior. |
 | Mock generation | `.mockery.yml`, `make mocks` | Operation and port doubles | Add `NegotiateOperation` and `Negotiator` when those interfaces exist. |
@@ -29,7 +30,7 @@ Build the setup operation and its provider port first, then the HTTP contract an
 | `ErrInvalidOffer`, `ErrSessionUnavailable` | application | `application/usecase/voicesession` | Sentinel errors | Mapped by the handler. |
 | Setup handler | delivery | `delivery/http/handler/voicesessionhandler` | HTTP handler | `POST /voice-sessions`, envelope, and error mapping. |
 | Prototype page | delivery | `delivery/http/voicepage` | Browser client, embedded | Manual start, microphone, one peer connection, opening `response.create`, stop, and visible failure. |
-| Provider call adapter | infrastructure | `infrastructure/service/realtimecall` | Adapter | Holds the key and sends the Realtime calls request. |
+| Provider call adapter | infrastructure | `infrastructure/service/realtimecall` | Adapter | Holds the key and sends the Realtime calls request through `clientmanager`. |
 | Voice route dispatch and config fields | infrastructure / `cmd/app` | `infrastructure/runtime`, `cmd/app/main.go` | Composition | Selects voice handlers without taking over Task routes. |
 
 No domain aggregate, entity, value object, repository, or DTO is added. The setup result is the answer string.
@@ -53,7 +54,7 @@ Commands come from the repository `Makefile`. Planned checks below are new. Exis
 ### Unit Tests
 
 - `Negotiate`: a non-empty offer is passed through with the exact instruction text; the returned answer is unchanged; a blank or whitespace offer returns `ErrInvalidOffer` and does not call `Negotiator`; a port failure returns `ErrSessionUnavailable`.
-- Adapter, against a local HTTP test server: the outbound request uses the server key, posts the offer and session JSON, and returns the answer body; a non-success provider response does not surface the provider body; an empty key does not dial.
+- Adapter, against a local HTTP test server: the test context carries a logmanager transaction, because `clientmanager` refuses a call without one. The outbound request uses the server key, posts the offer and session JSON, and returns the answer body. A non-success provider response and a transport failure stay `ErrSessionUnavailable` and do not surface the provider body or the key. An empty key does not dial.
 - Setup handler, with `NegotiateOperation` mocked: `201` body is only `status`, `data.sdp`, and no key field; unknown JSON fields, a missing `sdp`, and a blank `sdp` return `400 INVALID_INPUT`; the wrong method returns `405`; `ErrSessionUnavailable` returns `503 SESSION_UNAVAILABLE` without a technical cause.
 - Page handler: `GET /voice-session` returns the document and the FSD controls; the asset contains no `OPENAI_API_KEY` and no `Authorization` bearer value. The script contains one opening send on the data-channel open path and does not send it from the remote-track handler.
 - Catalog test includes `SESSION_UNAVAILABLE` in English and Indonesian.

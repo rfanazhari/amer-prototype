@@ -34,14 +34,21 @@ func TestNegotiate(t *testing.T) {
 			offer:          "v=0",
 			want:           "v=0 answer",
 			wantExchange:   true,
-			exchangedOffer: "v=0",
+			exchangedOffer: "v=0\r\n",
 		},
 		{
 			name:           "trims surrounding space before the port call",
 			offer:          "  v=0 offer  ",
 			want:           "answer",
 			wantExchange:   true,
-			exchangedOffer: "v=0 offer",
+			exchangedOffer: "v=0 offer\r\n",
+		},
+		{
+			name:           "terminates an offer and normalizes line endings",
+			offer:          "v=0\no=- 1\r\n",
+			want:           "answer",
+			wantExchange:   true,
+			exchangedOffer: "v=0\r\no=- 1\r\n",
 		},
 		{
 			name:    "rejects a blank offer",
@@ -59,7 +66,7 @@ func TestNegotiate(t *testing.T) {
 			exchangeErr:    portFailure,
 			wantErr:        voicesession.ErrSessionUnavailable,
 			wantExchange:   true,
-			exchangedOffer: "v=0",
+			exchangedOffer: "v=0\r\n",
 		},
 	}
 	for _, tt := range tests {

@@ -1,0 +1,20 @@
+[INVALID_INPUT]
+other = "masukan tidak valid"
+
+[NOT_FOUND]
+other = "tidak ditemukan"
+
+[METHOD_NOT_ALLOWED]
+other = "metode tidak diizinkan"
+
+[INVALID_TRANSITION]
+other = "operasi tidak diizinkan"
+
+[EVENT_UNAVAILABLE]
+other = "antrean peristiwa tidak tersedia"
+
+[INTERNAL_ERROR]
+other = "kesalahan internal"
+
+[SHUTTING_DOWN]
+other = "layanan sedang dihentikan"

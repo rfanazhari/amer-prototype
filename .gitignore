@@ -1,0 +1,8 @@
+.agents
+.env
+.env.*
+!.env.docker.example
+!cmd/app/.env.example
+coverage.out
+coverage.html
+skills-lock.json

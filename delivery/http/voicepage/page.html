@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Voice session prototype</title>
+  <style>
+    body { font-family: sans-serif; margin: 2rem; max-width: 40rem; }
+    #status { font-weight: bold; }
+    #message, #events { white-space: pre-wrap; }
+    button { margin-right: 0.5rem; }
+    .notice { background: #f4f4f4; padding: 0.75rem; }
+  </style>
+</head>
+<body>
+  <h1>Voice session prototype</h1>
+  <p class="notice">This trial uses synthetic candidate information. Do not speak real names, contact details, or other personal data.</p>
+  <p>Status: <span id="status">Idle</span></p>
+  <p>
+    <button id="start" type="button">Start Conversation</button>
+    <button id="stop" type="button" disabled>Stop Conversation</button>
+  </p>
+  <p id="message"></p>
+  <pre id="events"></pre>
+  <audio id="playback" autoplay></audio>
+  <script>
+    var peerConnection = null;
+    var microphone = null;
+    var dataChannel = null;
+    var stopping = false;
+    var eventLog = "";
+
+    function setStatus(label) {
+      document.getElementById("status").textContent = label;
+    }
+
+    function setMessage(text) {
+      document.getElementById("message").textContent = text;
+    }
+
+    function setControls(startEnabled) {
+      document.getElementById("start").disabled = !startEnabled;
+      document.getElementById("stop").disabled = startEnabled;
+    }
+
+    function rememberEvent(text) {
+      eventLog += text + "\n";
+      document.getElementById("events").textContent = eventLog;
+    }
+
+    function clearEvents() {
+      eventLog = "";
+      document.getElementById("events").textContent = "";
+    }
+
+    function attachPlayback(event) {
+      var playback = document.getElementById("playback");
+      var stream = event.streams && event.streams[0];
+      if (!stream) {
+        stream = new MediaStream([event.track]);
+      }
+      playback.srcObject = stream;
+    }
+
+    function sendOpeningResponse() {
+      if (!dataChannel || dataChannel.readyState !== "open") {
+        return;
+      }
+      dataChannel.send(JSON.stringify({"type":"response.create"}));
+      setStatus("Connected");
+      rememberEvent("data channel open");
+    }
+
+    function waitForIce(connection) {
+      return new Promise(function (resolve) {
+        if (connection.iceGatheringState === "complete") {
+          resolve();
+          return;
+        }
+        function onGatheringChange() {
+          if (connection.iceGatheringState === "complete") {
+            connection.removeEventListener("icegatheringstatechange", onGatheringChange);
+            resolve();
+          }
+        }
+        connection.addEventListener("icegatheringstatechange", onGatheringChange);
+      });
+    }
+
+    function releaseSession() {
+      var playback = document.getElementById("playback");
+      if (microphone) {
+        microphone.getTracks().forEach(function (track) {
+          track.stop();
+        });
+        microphone = null;
+      }
+      if (dataChannel) {
+        dataChannel.close();
+        dataChannel = null;
+      }
+      if (peerConnection) {
+        peerConnection.close();
+        peerConnection = null;
+      }
+      playback.srcObject = null;
+      clearEvents();
+    }
+
+    function handlePermissionDenied() {
+      releaseSession();
+      setStatus("Error");
+      setMessage("Microphone permission is required before the conversation can start.");
+      setControls(true);
+    }
+
+    function handleSetupFailure(text) {
+      releaseSession();
+      setStatus("Error");
+      setMessage(text);
+      setControls(true);
+    }
+
+    function handleDrop() {
+      if (stopping) {
+        return;
+      }
+      releaseSession();
+      setStatus("Disconnected");
+      setMessage("The voice connection dropped. Start the conversation again to try another session.");
+      setControls(true);
+    }
+
+    function stopConversation() {
+      stopping = true;
+      if (microphone) {
+        microphone.getTracks().forEach(function (track) {
+          track.stop();
+        });
+      }
+      if (dataChannel) {
+        dataChannel.close();
+      }
+      if (peerConnection) {
+        peerConnection.close();
+      }
+      releaseSession();
+      setStatus("Idle");
+      setMessage("");
+      setControls(true);
+      stopping = false;
+    }
+
+    async function startConversation() {
+      stopping = false;
+      setControls(false);
+      setStatus("Connecting");
+      setMessage("");
+      clearEvents();
+      try {
+        microphone = await navigator.mediaDevices.getUserMedia({ audio: true });
+        peerConnection = new RTCPeerConnection();
+        microphone.getTracks().forEach(function (track) {
+          peerConnection.addTrack(track, microphone);
+        });
+        dataChannel = peerConnection.createDataChannel("oai-events");
+        dataChannel.addEventListener("open", sendOpeningResponse);
+        dataChannel.addEventListener("close", function () {
+          if (!stopping) {
+            handleDrop();
+          }
+        });
+        peerConnection.addEventListener("track", attachPlayback);
+        peerConnection.addEventListener("iceconnectionstatechange", function () {
+          var state = peerConnection && peerConnection.iceConnectionState;
+          if (state === "failed" || state === "disconnected") {
+            handleDrop();
+          }
+        });
+        var offer = await peerConnection.createOffer();
+        await peerConnection.setLocalDescription(offer);
+        await waitForIce(peerConnection);
+        var response = await fetch("/voice-sessions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Accept-Language": "en"
+          },
+          body: JSON.stringify({ sdp: peerConnection.localDescription.sdp })
+        });
+        var payload = await response.json();
+        if (!response.ok) {
+          var errText = payload && payload.error && payload.error.message;
+          handleSetupFailure(errText || "voice session unavailable");
+          return;
+        }
+        await peerConnection.setRemoteDescription({
+          type: "answer",
+          sdp: payload.data.sdp
+        });
+      } catch (err) {
+        if (err && (err.name === "NotAllowedError" || err.name === "NotFoundError" || err.name === "SecurityError")) {
+          handlePermissionDenied();
+          return;
+        }
+        handleSetupFailure("The voice connection dropped. Start the conversation again to try another session.");
+      }
+    }
+
+    document.getElementById("start").addEventListener("click", startConversation);
+    document.getElementById("stop").addEventListener("click", stopConversation);
+  </script>
+</body>
+</html>

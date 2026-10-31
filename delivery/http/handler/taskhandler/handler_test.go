@@ -11,12 +11,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// routingCase defines an HTTP readiness or routing envelope scenario.
 type routingCase struct {
 	name, method, path string
 	status             int
 	result             string
 }
 
+// TestHealthAndRoutingEnvelope checks unauthenticated health and standard envelopes for routing and method errors.
 func TestHealthAndRoutingEnvelope(t *testing.T) {
 	tests := []routingCase{
 		{"health", http.MethodGet, "/health", http.StatusOK, "success"},
@@ -39,8 +41,10 @@ func TestHealthAndRoutingEnvelope(t *testing.T) {
 	}
 }
 
+// invalidBodyCase defines a request that must fail transport validation before application execution.
 type invalidBodyCase struct{ name, method, path, body string }
 
+// TestRejectsNonObjectBodies rejects null action bodies, omitted rescheduling fields and unsupported date precision.
 func TestRejectsNonObjectBodies(t *testing.T) {
 	tests := []invalidBodyCase{
 		{"null create", http.MethodPost, "/tasks", "null"},
@@ -58,6 +62,7 @@ func TestRejectsNonObjectBodies(t *testing.T) {
 	}
 }
 
+// TestRejectsUnexpectedClientFields rejects client-owned system facts, unknown fields and multiple JSON documents.
 func TestRejectsUnexpectedClientFields(t *testing.T) {
 	tests := []invalidBodyCase{
 		{"client id", "POST", "/tasks", `{"title":"task","id":"client-id"}`},

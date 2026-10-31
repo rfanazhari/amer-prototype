@@ -21,6 +21,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// TestOperationInterfacesAndEnvelopes exercises all five generated operation mocks through HTTP response translation.
 func TestOperationInterfacesAndEnvelopes(t *testing.T) {
 	result := dto.FromTask(testdata.Task(t, enum.Todo, nil), testdata.Now())
 	create := mocks.NewCreateOperation(t)
@@ -34,6 +35,7 @@ func TestOperationInterfacesAndEnvelopes(t *testing.T) {
 	reschedule.On("Execute", mock.Anything, testdata.ID, mock.Anything).Return(result, nil)
 	detail.On("Execute", mock.Anything, testdata.ID).Return(result, nil)
 	handler := taskhandler.Handler{Create: create, Start: start, Complete: complete, Reschedule: reschedule, Detail: detail}
+	// requestCase defines one HTTP request exercising an injected operation contract.
 	type requestCase struct {
 		name, method, path, body string
 		status                   int
@@ -51,6 +53,7 @@ func TestOperationInterfacesAndEnvelopes(t *testing.T) {
 	}
 }
 
+// errorCase defines the expected HTTP category and internal logging behavior for an error.
 type errorCase struct {
 	name   string
 	cause  error
@@ -59,6 +62,7 @@ type errorCase struct {
 	logged bool
 }
 
+// TestErrorClassification checks localized status mapping, technical-cause precedence and safe public messages.
 func TestErrorClassification(t *testing.T) {
 	tests := []errorCase{{"not found", repository.ErrNotFound, 404, errs.NotFound, false}, {"transition", aggregate.ErrTransition, 409, errs.InvalidTransition, false}, {"queue refused", service.ErrEventUnavailable, 503, errs.EventUnavailable, false}, {"invalid title", valueobject.ErrInvalidTitle, 400, errs.InvalidInput, false}, {"corrupt persisted title", errs.Technical{Cause: valueobject.ErrInvalidTitle}, 500, errs.InternalError, true}, {"database failure", errors.New("secret database diagnostic"), 500, errs.InternalError, true}}
 	for _, tt := range tests {

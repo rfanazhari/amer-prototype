@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// TestShutdownWatchdogReportsExpiredDeadline checks that an inherited expired deadline is not reset.
 func TestShutdownWatchdogReportsExpiredDeadline(t *testing.T) {
 	started := make(chan time.Time, 1)
 	started <- time.Now().Add(-appruntime.ShutdownBudget)
@@ -28,6 +29,7 @@ func TestShutdownWatchdogReportsExpiredDeadline(t *testing.T) {
 	<-done
 }
 
+// TestShutdownWatchdogTerminatesBlockedProcess checks the configured process deadline against a subprocess whose work never completes.
 func TestShutdownWatchdogTerminatesBlockedProcess(t *testing.T) {
 	if os.Getenv("AMER_SHUTDOWN_HELPER") == "1" {
 		started := make(chan time.Time, 1)
@@ -48,6 +50,7 @@ func TestShutdownWatchdogTerminatesBlockedProcess(t *testing.T) {
 	require.GreaterOrEqual(t, time.Since(beginning), appruntime.ShutdownBudget)
 }
 
+// TestShutdownWatchdogStopsAfterCompletedCleanup checks that completed cleanup disarms forced process termination.
 func TestShutdownWatchdogStopsAfterCompletedCleanup(t *testing.T) {
 	finished := make(chan struct{})
 	close(finished)

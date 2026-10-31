@@ -12,6 +12,7 @@ import (
 	"github.com/rfanazhari/amer-prototype/domain/event"
 )
 
+// Config selects required resources and listener settings, with narrow readiness, shutdown and lifecycle seams for verification.
 type Config struct {
 	DatabaseURL string
 	Address     string
@@ -23,6 +24,7 @@ type Config struct {
 	Listen func(context.Context, string, string) (net.Listener, error)
 }
 
+// Run acquires required resources, assembles the Task feature and supervises HTTP and event processing. It joins runtime and cleanup errors; the executable must install WatchShutdown to enforce process termination.
 func Run(ctx context.Context, cfg Config, logs *logmanager.Application) (result error) {
 	if cfg.DatabaseURL == "" || cfg.Address == "" || logs == nil {
 		return errors.New("database URL, address and logging are required")

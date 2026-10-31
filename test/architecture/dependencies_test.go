@@ -11,6 +11,7 @@ import (
 	"testing"
 )
 
+// TestDependencyDirections checks inward import dependencies across the four layers using Go source imports.
 func TestDependencyDirections(t *testing.T) {
 	root := filepath.Join("..", "..")
 	const module = "github.com/rfanazhari/amer-prototype/"

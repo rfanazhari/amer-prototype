@@ -21,10 +21,12 @@ stack = "--stack" in sys.argv
 
 
 def run(args, **kwargs):
+    """Execute a checked command with isolated project settings and inherited credentials."""
     return subprocess.run(args, cwd=root, env=env, check=True, **kwargs)
 
 
 def port(service, container_port):
+    """Read the ephemeral host port assigned to one service in this verification project."""
     result = run(base + ["port", service, str(container_port)], capture_output=True, text=True)
     return result.stdout.strip().rsplit(":", 1)[1]
 
@@ -54,4 +56,4 @@ try:
     print("Running real PostgreSQL/API lifecycle checks against isolated Compose database", flush=True)
     run(["go", "test", "-race", "-p", "1", "./test/smoke/...", "./test/integration/...", "-count=1", "-v"])
 finally:
-    subprocess.run(base + ["down", "--volumes"], cwd=root, env=env, check=False)
+    subprocess.run(base + ["down", "--volumes"], cwd=root, env=env, check=True)

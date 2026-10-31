@@ -17,10 +17,13 @@ import (
 	"gorm.io/gorm/logger"
 )
 
+// connectionCleanup tracks physical driver cleanup separately from logical SQL pool closure.
 type connectionCleanup struct {
 	done   <-chan struct{}
 	socket net.Conn
 }
+
+// databaseResources owns the SQL pool and the cleanup lifetimes of physical pgx connections.
 type databaseResources struct {
 	pool        *sql.DB
 	mu          sync.Mutex
@@ -28,6 +31,7 @@ type databaseResources struct {
 	closing     bool
 }
 
+// connected records a newly acquired driver cleanup channel and discards already completed entries. New connections are rejected once cleanup begins.
 func (r *databaseResources) connected(_ context.Context, connection *pgx.Conn) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -46,6 +50,8 @@ func (r *databaseResources) connected(_ context.Context, connection *pgx.Conn) e
 	r.connections = append(active, connectionCleanup{done: connection.PgConn().CleanupDone(), socket: connection.PgConn().Conn()})
 	return nil
 }
+
+// close stops the SQL pool and waits for physical driver cleanup within the remaining budget. A forced socket close retains a timeout failure and does not claim goroutine termination.
 func (r *databaseResources) close(ctx context.Context) error {
 	var result error
 	r.mu.Lock()
@@ -72,6 +78,8 @@ func (r *databaseResources) close(ctx context.Context) error {
 	}
 	return result
 }
+
+// openDatabase parses PostgreSQL settings, acquires the tracked pool, checks connectivity and applies the selected AutoMigrate policy. Later startup failures release acquired resources.
 func openDatabase(ctx context.Context, url string, beginCleanup func()) (_ *gorm.DB, resources *databaseResources, result error) {
 	config, err := pgx.ParseConfig(url)
 	if err != nil {

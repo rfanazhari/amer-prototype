@@ -15,6 +15,7 @@ import (
 	"gorm.io/gorm"
 )
 
+// assembleTask wires one Task application graph, its storage adapter and completion subscriber for HTTP delivery. A nil subscriber selects the logging demonstration subscriber.
 func assembleTask(db *gorm.DB, logs *logmanager.Application, subscriber func(context.Context, event.TaskCompleted) error) (taskhandler.Handler, *eventqueue.Queue) {
 	if subscriber == nil {
 		subscriber = func(ctx context.Context, e event.TaskCompleted) error {

@@ -13,6 +13,7 @@ import (
 	"time"
 )
 
+// detailCase defines the observation clock and expected overdue result for a read scenario.
 type detailCase struct {
 	name                              string
 	state                             enum.TaskState
@@ -20,6 +21,7 @@ type detailCase struct {
 	noDate, missing, wantErr, overdue bool
 }
 
+// TestDetail checks overdue observation with controlled time and protects stored facts from DTO mutation.
 func TestDetail(t *testing.T) {
 	tests := []detailCase{{name: "exact due date", state: enum.InProgress}, {name: "elapsed", state: enum.InProgress, advance: time.Millisecond, overdue: true}, {name: "done", state: enum.Done, advance: time.Hour}, {name: "no due date", state: enum.Todo, noDate: true, advance: time.Hour}, {name: "missing", state: enum.Todo, missing: true, wantErr: true}}
 	for _, tt := range tests {

@@ -10,6 +10,7 @@ import (
 	"time"
 )
 
+// transitionCase defines a lifecycle operation and its expected rejection behavior.
 type transitionCase struct {
 	name      string
 	state     enum.TaskState
@@ -17,6 +18,7 @@ type transitionCase struct {
 	wantErr   bool
 }
 
+// TestTaskLifecycle checks allowed transitions, rejected transitions and preservation of recorded facts.
 func TestTaskLifecycle(t *testing.T) {
 	tests := []transitionCase{{"start todo", enum.Todo, "start", false}, {"start in progress", enum.InProgress, "start", true}, {"start done", enum.Done, "start", true}, {"complete todo", enum.Todo, "complete", true}, {"complete in progress", enum.InProgress, "complete", false}, {"complete done", enum.Done, "complete", true}, {"reschedule done", enum.Done, "reschedule", true}}
 	for _, tt := range tests {
@@ -57,12 +59,14 @@ func TestTaskLifecycle(t *testing.T) {
 	}
 }
 
+// dueCase defines a creation and rescheduling date boundary.
 type dueCase struct {
 	name            string
 	delta           time.Duration
 	absent, wantErr bool
 }
 
+// TestTaskDueDateBoundaries checks creation and rescheduling at absent, past, equality and future date boundaries.
 func TestTaskDueDateBoundaries(t *testing.T) {
 	tests := []dueCase{{"none", 0, true, false}, {"past", -time.Millisecond, false, true}, {"equality", 0, false, false}, {"future", time.Millisecond, false, false}}
 	for _, tt := range tests {
@@ -98,6 +102,7 @@ func TestTaskDueDateBoundaries(t *testing.T) {
 	}
 }
 
+// TestTaskBoundariesAndRestoration checks overdue observations, historical restoration and protection against mutable date aliases.
 func TestTaskBoundariesAndRestoration(t *testing.T) {
 	now := testdata.Now()
 	due := now.Add(time.Hour)
@@ -125,12 +130,14 @@ func TestTaskBoundariesAndRestoration(t *testing.T) {
 	require.Equal(t, now.Add(time.Minute), *task.Snapshot().CompletedAt)
 }
 
+// restorationCase defines a malformed history mutation expected to fail restoration.
 type restorationCase struct {
 	name    string
 	alter   func(*aggregate.Snapshot)
 	wantErr bool
 }
 
+// TestRestoreRejectsInvalidHistory rejects inconsistent persisted identity, title, state and timestamp facts.
 func TestRestoreRejectsInvalidHistory(t *testing.T) {
 	tests := []restorationCase{
 		{"empty id", func(s *aggregate.Snapshot) { s.ID = "" }, true},
@@ -155,6 +162,7 @@ func TestRestoreRejectsInvalidHistory(t *testing.T) {
 	}
 }
 
+// TestZeroTaskCannotMutate verifies that uninitialized aggregates and invalid creation/completion inputs cannot mutate valid history.
 func TestZeroTaskCannotMutate(t *testing.T) {
 	task := new(aggregate.Task)
 	require.ErrorIs(t, task.Reschedule(nil, testdata.Now()), aggregate.ErrInvalidTask)

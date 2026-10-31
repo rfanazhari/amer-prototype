@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// TestReservationAndDrain checks bounded capacity, committed publication, draining and admission after shutdown.
 func TestReservationAndDrain(t *testing.T) {
 	received := make(chan event.TaskCompleted, 1)
 	queue := &eventqueue.Queue{Capacity: 1, Consume: func(e event.TaskCompleted) { received <- e }}
@@ -29,6 +30,8 @@ func TestReservationAndDrain(t *testing.T) {
 	_, err = queue.Reserve()
 	require.ErrorIs(t, err, eventqueue.ErrUnavailable)
 }
+
+// TestCancelAndShutdownTimeout checks failed drain observation and release of an outstanding reservation.
 func TestCancelAndShutdownTimeout(t *testing.T) {
 	queue := &eventqueue.Queue{Capacity: 1, Consume: func(event.TaskCompleted) {}}
 	queue.Start()
@@ -42,6 +45,8 @@ func TestCancelAndShutdownTimeout(t *testing.T) {
 	defer done()
 	require.NoError(t, queue.Shutdown(ctx2))
 }
+
+// TestUnexpectedConsumerExitIsReported checks panic supervision and refusal of work after consumer failure.
 func TestUnexpectedConsumerExitIsReported(t *testing.T) {
 	queue := &eventqueue.Queue{Capacity: 1, Consume: func(event.TaskCompleted) { panic("subscriber failure") }}
 	queue.Start()
@@ -57,6 +62,8 @@ func TestUnexpectedConsumerExitIsReported(t *testing.T) {
 	_, err = queue.Reserve()
 	require.ErrorIs(t, err, eventqueue.ErrUnavailable)
 }
+
+// TestSubscriberFailureIsLoggedWithoutRetry checks that ordinary subscriber failures are reported once and processing continues.
 func TestSubscriberFailureIsLoggedWithoutRetry(t *testing.T) {
 	failure := errors.New("subscriber failed")
 	received := make(chan error, 2)
@@ -75,6 +82,8 @@ func TestSubscriberFailureIsLoggedWithoutRetry(t *testing.T) {
 	require.Len(t, received, 2)
 	require.ErrorIs(t, <-received, failure)
 }
+
+// TestForcedStopCancelsConsumerAndReportsFailure checks cancellation of active consumer work and retention of shutdown failure.
 func TestForcedStopCancelsConsumerAndReportsFailure(t *testing.T) {
 	entered := make(chan struct{})
 	queue := &eventqueue.Queue{Capacity: 1, Consumer: func(ctx context.Context, _ event.TaskCompleted) error { close(entered); <-ctx.Done(); return ctx.Err() }}

@@ -28,6 +28,7 @@
     var dataChannel = null;
     var stopping = false;
     var eventLog = "";
+    var iceGatheringLimitMs = 15000;
 
     function setStatus(label) {
       document.getElementById("status").textContent = label;
@@ -71,18 +72,61 @@
     }
 
     function waitForIce(connection) {
-      return new Promise(function (resolve) {
-        if (connection.iceGatheringState === "complete") {
-          resolve();
-          return;
+      return new Promise(function (resolve, reject) {
+        var settled = false;
+        var timer = setTimeout(function () {
+          finish(false);
+        }, iceGatheringLimitMs);
+        function gatheringDone() {
+          return connection.iceGatheringState === "complete";
         }
-        function onGatheringChange() {
-          if (connection.iceGatheringState === "complete") {
-            connection.removeEventListener("icegatheringstatechange", onGatheringChange);
+        function gatheringFailed() {
+          var ice = connection.iceConnectionState;
+          var connectionState = connection.connectionState;
+          return ice === "failed" || connectionState === "failed" || connectionState === "closed" || connection.signalingState === "closed";
+        }
+        function cleanup() {
+          clearTimeout(timer);
+          connection.removeEventListener("icegatheringstatechange", onChange);
+          connection.removeEventListener("iceconnectionstatechange", onChange);
+          connection.removeEventListener("connectionstatechange", onChange);
+          connection.removeEventListener("signalingstatechange", onChange);
+        }
+        function finish(ok) {
+          if (settled) {
+            return;
+          }
+          settled = true;
+          cleanup();
+          if (ok) {
             resolve();
+            return;
+          }
+          var err = new Error("ice gathering failed");
+          err.name = "IceGatheringError";
+          reject(err);
+        }
+        function onChange() {
+          if (gatheringDone()) {
+            finish(true);
+            return;
+          }
+          if (gatheringFailed()) {
+            finish(false);
           }
         }
-        connection.addEventListener("icegatheringstatechange", onGatheringChange);
+        if (gatheringDone()) {
+          finish(true);
+          return;
+        }
+        if (gatheringFailed()) {
+          finish(false);
+          return;
+        }
+        connection.addEventListener("icegatheringstatechange", onChange);
+        connection.addEventListener("iceconnectionstatechange", onChange);
+        connection.addEventListener("connectionstatechange", onChange);
+        connection.addEventListener("signalingstatechange", onChange);
       });
     }
 
@@ -95,18 +139,21 @@
         microphone = null;
       }
       if (dataChannel) {
-        dataChannel.close();
+        var channel = dataChannel;
         dataChannel = null;
+        channel.close();
       }
       if (peerConnection) {
-        peerConnection.close();
+        var connection = peerConnection;
         peerConnection = null;
+        connection.close();
       }
       playback.srcObject = null;
       clearEvents();
     }
 
     function handlePermissionDenied() {
+      stopping = true;
       releaseSession();
       setStatus("Error");
       setMessage("Microphone permission is required before the conversation can start.");
@@ -114,6 +161,7 @@
     }
 
     function handleSetupFailure(text) {
+      stopping = true;
       releaseSession();
       setStatus("Error");
       setMessage(text);
@@ -124,6 +172,7 @@
       if (stopping) {
         return;
       }
+      stopping = true;
       releaseSession();
       setStatus("Disconnected");
       setMessage("The voice connection dropped. Start the conversation again to try another session.");
@@ -132,22 +181,10 @@
 
     function stopConversation() {
       stopping = true;
-      if (microphone) {
-        microphone.getTracks().forEach(function (track) {
-          track.stop();
-        });
-      }
-      if (dataChannel) {
-        dataChannel.close();
-      }
-      if (peerConnection) {
-        peerConnection.close();
-      }
       releaseSession();
       setStatus("Idle");
       setMessage("");
       setControls(true);
-      stopping = false;
     }
 
     async function startConversation() {
@@ -164,21 +201,28 @@
         });
         dataChannel = peerConnection.createDataChannel("oai-events");
         dataChannel.addEventListener("open", sendOpeningResponse);
-        dataChannel.addEventListener("close", function () {
-          if (!stopping) {
-            handleDrop();
+        dataChannel.addEventListener("close", function (event) {
+          if (stopping || event.target !== dataChannel) {
+            return;
           }
+          handleDrop();
         });
         peerConnection.addEventListener("track", attachPlayback);
-        peerConnection.addEventListener("iceconnectionstatechange", function () {
-          var state = peerConnection && peerConnection.iceConnectionState;
-          if (state === "failed" || state === "disconnected") {
+        peerConnection.addEventListener("iceconnectionstatechange", function (event) {
+          if (stopping || event.target !== peerConnection) {
+            return;
+          }
+          var state = event.target.iceConnectionState;
+          if (state === "failed") {
             handleDrop();
           }
         });
         var offer = await peerConnection.createOffer();
         await peerConnection.setLocalDescription(offer);
         await waitForIce(peerConnection);
+        if (stopping) {
+          return;
+        }
         var response = await fetch("/voice-sessions", {
           method: "POST",
           headers: {
@@ -188,6 +232,9 @@
           body: JSON.stringify({ sdp: peerConnection.localDescription.sdp })
         });
         var payload = await response.json();
+        if (stopping) {
+          return;
+        }
         if (!response.ok) {
           var errText = payload && payload.error && payload.error.message;
           handleSetupFailure(errText || "voice session unavailable");
@@ -198,8 +245,15 @@
           sdp: payload.data.sdp
         });
       } catch (err) {
+        if (stopping) {
+          return;
+        }
         if (err && (err.name === "NotAllowedError" || err.name === "NotFoundError" || err.name === "SecurityError")) {
           handlePermissionDenied();
+          return;
+        }
+        if (err && err.name === "IceGatheringError") {
+          handleDrop();
           return;
         }
         handleSetupFailure("The voice connection dropped. Start the conversation again to try another session.");

@@ -2,8 +2,8 @@
   "openapi": "3.0.3",
   "info": {
     "title": "amer-prototype Task API",
-    "version": "0.1.0",
-    "description": "Task reference feature. All active responses use the standard JSON envelope. Unknown routes return 404; unsupported methods return 405. No authentication. Request bodies are limited to 1 MiB. System-owned timestamps, IDs and status are rejected as request fields. Completion events are volatile and process-local."
+    "version": "0.2.0",
+    "description": "Task reference feature and voice session setup. All active responses use the standard JSON envelope. Unknown routes return 404; unsupported methods return 405. No authentication. Request bodies are limited to 1 MiB. System-owned timestamps, IDs and status are rejected as request fields. Completion events are volatile and process-local. POST /voice-sessions exchanges one WebRTC offer for a provider SDP answer."
   },
   "servers": [
     {
@@ -569,6 +569,102 @@
           }
         }
       }
+    },
+    "/voice-sessions": {
+      "post": {
+        "operationId": "createVoiceSession",
+        "summary": "Exchange one WebRTC offer for a provider SDP answer. data contains sdp only.",
+        "parameters": [
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "description": "English by default; Indonesian is selected with id. Standard language preferences are accepted.",
+            "schema": {
+              "type": "string",
+              "example": "id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VoiceSessionSetup"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Provider SDP answer. data.sdp is the only success field.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoiceSessionEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "INVALID_INPUT. Malformed JSON, unknown field, non-object body, missing sdp, or blank sdp.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "METHOD_NOT_ALLOWED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "INTERNAL_ERROR. The technical cause is logged and is not returned.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "SESSION_UNAVAILABLE. Provider setup failed or the provider call could not be completed. The message does not include a technical cause.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "getVoiceSessions",
+        "summary": "Unsupported. Voice setup accepts POST only.",
+        "responses": {
+          "405": {
+            "description": "METHOD_NOT_ALLOWED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -744,7 +840,8 @@
                   "INVALID_TRANSITION",
                   "EVENT_UNAVAILABLE",
                   "INTERNAL_ERROR",
-                  "SHUTTING_DOWN"
+                  "SHUTTING_DOWN",
+                  "SESSION_UNAVAILABLE"
                 ]
               },
               "message": {
@@ -752,6 +849,52 @@
                 "description": "Safe lowercase English or Indonesian message."
               }
             }
+          }
+        }
+      },
+      "VoiceSessionSetup": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "sdp"
+        ],
+        "properties": {
+          "sdp": {
+            "type": "string",
+            "minLength": 1,
+            "description": "WebRTC offer. A value that is empty after trimming is rejected. No other field is accepted."
+          }
+        }
+      },
+      "VoiceSessionAnswer": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "sdp"
+        ],
+        "properties": {
+          "sdp": {
+            "type": "string",
+            "description": "Provider SDP answer. The object does not include a key, instructions, score, or transcript."
+          }
+        }
+      },
+      "VoiceSessionEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "status",
+          "data"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "success"
+            ]
+          },
+          "data": {
+            "$ref": "#/components/schemas/VoiceSessionAnswer"
           }
         }
       }

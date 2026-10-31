@@ -28,7 +28,7 @@
       — ref: design §4, §6, §7
       — DoD: A local HTTP server proves one `POST` to the configured URL, the server `Authorization` value, multipart `sdp` and `session` fields, `server_vad` with `create_response` true, and an answer body returned unchanged. A provider error does not expose the provider body. An empty key does not dial. No live provider call. `make test.all` covers this package, or the package test is run directly and `make test.all` is left to T7.
 
-- [ ] T3. Add the setup HTTP contract — delivery — M
+- [x] T3. Add the setup HTTP contract — delivery — M
       — ticket: `LIVE-POC-T3`
       — depends: T1
       — ref: design §2, §7

@@ -18,3 +18,6 @@ other = "internal error"
 
 [SHUTTING_DOWN]
 other = "service is shutting down"
+
+[SESSION_UNAVAILABLE]
+other = "voice session unavailable"

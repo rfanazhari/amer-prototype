@@ -34,7 +34,7 @@
       — ref: design §2, §7
       — DoD: `POST /voice-sessions` tests prove `201` with only `data.sdp`, `400` for unknown fields and a blank offer, `405` for the wrong method, and `503 SESSION_UNAVAILABLE` without a technical cause. `pkg/errs`, both translation catalogs, `docs/api/openapi.yaml`, `docs/api/voice-session.md`, and `docs/api/CHANGELOG.md` (`0.2.0`) include the route. `make test.contract` passes. Task schemas are unchanged.
 
-- [ ] T4. Add the prototype voice page — delivery — L
+- [x] T4. Add the prototype voice page — delivery — L
       — ticket: `LIVE-POC-T4`
       — depends: none
       — ref: design §5, §6, §7

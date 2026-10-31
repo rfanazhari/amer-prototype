@@ -36,3 +36,11 @@ packages:
       filename: '{{.InterfaceName | snakecase}}_mock.go'
     interfaces:
       DetailOperation:
+  github.com/rfanazhari/amer-prototype/application/usecase/voicesession:
+    config:
+      dir: test/mocks
+      outpkg: mocks
+      filename: '{{.InterfaceName | snakecase}}_mock.go'
+    interfaces:
+      NegotiateOperation:
+      Negotiator:

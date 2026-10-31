@@ -22,6 +22,14 @@ type Config struct {
 	TaskCompleted   func(context.Context, event.TaskCompleted) error
 	// Listen is an optional lifecycle seam; nil uses net.ListenConfig.
 	Listen func(context.Context, string, string) (net.Listener, error)
+	// OpenAIAPIKey is optional; an empty value must not block process startup.
+	OpenAIAPIKey string
+	// OpenAIRealtimeModel selects the Realtime model; empty uses the adapter default at composition.
+	OpenAIRealtimeModel string
+	// OpenAIRealtimeVoice selects the Realtime voice; empty uses the adapter default at composition.
+	OpenAIRealtimeVoice string
+	// OpenAIRealtimeURL selects the Realtime calls URL; empty uses the adapter default at composition.
+	OpenAIRealtimeURL string
 }
 
 // Run acquires required resources, assembles the Task feature and supervises HTTP and event processing. It joins runtime and cleanup errors; the executable must install WatchShutdown to enforce process termination.
@@ -74,7 +82,7 @@ func Run(ctx context.Context, cfg Config, logs *logmanager.Application) (result 
 		return errors.Join(err, listener.Close())
 	}
 	handler, queue := assembleTask(db, logs, cfg.TaskCompleted)
-	transport := httpServer(handler, logs)
+	transport := HTTPServer(handler, logs)
 	defer transport.cancel()
 	queue.Start()
 	serveErr := make(chan error, 1)
@@ -107,7 +115,7 @@ func Run(ctx context.Context, cfg Config, logs *logmanager.Application) (result 
 	defer cancelShutdown()
 	drainCtx, cancelDrain := context.WithDeadline(shutdownCtx, shutdownAt.Add(drainBudget))
 	defer cancelDrain()
-	transport.stopAdmission()
+	transport.StopAdmission()
 	if err = transport.server.Shutdown(drainCtx); err != nil {
 		cause = errors.Join(cause, fmt.Errorf("HTTP drain: %w", err))
 		transport.cancel()

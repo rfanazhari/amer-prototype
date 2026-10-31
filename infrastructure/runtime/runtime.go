@@ -81,7 +81,9 @@ func Run(ctx context.Context, cfg Config, logs *logmanager.Application) (result 
 	if err = startupCtx.Err(); err != nil {
 		return errors.Join(err, listener.Close())
 	}
-	handler, queue := assembleTask(db, logs, cfg.TaskCompleted)
+	taskHandler, queue := assembleTask(db, logs, cfg.TaskCompleted)
+	page, setup := assembleVoice(cfg, logs)
+	handler := Router{Page: page, Setup: setup, Task: taskHandler}
 	transport := HTTPServer(handler, logs)
 	defer transport.cancel()
 	queue.Start()

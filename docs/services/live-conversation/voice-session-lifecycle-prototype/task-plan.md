@@ -22,7 +22,7 @@
 
 ### Parallel (can be done simultaneously)
 
-- [ ] T2. Add the Realtime call adapter — infrastructure — M
+- [x] T2. Add the Realtime call adapter — infrastructure — M
       — ticket: `LIVE-POC-T2`
       — depends: T1
       — ref: design §4, §6, §7

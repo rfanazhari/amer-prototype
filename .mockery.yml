@@ -1,0 +1,38 @@
+mockname: "{{.InterfaceName}}"
+with-expecter: false
+issue-845-fix: true
+disable-version-string: true
+packages:
+  github.com/rfanazhari/amer-prototype/application/repository:
+    config:
+      dir: test/mocks
+      outpkg: mocks
+      filename: task_mock.go
+    interfaces:
+      Task:
+  github.com/rfanazhari/amer-prototype/application/service:
+    config:
+      dir: test/mocks
+      outpkg: mocks
+      filename: '{{.InterfaceName | snakecase}}.go'
+    interfaces:
+      Clock:
+      EventQueue:
+      Reservation:
+  github.com/rfanazhari/amer-prototype/application/usecase/taskusecase:
+    config:
+      dir: test/mocks
+      outpkg: mocks
+      filename: '{{.InterfaceName | snakecase}}_mock.go'
+    interfaces:
+      CreateOperation:
+      StartOperation:
+      CompleteOperation:
+      RescheduleOperation:
+  github.com/rfanazhari/amer-prototype/application/query/taskquery:
+    config:
+      dir: test/mocks
+      outpkg: mocks
+      filename: '{{.InterfaceName | snakecase}}_mock.go'
+    interfaces:
+      DetailOperation:

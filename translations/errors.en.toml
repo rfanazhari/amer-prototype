@@ -1,0 +1,20 @@
+[INVALID_INPUT]
+other = "invalid input"
+
+[NOT_FOUND]
+other = "not found"
+
+[METHOD_NOT_ALLOWED]
+other = "method not allowed"
+
+[INVALID_TRANSITION]
+other = "operation is not allowed"
+
+[EVENT_UNAVAILABLE]
+other = "event queue unavailable"
+
+[INTERNAL_ERROR]
+other = "internal error"
+
+[SHUTTING_DOWN]
+other = "service is shutting down"

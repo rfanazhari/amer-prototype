@@ -4,7 +4,10 @@ package voicesession
 import (
 	"context"
 	"errors"
+	"strings"
 )
+
+const interviewerInstructions = "You are a simple interviewer in a feasibility prototype. Speak Indonesian. English technical terms from the candidate are allowed and should be understood. When the first response is requested, greet the candidate in Indonesian and ask one opening question before waiting for an answer. On each later turn, stay in this same conversation, use what the candidate already said, and refer to an earlier answer from this session. Do not score, grade, pass, or fail any answer. Do not select questions from a fixed HR list, and do not apply compensation or hiring policy."
 
 var (
 	// ErrInvalidOffer is returned when the SDP offer is blank after trimming.
@@ -31,6 +34,14 @@ type Negotiate struct {
 }
 
 // Execute rejects a blank offer before the port call and returns the provider answer otherwise.
-func (u Negotiate) Execute(_ context.Context, _ string) (string, error) {
-	return "", nil
+func (u Negotiate) Execute(ctx context.Context, offer string) (string, error) {
+	trimmed := strings.TrimSpace(offer)
+	if trimmed == "" {
+		return "", ErrInvalidOffer
+	}
+	answer, err := u.Negotiator.Exchange(ctx, trimmed, interviewerInstructions)
+	if err != nil {
+		return "", ErrSessionUnavailable
+	}
+	return answer, nil
 }

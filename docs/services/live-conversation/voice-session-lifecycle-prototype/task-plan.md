@@ -14,7 +14,7 @@
 
 ### Sequential (must be done in order)
 
-- [ ] T1. Add the voice setup use case — application — M
+- [x] T1. Add the voice setup use case — application — M
       — ticket: `LIVE-POC-T1`
       — depends: none
       — ref: design §3, §4, §6

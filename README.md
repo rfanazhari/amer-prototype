@@ -21,6 +21,8 @@ make docker.logs
 make docker.down
 ```
 
+`make docker.logs` shows structured startup stages: `service starting`, `database connected and schema compatible` (version 2), `administrative bootstrap complete`, then `http server ready` with the bound address and `event_queue=in_process`. The startup summary includes elapsed time. A failed startup logs `service startup failed` and never logs readiness. Lifecycle records omit database URLs, credentials and bootstrap account details.
+
 The app listens at `http://localhost:8080`. `HTTP_PORT` and `POSTGRES_PORT` customize host ports. PostgreSQL uses a named volume; `docker.down` preserves it. The example environment file contains setting names and no credentials.
 
 Optional services are infrastructure for future integrations, with no connections from the Task feature:

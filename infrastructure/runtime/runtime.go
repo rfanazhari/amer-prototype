@@ -48,6 +48,16 @@ func Run(ctx context.Context, cfg Config, logs *logmanager.Application) (result 
 	if cfg.DatabaseURL == "" || cfg.Address == "" || logs == nil {
 		return errors.New("database URL, address and logging are required")
 	}
+	startup := logs.Start("", "service startup", logmanager.TxnTypeOther)
+	startupComplete := false
+	defer func() {
+		if !startupComplete {
+			// Keep configuration and underlying driver diagnostics out of lifecycle records.
+			startup.NoticeError(errors.New("service startup failed"))
+		}
+	}()
+	startupLogCtx := startup.ToContext(ctx)
+	logmanager.InfoWithContext(startupLogCtx, "service starting", map[string]string{"service": logs.Service()})
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -73,6 +83,7 @@ func Run(ctx context.Context, cfg Config, logs *logmanager.Application) (result 
 	if err != nil {
 		return err
 	}
+	logmanager.InfoWithContext(startupLogCtx, "database connected and schema compatible", map[string]string{"service": logs.Service(), "schema_version": "2"})
 	defer func() {
 		beginShutdown()
 		cleanupCtx, cancel := context.WithDeadline(context.Background(), shutdownAt.Add(ShutdownBudget))
@@ -98,6 +109,7 @@ func Run(ctx context.Context, cfg Config, logs *logmanager.Application) (result 
 	if err = bootstrapAccess(startupCtx, db, cfg); err != nil {
 		return fmt.Errorf("access bootstrap: %w", err)
 	}
+	logmanager.InfoWithContext(startupLogCtx, "administrative bootstrap complete", map[string]string{"service": logs.Service()})
 	taskHandler, queue := assembleTask(db, logs, cfg.TaskCompleted)
 	page, setup := assembleVoice(cfg, logs)
 	handler := Router{Page: page, Setup: setup, Task: taskHandler, Access: assembleAccess(db, cfg, logs), Landing: candidatelanding.Handler{}}
@@ -106,6 +118,11 @@ func Run(ctx context.Context, cfg Config, logs *logmanager.Application) (result 
 	queue.Start()
 	serveErr := make(chan error, 1)
 	go func() { serveErr <- transport.server.Serve(listener) }()
+	logmanager.InfoWithContext(startupLogCtx, "http server ready", map[string]string{
+		"service": logs.Service(), "address": listener.Addr().String(), "schema_version": "2", "event_queue": "in_process",
+	})
+	startup.End()
+	startupComplete = true
 	if cfg.Ready != nil {
 		select {
 		case cfg.Ready <- listener.Addr():

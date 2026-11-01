@@ -1,6 +1,6 @@
 # Core AI
 
-Core AI is one Go modular monolith. The baseline already in the service is Identity and Access and Agent Configuration and Publication; startup accepts clean schema version 7. This phase continues the candidate interview after the candidate already has a session. The candidate UI is in scope. This phase has no admin UI. Document Analyzer is outside this phase.
+Core AI is one Go modular monolith. The baseline already in the service is Identity and Access and Agent Configuration and Publication; startup accepts clean schema version 8. This phase continues the candidate interview after the candidate already has a session. The candidate UI is in scope. This phase has no admin UI. Document Analyzer is outside this phase.
 
 ## Done
 
@@ -14,7 +14,7 @@ The task plan records T1–T14, T16, and T18–T20 Done, including the published
 
 HR configures and publishes the HR Interviewer and Document Analyzer templates, then pins an interview assignment to the current published revision. Rules `BR-CORE-001`–`BR-CORE-014`: [Agent Configuration and Publication](business/capabilities/agent-configuration-publication.md). Tripack: [agent-configuration-publication](agent-configuration-publication/task-plan.md).
 
-T1–T14 are recorded Done and startup accepts clean version 7, including the published configuration routes, instance list, and assignment create. There is no admin UI.
+T1–T14 are recorded Done and startup accepts clean version 8 (`000008_execution_lifecycle` adds the shared execution tables), including the published configuration routes, instance list, and assignment create. There is no admin UI.
 
 ## Next
 
@@ -30,4 +30,4 @@ The four capabilities below are planned. None is implemented.
 
 ## Suggested build order
 
-Build execution lifecycle first (`000008_execution_lifecycle`, clean floor 8). Candidate interview comes next (`000009_candidate_interview`, floor 9): consent and the page can overlap once the lifecycle port exists, and live start follows the real lifecycle. Interview runtime follows (`000010_interview_runtime`, floor 10), then interview reporting (`000011_interview_reporting`, floor 11). The migration numbers stay in that order: 000008, then 000009, then 000010, then 000011. The repository floor remains clean version 7 until those migrations are actually added.
+Build execution lifecycle first (`000008_execution_lifecycle`, clean floor 8). Candidate interview comes next (`000009_candidate_interview`, floor 9): consent and the page can overlap once the lifecycle port exists, and live start follows the real lifecycle. Interview runtime follows (`000010_interview_runtime`, floor 10), then interview reporting (`000011_interview_reporting`, floor 11). The migration numbers stay in that order: 000008, then 000009, then 000010, then 000011. The repository floor is clean version 8 after `000008`; it rises again only when each later migration is actually added.

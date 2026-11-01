@@ -40,7 +40,7 @@ func TestRuntimeRequiresPreparedSchema(t *testing.T) {
 		{name: "ambiguous metadata", setup: "CREATE TABLE schema_migrations(version bigint,dirty boolean); INSERT INTO schema_migrations VALUES(2,false),(2,false);", wantErr: true},
 		{name: "empty", setup: "CREATE TABLE schema_migrations(version bigint PRIMARY KEY,dirty boolean NOT NULL);", wantErr: true},
 		{name: "old", setup: "CREATE TABLE schema_migrations(version bigint PRIMARY KEY,dirty boolean NOT NULL); INSERT INTO schema_migrations VALUES(2,false);", wantErr: true},
-		{name: "future", setup: "CREATE TABLE schema_migrations(version bigint PRIMARY KEY,dirty boolean NOT NULL); INSERT INTO schema_migrations VALUES(8,false);", wantErr: true},
+		{name: "future", setup: "CREATE TABLE schema_migrations(version bigint PRIMARY KEY,dirty boolean NOT NULL); INSERT INTO schema_migrations VALUES(9,false);", wantErr: true},
 		{name: "dirty", setup: "CREATE TABLE schema_migrations(version bigint PRIMARY KEY,dirty boolean NOT NULL); INSERT INTO schema_migrations VALUES(7,true);", wantErr: true},
 	}
 	for _, tt := range tests {

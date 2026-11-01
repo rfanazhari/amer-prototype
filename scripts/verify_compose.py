@@ -93,7 +93,7 @@ try:
     env["TEST_DATABASE_URL"] = database_url("amer_prototype")
     env["MIGRATION_DATABASE_URL"] = env["TEST_DATABASE_URL"]
     # Prepare explicitly before either container or in-process application startup.
-    run(["make", "migrate.up", "MIGRATION_VERSION=7"])
+    run(["make", "migrate.up", "MIGRATION_VERSION=8"])
     run(["make", "migrate.status"])
     sql("amer_prototype", "CREATE DATABASE migration_proof")
     env["TEST_MIGRATION_DATABASE_URL"] = database_url("migration_proof")
@@ -108,7 +108,7 @@ try:
     env["MIGRATION_DATABASE_URL"] = env["TEST_DATABASE_URL"]
     if stack:
         run(base + ["build", "app"])
-        env["MIGRATION_VERSION"] = "7"
+        env["MIGRATION_VERSION"] = "8"
         # Exercise the packaged command and immutable SQL as a separate pre-start job.
         run(base + ["run", "--rm", "--no-deps", "migrate", "up"])
         run(["make", "docker.up"])
@@ -130,7 +130,7 @@ try:
     sql("cutover_restore", "DROP TABLE schema_migrations")
     env["MIGRATION_DATABASE_URL"] = database_url("cutover_restore")
     run(["make", "migrate.baseline"])
-    run(["make", "migrate.up", "MIGRATION_VERSION=7"])
+    run(["make", "migrate.up", "MIGRATION_VERSION=8"])
     run(["make", "migrate.status"])
     assert before == snapshot("cutover_restore"), "adoption changed retained data"
     env["TEST_DATABASE_URL"] = env["MIGRATION_DATABASE_URL"]
@@ -144,7 +144,7 @@ try:
         assert retained == snapshot("amer_prototype"), "rollback changed retained rows"
         container_smoke()
         run(base + ["stop", "app"])
-        print("Rollback to recorded compatible image passed Task/admin HTTP smoke on retained version 7", flush=True)
+        print("Rollback to recorded compatible image passed Task/admin HTTP smoke on retained version 8", flush=True)
     print("Populated backup/restore, guarded adoption, compatible restart and Task/admin smoke passed; row equality verified without secret output", flush=True)
 finally:
     subprocess.run(base + ["down", "--volumes"], cwd=root, env=env, check=True)

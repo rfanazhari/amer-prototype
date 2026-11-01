@@ -3,7 +3,7 @@ package schema
 import "strings"
 
 // ReleaseVersion is the only clean schema_migrations.version accepted at application startup.
-const ReleaseVersion = 7
+const ReleaseVersion = 8
 
 // ownedPublicTables lists tool-owned public tables that are not foreign schema.
 var ownedPublicTables = []string{
@@ -21,6 +21,11 @@ var ownedPublicTables = []string{
 	"interview_invitations",
 	"candidate_sessions",
 	"interview_executions",
+	"agent_executions",
+	"agent_execution_commands",
+	"agent_execution_operations",
+	"agent_execution_attempts",
+	"agent_execution_transitions",
 }
 
 // RuntimeGrantTables are the business tables that receive application CRUD.
@@ -38,6 +43,11 @@ var RuntimeGrantTables = []string{
 	"interview_invitations",
 	"candidate_sessions",
 	"interview_executions",
+	"agent_executions",
+	"agent_execution_commands",
+	"agent_execution_operations",
+	"agent_execution_attempts",
+	"agent_execution_transitions",
 }
 
 // ownedTableList formats owned public table names for an SQL IN list.

@@ -129,7 +129,7 @@ func TestReleaseVersionRequiresEight(t *testing.T) {
 	}{
 		{name: "unreadable", err: errors.New("private"), want: "clean version 8"},
 		{name: "old", rows: sqlmock.NewRows([]string{"version", "dirty"}).AddRow(7, false), want: "require clean version 8"},
-		{name: "ambiguous", rows: sqlmock.NewRows([]string{"version", "dirty"}).AddRow(8, false).AddRow(9, false), want: "exactly one clean version 8"},
+		{name: "ambiguous", rows: sqlmock.NewRows([]string{"version", "dirty"}).AddRow(8, false).AddRow(8, false), want: "exactly one clean version 8"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

@@ -12,5 +12,7 @@
   "000006_assignment_access.down.sql": "436d7c80c4c49644c3bfe06395f01bbb67edb060e0b1f8a94e0a701f0d7714ea",
   "000006_assignment_access.up.sql": "25ff021959a0337cf1a0f27168a286b62923d69457bb3987b533244a4fec50c4",
   "000007_interview_executions.down.sql": "55a758f53320f47737a270a30a43d0ac9ddf20d760f886e177cbdd9c72304909",
-  "000007_interview_executions.up.sql": "fad47701239f7dd8ecf4d060904a19697ae177dcea39a0508ba85f96825b4b78"
+  "000007_interview_executions.up.sql": "fad47701239f7dd8ecf4d060904a19697ae177dcea39a0508ba85f96825b4b78",
+  "000008_execution_lifecycle.down.sql": "f213ae6700e1424e42897ca8c02d08833a62fc59468b11ed697a3c8d223941c4",
+  "000008_execution_lifecycle.up.sql": "8208d541363390aafdf37ef21138b58626f5357756b0b4fb1684f1d7b3cb0740"
 }

@@ -131,11 +131,12 @@ func TestRestoreAdministrativeSessionPreservesDeadlineAndRevocation(t *testing.T
 			}
 			require.NoError(t, err)
 			if snapshot.RevokedAt != nil {
+				owned := *got.Snapshot().RevokedAt
 				*snapshot.RevokedAt = now.Add(3 * time.Hour)
-				require.Equal(t, revoked, *got.Snapshot().RevokedAt)
+				require.Equal(t, owned, *got.Snapshot().RevokedAt)
 				detached := got.Snapshot()
 				*detached.RevokedAt = now.Add(4 * time.Hour)
-				require.Equal(t, revoked, *got.Snapshot().RevokedAt)
+				require.Equal(t, owned, *got.Snapshot().RevokedAt)
 				require.False(t, got.Current(now.Add(time.Minute)))
 				return
 			}

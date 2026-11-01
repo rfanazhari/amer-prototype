@@ -1,6 +1,6 @@
 # Task Plan: Identity and Access
 
-Mode A; planning date 2026-11-01. T1 is Done (Q1 resolved). Remaining tasks are Todo. No access runtime implementation or verification is claimed.
+Mode A; planning date 2026-11-01. T1–T2 are Done (Q1 resolved). Remaining tasks are Todo. No access runtime implementation or verification is claimed.
 
 ## Legend
 
@@ -20,7 +20,7 @@ Mode A; planning date 2026-11-01. T1 is Done (Q1 resolved). Remaining tasks are 
   - Decision gate: Q1 resolved in T1; product/security policy is out-of-band ADMIN-chosen passwords, canonical email, and no mailer/recovery UI; engineering bounds are in design §6.
   - DoD: exact request/response properties, normalization/limits, password provisioning, bootstrap existing-state behavior, duplicate-account behavior, cookies/origin/CSRF and status/error order have examples in design §6; affected documents and dependent task gates synchronized. No runtime completion is implied.
 
-- [ ] **T2. Model role, account and access lifetime invariants** — Domain — M
+- [x] **T2. Model role, account and access lifetime invariants** — Domain — M
   - Ticket: `CORE-IAM-002` — depends: none — ref: design §3–4 and rule ownership.
   - DoD: encapsulated account/session scope and lifetime primitives have public behavior tests for fixed roles/status, stable identity, exact expiry, revocation, creation vs restoration and pointer copying. Contact/password policy is not guessed; candidate/assignment-specific final construction is deferred to T12. Imports/documentation comply with architecture checks.
 
@@ -114,3 +114,4 @@ T10 + T11 + Q5 → T15
 |---|---|---|
 | v1 | 2026-11-01 | Initial remaining-work plan from assessed Mode A design; all implementation Todo, administrative and assignment-dependent candidate readiness separated |
 | v1.1 | 2026-11-01 | Mark T1 Done and record Q1 resolved in T1; T2–T15 remain Todo |
+| v1.2 | 2026-11-01 | Mark T2 Done for domain role, account and session lifetime invariants; T3–T15 remain Todo |

@@ -9,7 +9,7 @@ const (
 )
 
 // Valid reports whether the role is Admin or HR.
-func (r Role) Valid() bool { return false }
+func (r Role) Valid() bool { return r == Admin || r == HR }
 
 // String returns the stable storage and API representation of the role.
 func (r Role) String() string { return string(r) }

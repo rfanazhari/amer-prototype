@@ -9,7 +9,7 @@ const (
 )
 
 // Valid reports whether the status is Active or Disabled.
-func (s AccountStatus) Valid() bool { return false }
+func (s AccountStatus) Valid() bool { return s == Active || s == Disabled }
 
 // String returns the stable storage and API representation of the status.
 func (s AccountStatus) String() string { return string(s) }

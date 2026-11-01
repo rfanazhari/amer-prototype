@@ -86,6 +86,10 @@ func (h Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case consentsPath:
 		h.accept(w, r)
 	default:
+		if id, action, ok := executionRoute(r.URL.Path); ok {
+			h.execution(w, r, id, action)
+			return
+		}
 		fail(w, r, http.StatusNotFound, errs.NotFound)
 	}
 }
@@ -185,13 +189,34 @@ func (h Handler) sendError(w http.ResponseWriter, r *http.Request, err error, de
 		return
 	}
 	switch {
-	case errors.Is(err, errInput), errors.Is(err, candidateinterview.ErrInvalidConsent),
-		errors.Is(err, candidateinterview.ErrInvalidNoticeVersion), errors.Is(err, candidateinterview.ErrNoticeNotCurrent):
+	// Input validation returns these sentinels directly. Storage restoration wraps them;
+	// those failures must reach the technical fallback instead of becoming client errors.
+	case errors.Is(err, errInput), err == candidateinterview.ErrInvalidConsent,
+		err == candidateinterview.ErrInvalidNoticeVersion, err == candidateinterview.ErrNoticeNotCurrent,
+		err == candidateinterview.ErrInvalidControllerID, errors.Is(err, candidateinterviewusecase.ErrInvalidIdempotencyKey):
 		fail(w, r, http.StatusBadRequest, errs.InvalidInput)
 	case errors.Is(err, service.ErrCandidateSessionUnbound):
 		fail(w, r, http.StatusUnauthorized, errs.IAUnauthenticated)
 	case errors.Is(err, service.ErrInterviewNotFound):
 		fail(w, r, http.StatusNotFound, errs.NotFound)
+	case errors.Is(err, candidateinterviewusecase.ErrConsentRequired):
+		fail(w, r, http.StatusConflict, errs.CINConsentRequired)
+	case errors.Is(err, service.ErrInterviewCoverage):
+		fail(w, r, http.StatusForbidden, errs.CINSessionCoverage)
+	case errors.Is(err, service.ErrInterviewConflict), errors.Is(err, candidateinterview.ErrStaleControllerVersion):
+		code := errs.CINControllerConflict
+		if r.URL.Path == executionsPath {
+			code = errs.CINIdempotencyConflict
+		}
+		fail(w, r, http.StatusConflict, code)
+	case errors.Is(err, candidateinterviewusecase.ErrNotController):
+		fail(w, r, http.StatusForbidden, errs.CINNotController)
+	case errors.Is(err, candidateinterview.ErrExecutionTerminal):
+		fail(w, r, http.StatusConflict, errs.CINTerminal)
+	case errors.Is(err, service.ErrInterviewNotLive):
+		fail(w, r, http.StatusConflict, errs.CINNotLive)
+	case errors.Is(err, service.ErrInterviewStartUncertain):
+		fail(w, r, http.StatusServiceUnavailable, errs.CINStartUncertain)
 	case errors.Is(err, service.ErrInterviewDependencyUnavailable):
 		fail(w, r, http.StatusServiceUnavailable, dependencyCode)
 	default:
@@ -223,15 +248,8 @@ func interviewView(v *dto.InterviewView) interviewBody {
 		body.Consent = &c
 	}
 	if v.Execution != nil {
-		e := &executionBody{
-			ID: v.Execution.ID, State: v.Execution.State, Version: v.Execution.Version,
-			IsCurrentController: v.Execution.IsCurrentController, ControllerVersion: v.Execution.ControllerVersion,
-		}
-		if v.Execution.HardDeadline != nil {
-			deadline := formatted(*v.Execution.HardDeadline)
-			e.HardDeadline = &deadline
-		}
-		body.Execution = e
+		e := executionView(*v.Execution)
+		body.Execution = &e
 	}
 	if v.Progress != nil {
 		body.Progress = &progressBody{Phase: v.Progress.Phase, Connection: v.Progress.Connection}

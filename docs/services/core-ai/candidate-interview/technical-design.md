@@ -6,6 +6,8 @@ Platform sources that refine the capability, where the later technical design is
 
 Business-driven technical decisions are D1–D3 in [decision-log.md](decision-log.md).
 
+T9 implementation evidence (2026-11-02): the four execution HTTP operations in §2 are mounted, `ControllerStore` is composed, and delivery tests use Mockery operation mocks. sqlmock exercises valid start/cancel through real application wiring and confirms `503 CIN_DEPENDENCY_UNAVAILABLE` while lifecycle is unbound. Input/session/CSRF ordering and candidate-safe results are covered by HTTP tests. Wrapped storage validation failures remain technical 500s. This does not establish real lifecycle commits, runtime fencing, or the T10 screen; T11–T13 remain pending. See [t9-execution.md](t9-execution.md).
+
 ## 1. Overview
 
 A candidate who already holds an assignment-scoped session reviews one notice, accepts that notice version, enters the assignment's one interview, follows a candidate-safe view, keeps a single controlling tab, may leave early, and sees a final outcome as soon as the interview itself is terminal.

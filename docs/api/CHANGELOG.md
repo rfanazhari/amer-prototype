@@ -1,5 +1,9 @@
 # API changelog
 
+## 0.10.0 — candidate execution HTTP operations
+
+Added `POST /candidate/executions`, `GET /candidate/executions/{id}`, `POST /candidate/executions/{id}/takeover`, and `POST /candidate/executions/{id}/cancel` ahead of the access catch-all. Start requires `Idempotency-Key` and returns 201/200 from the operation result. Execution POSTs require session, origin, CSRF and a tab id; takeover requires matching body/header ids. Foreign execution ids map to 404, classified policy errors to CIN codes, and wrapped storage validation failures to 500. Responses contain only the candidate-safe execution fields. ControllerStore is composed; lifecycle remains unbound and returns 503 for start/cancel. Session-attempt, ready and report routes remain absent. The T6 page shell is unchanged; controls are T10. See [candidate-interview.md](candidate-interview.md) and [openapi.yaml](openapi.yaml).
+
 ## 0.9.0 — candidate notice consent, interview read and page shell
 
 Added `GET /candidate/interview`, `POST /candidate/consents`, and `GET /candidate/interview/page`. They are dispatched ahead of the `/candidate/` access catch-all and reuse the candidate cookie, origin, and CSRF; `POST /candidate/access/exchange` and `GET /candidate/session` are unchanged. Consent is `201` on first acceptance and `200` on replay. The read returns notice, consent, a null execution, actions, and a null progress, with no controller id, salary, or report member. Added `CIN_*` codes (`CIN_FORBIDDEN` for a bad CSRF header, `CIN_NOTICE_UNAVAILABLE` for an empty catalog, and the codes later start, takeover, and cancel routes use). The invitation landing now navigates to the page shell once after the session read succeeds. See [candidate-interview.md](candidate-interview.md) and [openapi.yaml](openapi.yaml).

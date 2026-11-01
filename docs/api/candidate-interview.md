@@ -4,7 +4,7 @@ All responses use the standard JSON envelope. `Accept-Language: id` selects Indo
 
 The machine-readable specification is [openapi.yaml](openapi.yaml); contract changes are recorded in [CHANGELOG.md](CHANGELOG.md). Design: [technical-design.md](../services/core-ai/candidate-interview/technical-design.md).
 
-This document covers the routes mounted so far: the interview read, notice acceptance, and the page shell. Start, poll, takeover, and cancel are not mounted. `/candidate/executions/...` is not a route of this service yet, and session-attempt and ready routes belong to Interview Runtime.
+This document covers interview read, notice acceptance, the page shell, start, execution polling, takeover, and cancel. Session-attempt, ready, and report routes are absent. Execution Lifecycle remains unbound until T11; valid start and execution operations fail closed with `503 CIN_DEPENDENCY_UNAVAILABLE` after their input, session, CSRF, and applicable policy checks. The interview screen continues to return `execution: null`.
 
 ## Session, origin and CSRF
 
@@ -38,6 +38,35 @@ Returns `200` with `data`:
 
 Body exactly `{ "noticeVersion": "<version>", "accepted": true }`. Returns `201` with `data` `{ "id", "noticeVersion", "acceptedAt" }` on first acceptance and `200` with the same `data` when that assignment already holds that version, including after a concurrent first acceptance. Acceptance is insert-only; there is no withdrawal.
 
+### POST `/candidate/executions`
+
+Requires `Idempotency-Key` and `X-Interview-Controller`. The key uses `^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$`; the controller id uses the same character rule with a 64-character maximum (`{0,63}`). Body exactly `{ "consentId": "<uuid>" }`; this references stored acceptance and never records consent. Returns `201` when committed by this call or `200` on replay of the same intent. Retry a lost response or `CIN_START_UNCERTAIN` with the same key and consent id.
+
+### GET `/candidate/executions/{id}`
+
+Returns `200` with the candidate-safe execution object below. Reads only; no execution or consent is inserted. `X-Interview-Controller` is optional on reads. Another assignment's execution id is `404 NOT_FOUND`.
+
+```json
+{
+  "id": "22222222-2222-4222-8222-222222222222",
+  "state": "CREATED",
+  "version": 1,
+  "hardDeadline": null,
+  "isCurrentController": true,
+  "controllerVersion": 1
+}
+```
+
+This object is also `data` for successful start and cancel. State is `CREATED`, `RUNNING`, `COMPLETED`, `FAILED`, or `CANCELLED`. Deadlines use UTC millisecond precision; unset deadlines are null. No report, salary, transcript body, or controller id is returned.
+
+### POST `/candidate/executions/{id}/takeover`
+
+Body exactly `{ "controllerId": "<tab-id>", "expectedVersion": 1 }`. The body id must equal `X-Interview-Controller`; expectedVersion is a positive controller version. Returns `200` with `{ "isCurrentController": true, "controllerVersion": 2 }`. A stale version is `409 CIN_CONTROLLER_CONFLICT`.
+
+### POST `/candidate/executions/{id}/cancel`
+
+Body exactly `{ "expectedVersion": 1 }` using a positive **execution** version. Requires `X-Interview-Controller` for the current tab. Returns `200` with the committed execution in state `CANCELLED`. Another assignment's id is `404 NOT_FOUND`; a non-controller is `403 CIN_NOT_CONTROLLER`. Terminal state is never relabelled. Controller persistence is composed from T8; real cancellation awaits T11.
+
 ### GET `/candidate/interview/page`
 
 Returns the candidate page shell as `text/html` with `Cache-Control: no-store` and `Referrer-Policy: no-referrer`. The page reads `GET /candidate/session`, then `GET /candidate/interview`, shows the notice with the accept action, and posts `POST /candidate/consents`. Without a cookie it shows the access-error state and no notice. It does not request a report. Other methods are `405` `METHOD_NOT_ALLOWED`.
@@ -52,7 +81,10 @@ Precedence on the JSON routes:
 2. Origin, content type, malformed JSON, unknown fields, `accepted: false`, or a notice version that is malformed or not current: `400` `INVALID_INPUT`.
 3. Missing, expired, revoked, or substituted candidate session: `401` `IA_UNAUTHENTICATED`.
 4. Missing or mismatched `X-CSRF-Token` on POST: `403` `CIN_FORBIDDEN`, before the body is acted on.
-5. Empty notice catalog, or an acceptance that cannot be read back: `503` `CIN_NOTICE_UNAVAILABLE`, with no consent written.
-6. Any other failure: `500` `INTERNAL_ERROR` without causes.
+5. Execution outside the session assignment: `404 NOT_FOUND`.
+6. Policy: `409 CIN_CONSENT_REQUIRED`, `403 CIN_SESSION_COVERAGE`, `409 CIN_IDEMPOTENCY_CONFLICT` on start; `409 CIN_CONTROLLER_CONFLICT` for stale controller/execution versions; `403 CIN_NOT_CONTROLLER`; `409 CIN_TERMINAL` or `409 CIN_NOT_LIVE`.
+7. Empty notice catalog or acceptance read-back failure on consent: `503 CIN_NOTICE_UNAVAILABLE`. Unbound sibling adapters: `503 CIN_DEPENDENCY_UNAVAILABLE`. No consent is created by execution operations.
+8. Ambiguous lifecycle commit: `503 CIN_START_UNCERTAIN`, retry the same key.
+9. Corrupt stored data or any other technical failure: `500 INTERNAL_ERROR` without causes.
 
-The remaining `CIN_` codes are published for the start, takeover, and cancel routes that are mounted later: `CIN_CONSENT_REQUIRED`, `CIN_SESSION_COVERAGE`, `CIN_IDEMPOTENCY_CONFLICT`, `CIN_CONTROLLER_CONFLICT`, `CIN_NOT_CONTROLLER`, `CIN_TERMINAL`, `CIN_NOT_LIVE`, `CIN_DEPENDENCY_UNAVAILABLE`, and `CIN_START_UNCERTAIN`. Messages exist in English and Indonesian.
+Execution POSTs reject malformed JSON, duplicate/unknown/system-owned fields, invalid tab ids, bad keys, invalid consent UUIDs, nonpositive versions and mismatched takeover tab ids before session lookup. Messages exist in English and Indonesian.

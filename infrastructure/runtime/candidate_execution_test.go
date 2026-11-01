@@ -38,7 +38,7 @@ func TestCandidateExecutionCompositionFailsClosed(t *testing.T) {
 				sql.ExpectQuery(`SELECT .* FROM "candidate_sessions"`).WillReturnRows(sqlmock.NewRows([]string{"id", "assignment_id", "invitation_id", "token_hash", "created_at", "expires_at"}).AddRow(sessionID, assignmentID, "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb1", "hash", now, now.Add(2*time.Hour)))
 			}
 			if tt.consent {
-				sql.ExpectQuery(`SELECT .* FROM "interview_consents"`).WillReturnRows(sqlmock.NewRows([]string{"id", "assignment_id", "notice_version", "accepted_at"}).AddRow("11111111-1111-4111-8111-111111111111", assignmentID, "notice-261102", now))
+				sql.ExpectQuery(`SELECT .* FROM "interview_consents"`).WillReturnRows(sqlmock.NewRows([]string{"id", "assignment_id", "notice_version", "accepted_at", "candidate_session_id"}).AddRow("11111111-1111-4111-8111-111111111111", assignmentID, "notice-261102", now, sessionID))
 			}
 			cfg := validAccessConfig()
 			csrf, err := (accesscredentials.CSRF{Secret: []byte(cfg.AccessCSRFSecret)}).Issue(service.CredentialCandidate, sessionID)

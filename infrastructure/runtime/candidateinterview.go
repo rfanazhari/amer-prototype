@@ -6,7 +6,6 @@ import (
 
 	"github.com/SALT-Indonesia/salt-pkg/logmanager"
 	"github.com/rfanazhari/amer-prototype/application/query/candidateinterviewquery"
-	"github.com/rfanazhari/amer-prototype/application/repository/candidateinterviewport"
 	"github.com/rfanazhari/amer-prototype/application/service"
 	"github.com/rfanazhari/amer-prototype/application/usecase/candidateinterviewusecase"
 	"github.com/rfanazhari/amer-prototype/delivery/http/candidateinterview"
@@ -21,7 +20,7 @@ import (
 )
 
 // NewCandidateInterview composes the candidate interview JSON handler and page shell over the shared pool.
-// Execution Lifecycle and the controller store have no adapter yet, so they are bound to fail-closed stand-ins.
+// Execution Lifecycle remains bound to a fail-closed stand-in until T11 supplies its adapter.
 func NewCandidateInterview(db *gorm.DB, cfg Config, logs *logmanager.Application) (http.Handler, http.Handler) {
 	store := accessrepository.Store{DB: db}
 	timer := clock.System{}
@@ -31,12 +30,18 @@ func NewCandidateInterview(db *gorm.DB, cfg Config, logs *logmanager.Application
 		Clock:  timer,
 	}
 	consents := candidateinterviewrepository.ConsentStore{DB: db, Clock: timer}
+	controllers := candidateinterviewrepository.ControllerStore{DB: db}
+	lifecycle := unboundLifecycle{}
 	catalog := approvedNoticeCatalog{notice: CurrentCandidateNotice()}
 	return candidateinterviewhandler.Handler{
 		Get: candidateinterviewquery.GetInterview{
 			Current: current, Catalog: catalog, Consents: consents,
-			Controllers: unboundControllers{}, Lifecycle: unboundLifecycle{}, Clock: timer,
+			Controllers: controllers, Lifecycle: lifecycle, Clock: timer,
 		},
+		GetExecution: candidateinterviewquery.GetExecution{Current: current, Controllers: controllers, Lifecycle: lifecycle},
+		Start:        candidateinterviewusecase.StartInterview{Current: current, Catalog: catalog, Consents: consents, Controllers: controllers, Lifecycle: lifecycle, Clock: timer},
+		Takeover:     candidateinterviewusecase.Takeover{Current: current, Controllers: controllers, Lifecycle: lifecycle, Clock: timer},
+		Cancel:       candidateinterviewusecase.CancelInterview{Current: current, Controllers: controllers, Lifecycle: lifecycle},
 		Accept:       candidateinterviewusecase.AcceptNotice{Current: current, Catalog: catalog, Tx: consents, Consents: consents, Clock: timer},
 		Current:      current,
 		CSRF:         accesscredentials.CSRF{Secret: []byte(cfg.AccessCSRFSecret)},
@@ -84,24 +89,4 @@ func (unboundLifecycle) Find(context.Context, string) (service.ExecutionFacts, e
 // Cancel reports the dependency as unavailable.
 func (unboundLifecycle) Cancel(context.Context, service.CancelRequest) (service.ExecutionFacts, error) {
 	return service.ExecutionFacts{}, service.ErrInterviewDependencyUnavailable
-}
-
-// unboundControllers stands in for the controller store until takeover persistence exists; it writes nothing.
-type unboundControllers struct{}
-
-var _ candidateinterviewport.Controllers = unboundControllers{}
-
-// Find reports that no controller is stored.
-func (unboundControllers) Find(context.Context, string) (domain.ControllerSnapshot, error) {
-	return domain.ControllerSnapshot{}, candidateinterviewport.ErrNotFound
-}
-
-// Claim reports the dependency as unavailable.
-func (unboundControllers) Claim(context.Context, domain.ControllerSnapshot) error {
-	return service.ErrInterviewDependencyUnavailable
-}
-
-// Update reports the dependency as unavailable.
-func (unboundControllers) Update(context.Context, string, func(*domain.InterviewController) error) error {
-	return service.ErrInterviewDependencyUnavailable
 }

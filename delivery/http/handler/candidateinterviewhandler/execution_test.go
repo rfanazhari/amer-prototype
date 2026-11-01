@@ -2,6 +2,7 @@ package candidateinterviewhandler_test
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"testing"
 
@@ -47,6 +48,8 @@ func TestExecutionTransport(t *testing.T) {
 	takeoverBody := `{"controllerId":"tab-1","expectedVersion":1}`
 	cancelBody := `{"expectedVersion":1}`
 	tests := []executionCase{
+		{name: "corrupt controller stays technical", route: "poll", session: "ok", call: true, opErr: fmt.Errorf("stored controller: %w", candidateinterview.ErrInvalidControllerID), status: 500, code: errs.InternalError},
+		{name: "corrupt consent stays technical", route: "start", body: startBody, session: "ok", call: true, opErr: fmt.Errorf("stored consent: %w", candidateinterview.ErrInvalidConsent), status: 500, code: errs.InternalError},
 		{name: "not live", route: "cancel", body: cancelBody, session: "ok", call: true, opErr: service.ErrInterviewNotLive, status: 409, code: errs.CINNotLive},
 		{name: "ambiguous start", route: "start", body: startBody, session: "ok", call: true, opErr: service.ErrInterviewStartUncertain, status: 503, code: errs.CINStartUncertain},
 		{name: "start created", route: "start", body: startBody, session: "ok", call: true, created: true, status: 201},

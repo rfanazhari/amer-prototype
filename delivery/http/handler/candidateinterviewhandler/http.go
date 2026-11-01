@@ -58,6 +58,26 @@ func readJSON(r *http.Request, dst any) error {
 	if len(trimmed) == 0 || trimmed[0] != '{' {
 		return errInput
 	}
+	members := json.NewDecoder(bytes.NewReader(body))
+	if _, err := members.Token(); err != nil {
+		return errInput
+	}
+	seen := map[string]bool{}
+	for members.More() {
+		key, err := members.Token()
+		if err != nil {
+			return errInput
+		}
+		name, ok := key.(string)
+		if !ok || seen[name] {
+			return errInput
+		}
+		seen[name] = true
+		var value json.RawMessage
+		if members.Decode(&value) != nil {
+			return errInput
+		}
+	}
 	dec := json.NewDecoder(bytes.NewReader(body))
 	dec.DisallowUnknownFields()
 	if err = dec.Decode(dst); err != nil {

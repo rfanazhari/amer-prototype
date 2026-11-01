@@ -79,7 +79,7 @@ func (h Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			h.InterviewPage.ServeHTTP(w, r)
 			return
 		}
-		if h.Interview != nil && (r.URL.Path == "/candidate/interview" || r.URL.Path == "/candidate/consents") {
+		if h.Interview != nil && (r.URL.Path == "/candidate/interview" || r.URL.Path == "/candidate/consents" || isCandidateExecutionPath(r.URL.Path)) {
 			h.Interview.ServeHTTP(w, r)
 			return
 		}
@@ -93,4 +93,17 @@ func (h Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		h.Task.ServeHTTP(w, r)
 	}
+}
+
+// isCandidateExecutionPath matches only start, poll, takeover and cancel, leaving sibling routes unmounted.
+func isCandidateExecutionPath(path string) bool {
+	const base = "/candidate/executions"
+	if path == base {
+		return true
+	}
+	if !strings.HasPrefix(path, base+"/") {
+		return false
+	}
+	parts := strings.Split(strings.TrimPrefix(path, base+"/"), "/")
+	return parts[0] != "" && (len(parts) == 1 || (len(parts) == 2 && (parts[1] == "takeover" || parts[1] == "cancel")))
 }

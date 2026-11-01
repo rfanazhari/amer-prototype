@@ -89,8 +89,26 @@ func (_m *ExecutionStore) Insert(ctx context.Context, snap execution.Snapshot, f
 	return r0
 }
 
+// InsertInterview provides a mock function with given fields: ctx, assignmentID, snap, fact
+func (_m *ExecutionStore) InsertInterview(ctx context.Context, assignmentID string, snap execution.Snapshot, fact execution.TransitionFact) error {
+	ret := _m.Called(ctx, assignmentID, snap, fact)
+
+	if len(ret) == 0 {
+		panic("no return value specified for InsertInterview")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, execution.Snapshot, execution.TransitionFact) error); ok {
+		r0 = rf(ctx, assignmentID, snap, fact)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // Update provides a mock function with given fields: ctx, id, fn
-func (_m *ExecutionStore) Update(ctx context.Context, id string, fn func(*execution.Snapshot) error) error {
+func (_m *ExecutionStore) Update(ctx context.Context, id string, fn func(*execution.Snapshot) (*execution.TransitionFact, error)) error {
 	ret := _m.Called(ctx, id, fn)
 
 	if len(ret) == 0 {
@@ -98,7 +116,7 @@ func (_m *ExecutionStore) Update(ctx context.Context, id string, fn func(*execut
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, string, func(*execution.Snapshot) error) error); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, string, func(*execution.Snapshot) (*execution.TransitionFact, error)) error); ok {
 		r0 = rf(ctx, id, fn)
 	} else {
 		r0 = ret.Error(0)

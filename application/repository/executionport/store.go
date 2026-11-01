@@ -15,6 +15,8 @@ var (
 	ErrAssignmentUnavailable = errors.New("assignment is unavailable")
 	// ErrIdempotencyConflict reports that the same start identity was used with a different intent.
 	ErrIdempotencyConflict = errors.New("start identity conflicts with an existing different intent")
+	// ErrAlreadyExists reports that a unique key, such as the assignment pin, is already stored.
+	ErrAlreadyExists = errors.New("execution record already exists")
 	// ErrUncertainCommit reports that the commit result is unknown and the same key may be retried.
 	ErrUncertainCommit = errors.New("execution commit result is uncertain")
 	// ErrDependencyUnavailable reports that a required external dependency cannot be read.
@@ -36,20 +38,28 @@ type AssignmentRow struct {
 }
 
 // AssignmentLock acquires an exclusive lock on the assignment row and runs the callback.
-// The callback receives the locked assignment facts. The lock and any writes within the callback
+// The callback receives the locked assignment facts and a context carrying the open transaction.
+// Store calls made with that context join the transaction. The lock and any writes within the callback
 // are released when the surrounding transaction ends.
 type AssignmentLock interface {
 	// WithAssignment locks the assignment by id and runs fn, rolling back on error.
-	WithAssignment(ctx context.Context, assignmentID string, fn func(AssignmentRow) error) error
+	// ErrNotFound is returned, and fn is not run, when the assignment is absent.
+	WithAssignment(ctx context.Context, assignmentID string, fn func(ctx context.Context, row AssignmentRow) error) error
 }
 
 // ExecutionStore reads and writes executions within a transaction boundary.
 type ExecutionStore interface {
-	// Insert writes a new CREATED execution and any required sibling rows atomically.
+	// Insert writes a new CREATED execution and its initial transition without an interview pin.
 	Insert(ctx context.Context, snap execution.Snapshot, fact execution.TransitionFact) error
-	// Update locks the execution by id and runs fn; the callback may mutate the snapshot.
-	// Zero rows affected means the locked re-read governs the outcome. Rolls back on error.
-	Update(ctx context.Context, id string, fn func(*execution.Snapshot) error) error
+	// InsertInterview writes the execution and its initial transition, then the assignment pin, atomically.
+	// ErrAlreadyExists is returned when the assignment already has a pin, and ErrDependencyUnavailable
+	// when the instance or revision is missing.
+	InsertInterview(ctx context.Context, assignmentID string, snap execution.Snapshot, fact execution.TransitionFact) error
+	// Update locks the execution by id and runs fn; the callback may mutate the snapshot and returns the
+	// transition fact to append, or nil when no state change is recorded. The instance and revision binding
+	// is never written. A changed snapshot that matches no nonterminal row yields the locked terminal outcome
+	// as execution.ErrTerminalConflict. Rolls back on error.
+	Update(ctx context.Context, id string, fn func(*execution.Snapshot) (*execution.TransitionFact, error)) error
 	// Find returns the stored snapshot by id, or ErrNotFound.
 	Find(ctx context.Context, id string) (execution.Snapshot, error)
 	// FindByAssignment returns the snapshot linked by the interview pin, or ErrNotFound.

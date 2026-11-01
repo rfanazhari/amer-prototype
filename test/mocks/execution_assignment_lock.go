@@ -15,7 +15,7 @@ type AssignmentLock struct {
 }
 
 // WithAssignment provides a mock function with given fields: ctx, assignmentID, fn
-func (_m *AssignmentLock) WithAssignment(ctx context.Context, assignmentID string, fn func(executionport.AssignmentRow) error) error {
+func (_m *AssignmentLock) WithAssignment(ctx context.Context, assignmentID string, fn func(context.Context, executionport.AssignmentRow) error) error {
 	ret := _m.Called(ctx, assignmentID, fn)
 
 	if len(ret) == 0 {
@@ -23,7 +23,7 @@ func (_m *AssignmentLock) WithAssignment(ctx context.Context, assignmentID strin
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, string, func(executionport.AssignmentRow) error) error); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, string, func(context.Context, executionport.AssignmentRow) error) error); ok {
 		r0 = rf(ctx, assignmentID, fn)
 	} else {
 		r0 = ret.Error(0)

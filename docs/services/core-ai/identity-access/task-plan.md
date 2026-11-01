@@ -103,7 +103,7 @@ The owner has resolved the schema-policy choice; do not ask for that approval ag
   - Blocked by: Q2/Q3/Q4 and absence of candidate UI integration harness — ready when T10–T12 complete and Interview owner supplies the minimal UI/harness contract.
   - DoD: candidate identity/invitation/session endpoints, strict inputs, origin/CSRF, cookies and errors are documented/tested; invitation token removed from URL/history before external resources; GET/prefetch cannot exchange/start. Candidate browser refresh uses existing session and resolved recovery policy. Update OpenAPI, endpoint docs and changelog together; do not build consent or interview runtime inside this task.
 
-- [ ] **T14. Prove real candidate access and Interview integration** — Integration/browser verification — L
+- [x] **T14. Prove real candidate access and Interview integration** — Integration/browser verification — L
   - Ticket: `CORE-IAM-014` — depends: T9, T10, T11, T12, T13 — ref: design §3 proof matrix, §8–9.
   - Blocked by: Q2 actual Interview consumers, including admission/revocation/terminal-state integration — ready when actual assignment and required consumers are runnable.
   - DoD: real assignments A/B reuse one candidate and maintain isolated sessions; race/rollback/restart, resolved exchange retries, exact expiry, source-invitation replacement, assignment revocation and completed no-restart proven. Record browser runner commands plus repository verification, skips and per-rule evidence. Active-run cancellation/session-validity admission is accepted only with actual Interview integration, not fake returned facts.

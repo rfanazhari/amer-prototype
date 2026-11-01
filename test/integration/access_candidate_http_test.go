@@ -197,29 +197,3 @@ func readCandidateSession(t *testing.T, graph accessHTTP, cookie *http.Cookie) c
 	require.NoError(t, json.Unmarshal(decodeAccess(t, rec).Data, &data))
 	return candidateSessionView{CandidateID: data.Candidate.ID, AssignmentID: data.Assignment.ID, SessionID: data.Session.ID}
 }
-
-// newCandidateAccessHTTP currently reuses administrative wiring until T14 installs assignment collaboration.
-func newCandidateAccessHTTP(t *testing.T) accessHTTP {
-	t.Helper()
-	return newAccessHTTP(t)
-}
-
-// insertAssignment currently fails because Access does not create interview_assignments.
-func insertAssignment(t *testing.T, graph accessHTTP, candidateID string, revoked, completed bool) string {
-	t.Helper()
-	t.Fatalf("interview assignment fixture is not installed for candidate %s revoked=%v completed=%v db=%v", candidateID, revoked, completed, graph.db != nil)
-	return ""
-}
-
-// revokeAssignment currently fails because Access does not own assignment revocation writes.
-func revokeAssignment(t *testing.T, graph accessHTTP, assignmentID string) {
-	t.Helper()
-	t.Fatalf("assignment revocation fixture is not installed for %s db=%v", assignmentID, graph.db != nil)
-}
-
-// countExecutions currently reports that Access must not create interview execution rows.
-func countExecutions(t *testing.T, graph accessHTTP) int64 {
-	t.Helper()
-	t.Fatalf("execution count is not installed db=%v", graph.db != nil)
-	return 0
-}

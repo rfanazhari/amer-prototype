@@ -238,9 +238,8 @@ Not yet implemented — verify against code after implementation.
 ## Open questions
 
 - Resolved 2026-11-01 (T1 / CORE-IAM-001): Administrative email is canonicalized by trimming outer whitespace and Unicode lowercasing the entire address. Initial HR passwords are chosen by ADMIN at provisioning and delivered out of band; bootstrap uses environment credentials once. Self-service reset, account edits, role changes, and disable/reactivate endpoints are not approved by adding a status column.
-- Product/security owner: determine whether an invitation supports multiple session exchanges, how to recover after a lost exchange response, and how sessions on different devices interact. Session identity is approved; exchange reuse is not.
-- Candidate-data owner: define candidate matching/deduplication, contact verification needs, and later contact updates. Candidate email is not yet a unique business identity; the bearer link proves possession, not personal identity independently.
-- Interview owner: supply assignment access/revocation contracts and admission checks, including sufficient session lifetime for execution. Consent and execution tables belong to that capability.
+- Resolved 2026-11-01 (T10 / CORE-IAM-010): Candidate email uses the same canonicalization as administrative email and is never unique or used for upsert. Reuse is by known candidate identity on an Interview assignment. A valid invitation may be exchanged repeatedly until expiry or revocation; each exchange may create another session; a lost response is not exactly-once cookie recovery. The bearer link proves possession, not independently verified identity. Access reads Interview assignment facts after an assignment-first lock and never creates an assignment table.
+- Interview owner: supply the runtime `interview_assignments` table, adapter and admission/cancellation consumers. Consent and execution tables belong to that capability. Access contracts for those facts are approved in T10.
 - Product/data owner: decide candidate/contact/session retention and purge ordering before cleanup is implemented.
 
 ## Related

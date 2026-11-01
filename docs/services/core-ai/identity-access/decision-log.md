@@ -2,7 +2,7 @@
 
 Technical decisions driven by the owner's business choices, approved in this conversation on 2026-11-01. Entries explain intended product behavior; none establishes implementation or test acceptance. Technical library and helper choices remain in technical-design.md.
 
-T1 (`CORE-IAM-001`) A–E administrative contracts are recorded in D7. Q1 is resolved; Q2–Q5 remain open.
+T1 (`CORE-IAM-001`) A–E administrative contracts are recorded in D7. Q1 is resolved. T10 (`CORE-IAM-010`) F–I candidate contracts are recorded in D9; Q2–Q4 are resolved as access contracts. Q5 remains open. D8 records the later owner-approved shift to manual migrations (Q6 resolved); its implementation is planned in T16–T20. T1–T9 Done statuses remain as recorded in task-plan.md; the migration review does not rerun their acceptance. Real Interview assignment persistence remains a T14 runtime obligation.
 
 ## D1: Account administration and HR operations have separate roles
 
@@ -75,6 +75,33 @@ T1 (`CORE-IAM-001`) A–E administrative contracts are recorded in D7. Q1 is res
 - **Alternatives considered:** inventing an email-delivery or forced-reset flow contradicts approved non-goals; leaving Q1 open blocks T4/T6/T8; inheriting Task rate limits would under-specify credential hashing.
 - **Trade-offs accepted:** operators must communicate first passwords; v1 email is LDH ASCII only; login of a DISABLED account is indistinguishable from unknown credentials; CSRF key rotation invalidates outstanding tokens without dropping persisted sessions.
 - **Assessment:** retain account/session aggregates and application-owned uniqueness/bootstrap; delivery owns cookies/origin/CSRF/rate; T4 maps canonical email; T5/T8 enforce crypto and HTTP. No Go/SQL/HTTP implementation is claimed.
-- **Closure:** Q1 resolved; technical-design/tactical-strategy/task-plan/capability synchronized and T1 Done. T2–T15 are not executed; Q2–Q5 remain.
+- **Closure (historical T1 scope):** Q1 resolved; technical-design/tactical-strategy/task-plan/capability synchronized and T1 Done. T2–T15 were not executed at that closure; Q2–Q5 remained. Later T2–T9 completion is preserved in task-plan.md; D8 adds migration follow-up without reopening T1.
 - **Revisit when:** product requests mail delivery, self-service reset, IDN emails, or combined-role accounts; approve and synchronize before dependent implementation.
+- **Status:** active.
+
+## D8: Database changes must be reviewed and applied before the application starts
+
+- **Business driver:** On 2026-11-01 the owner stated that the project has grown and explicitly requested changing from AutoMigrate to manual migrations. The intended operational change is deliberate, reviewable database evolution as more capabilities share the service.
+- **Technical decision:** Plan ordered SQL files and a separate command to apply them before starting the application. Cover both the existing Task table and the two administrative tables in one service-wide sequence; future candidate and Interview changes use the same sequence. The application checks that the database is compatible and stops safely if it is unprepared.
+- **What this means for the product:** Existing Task history, account identities and live session validity must survive the transition. Operators gain an explicit database preparation step. An unprepared database no longer becomes ready merely by starting the service.
+- **Alternatives considered:** Retaining startup AutoMigrate would leave the schema change attached to every application start; keeping unused SQL files alongside it would leave two competing ways to change the database. Recreating the database would discard existing history and is not the adoption plan.
+- **Trade-offs accepted:** Implementation must establish the real existing schema, preserve data, rehearse backup/recovery and change local/test startup procedures. Older binaries that still run AutoMigrate are not routine rollback targets. The new command is not permission to modify an unspecified live database.
+- **Approval boundary:** The owner approved the schema-policy change and requested its plan; no further policy confirmation is required. Tooling details and artifact paths are assessed engineering choices in technical-design §3.1–3.4, not additional product decisions. No migration has been applied by this revision.
+- **Prior decision preserved:** D5's five access business tables and two-phase delivery remain active. Tool-owned migration metadata is separate. D7/T1 password, bootstrap and security contracts remain active; schema migration never inserts credentials or resets an existing account.
+- **Revisit when:** Database ownership splits into separate services, release compatibility needs a broader rollout window, or operational recovery requirements change.
+- **Status:** active; supersedes the former AutoMigrate schema policy from the original boilerplate requirement/design, not D1–D7 business decisions.
+
+## D9: Candidate contact, exchange reuse and assignment collaboration contracts are approved
+
+- **Ticket:** `CORE-IAM-010` / T10.
+- **Confirming actor/date:** user in this conversation, 2026-11-01, requesting exclusive T10–T12 execution and a Done checklist; no separate external sign-off is claimed.
+- **Business driver:** BR-CORE-029..039 require reusable candidate identity, assignment-scoped invitations, access before consent/start, and assignment-first revocation without inventing Interview storage.
+- **Approved contract:** sections F–I now canonical in [technical-design §6.6–6.9](technical-design.md#66-candidate-contact-and-matching-approved-f); [approval record](t10-contract.md) maps each section.
+- **Product consequences:** Candidate email uses administrative canonicalization and stays nonunique contact. A valid invitation may be exchanged repeatedly until expiry or revocation; each exchange may create another two-hour session. Lost HTTP responses are not exactly-once cookie recovery. The bearer link proves possession, not independently verified identity.
+- **Engineering/security consequences:** Access never creates `interview_assignments`. Invitation/session FKs wait for Interview's migration. Assignment lock precedes access writes. Terminal completion does not deny access and does not start or cancel execution. Five-table properties stand; extra `consumed_at` was assessed and rejected.
+- **Alternatives considered:** one-time consumed invitations would add a column contrary to D5; email upsert would invent matching; a placeholder assignment table would create a false integration claim.
+- **Trade-offs accepted:** retry after a lost exchange may create a second session; operators must keep invitation links confidential; T11 stage B and T14 still need the real Interview table and consumers.
+- **Assessment:** retain Candidate/Invitation/CandidateSession ownership in access; keep assignment facts as an Interview-owned port; T12 implements operations against mocks; T11 sqlmock covers Access SQL only.
+- **Closure:** Q2/Q3/Q4 resolved as executable access contracts; Q5 retention remains open; no candidate HTTP or Interview runtime is claimed.
+- **Revisit when:** product requests one-time invitations, email-based matching, device ejection on reissue, or Access-owned assignment storage.
 - **Status:** active.

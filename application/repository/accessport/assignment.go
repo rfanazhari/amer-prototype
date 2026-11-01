@@ -17,24 +17,29 @@ type AssignmentFacts struct {
 	TerminalCompleted bool
 }
 
+// liveAssignment reports a recognized, unrevoked assignment. Terminal completion does not deny access.
+func (f AssignmentFacts) liveAssignment() bool {
+	return f.AssignmentID != "" && f.CandidateID != "" && f.RevisionID != "" && !f.AccessRevoked
+}
+
 // PermitsInvitation reports whether HR may issue or reissue an invitation for candidateID on this assignment.
 func (f AssignmentFacts) PermitsInvitation(candidateID string) bool {
-	return false
+	return f.liveAssignment() && f.BoundToCandidate(candidateID)
 }
 
 // PermitsExchange reports whether a live invitation may create a candidate session for this assignment.
 func (f AssignmentFacts) PermitsExchange() bool {
-	return false
+	return f.liveAssignment()
 }
 
 // PermitsSessionAccess reports whether an existing candidate session may continue for this assignment.
 func (f AssignmentFacts) PermitsSessionAccess() bool {
-	return false
+	return f.liveAssignment()
 }
 
 // BoundToCandidate reports whether the locked assignment references candidateID.
 func (f AssignmentFacts) BoundToCandidate(candidateID string) bool {
-	return false
+	return candidateID != "" && f.CandidateID == candidateID
 }
 
 // AssignmentTx exposes assignment-owned facts after the assignment lock is held.

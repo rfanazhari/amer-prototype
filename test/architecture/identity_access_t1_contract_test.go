@@ -83,15 +83,10 @@ func TestIdentityAccessAdministrativeContract(t *testing.T) {
 	t.Run("login and provision examples are valid JSON objects", func(t *testing.T) {
 		body, err := os.ReadFile(filepath.Join(root, "docs", "services", "core-ai", "identity-access", "technical-design.md"))
 		require.NoError(t, err)
-		examples := map[string][]string{
-			"login request":        {"```json", `"email"`, `"password"`},
-			"hr provision request": {"```json", `"name"`, `"email"`, `"password"`},
-		}
 		text := string(body)
 		require.True(t, strings.Contains(text, "#### Examples (accepted expectations)"), "missing accepted JSON examples heading")
-		for name, required := range examples {
-			assert.Truef(t, jsonExampleContains(text, required...), "%s example missing required members", name)
-		}
+		assert.True(t, jsonExampleContains(text, `"email":"Sinta@Example.com","password":"correct-horse"`), "login request example missing required members")
+		assert.True(t, jsonExampleContains(text, `"name":" Sinta Wijaya "`, `"email":"Sinta@Example.com"`, `"password":"correct-horse"`), "hr provision request example missing required members")
 		for _, block := range jsonFencedBlocks(text) {
 			var value any
 			require.NoError(t, json.Unmarshal([]byte(block), &value), block)

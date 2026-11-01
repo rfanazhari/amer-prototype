@@ -1,6 +1,6 @@
 # Task Plan: Agent Configuration and Publication
 
-Planning baseline: 2026-11-01, Mode C. T1–T5 are implemented. T6–T11 remain Todo.
+Planning baseline: 2026-11-01, Mode C. T1–T6 are implemented. T7–T11 remain Todo.
 
 ## Ticket Identity
 
@@ -23,7 +23,7 @@ Companion dependency: [Identity and Access task plan](../identity-access/task-pl
 
 Documents-only Mode C revision: preserve T1/T2/T3 Done and all task IDs. No configuration code exists to repair. T6 mocks HR allow, ADMIN deny, candidate deny, and current-authority replay through the existing port and operation names. T8/T9 prove the same behavior on real configuration routes, including HR access to another HR's company configuration. ADMIN account management never implies configuration authority. Publication scope remains the stable account UUID.
 
-T4 registered `migrations/pgsql/000003_agent_configuration.{up,down}.sql`, shifted unpublished candidate/assignment SQL to versions 4–5, and raised the startup floor to clean version 3. T8 still waits for T5–T7. Q4 and Q5 remain open.
+T4 registered `migrations/pgsql/000003_agent_configuration.{up,down}.sql`, shifted unpublished candidate/assignment SQL to versions 4–5, and raised the startup floor to clean version 3. T8 still waits for T7. Q4 and Q5 remain open.
 
 ## Tasks
 
@@ -66,10 +66,11 @@ T2 and T3 are independent work streams, not instructions to spawn agents. Change
   - Evidence: catalog lookup, HR/Document field-bound construction, deterministic findings, warning eligibility, and Mockery `AgentReferenceReader` exact-version tests; RED `7653be6` then GREEN. sqlmock is not applicable because T5 authors no SQL.
   - DoD: both versioned templates discoverable; full supported field/boundary matrix tested; editable incomplete drafts yield correct findings; warning policy tested; exact reference versions preserved; no model/provider calls. BR-CORE-001/002/006/007/014 local proof captured.
 
-- [ ] **T6. Implement configuration commands and detached queries** — Application — L
+- [x] **T6. Implement configuration commands and detached queries** — Application — L
   - Ticket ID: `CORE-ACP-006`
   - depends: T1, T2, T3, T5 — ref: design §2–7.
   - decision gate: Q1/Q3 resolved; the real authority adapter is not required for mocked application tests.
+  - Evidence: Mockery-generated authority, repository, reference-reader, and delivery-operation mocks; HR allow/ADMIN deny/candidate deny; exact-version validation race; replay-before-eligibility; mismatched intent; no result before commit; ambiguous-commit reconciliation; old-command replay after later publication; command scope is the account UUID. RED `63069e9` then GREEN. sqlmock is not applicable because T6 authors no SQL.
   - DoD: create, replace, validate, publish, and read operations call `AgentConfigurationAuthority` with the existing operation names. Exact-version validation recording rejects an edit race; replay precedes current-draft eligibility; mismatched intent conflicts; trusted UTC time and detached outputs are used. Generated mock tests cover HR allow, ADMIN deny, candidate deny, reference failures, no result before commit, ambiguous-commit reconciliation, and old-command replay after later publication. Scope stored for a command is the account UUID. No assumption that mocks establish SQL or cookie/CSRF correctness.
 
 - [ ] **T7. Implement PostgreSQL publication transactions and repository proof** — Infrastructure — L
@@ -141,3 +142,4 @@ T9 + Q5 consumers [and T10 for multiple behavior versions] → T11
 | v1.6 | 2026-11-01 | Replace T4 AutoMigrate with SQL version 3 and remove the absent-session block from T8; T4–T11 stay Todo |
 | v1.7 | 2026-11-01 | Mark T4 Done for configuration SQL version 3, unpublished candidate/assignment reallocation, and clean-version-3 startup |
 | v1.8 | 2026-11-01 | Mark T5 Done for versioned catalogs, typed drafts, deterministic validators, and exact reference resolution |
+| v1.9 | 2026-11-01 | Mark T6 Done for authorized configuration commands, detached queries, and Mockery-generated application tests |

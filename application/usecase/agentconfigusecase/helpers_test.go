@@ -59,22 +59,9 @@ func mustHR(t *testing.T, in valueobject.HRInput) valueobject.HRConfiguration {
 	return cfg
 }
 
-// mustDocument constructs a storage-valid Document draft or fails the test.
-func mustDocument(t *testing.T, fields []string) valueobject.DocumentConfiguration {
-	t.Helper()
-	cfg, err := valueobject.NewDocumentConfiguration(fields)
-	require.NoError(t, err)
-	return cfg
-}
-
 // hrTemplate is the catalog HR Interviewer v1 reference.
 func hrTemplate() aggregate.TemplateRef {
 	return aggregate.TemplateRef{Template: catalog.TemplateHRInterviewer, Version: catalog.TemplateVersion1, Behavior: catalog.BehaviorVersion1}
-}
-
-// documentTemplate is the catalog Document Analyzer v1 reference.
-func documentTemplate() aggregate.TemplateRef {
-	return aggregate.TemplateRef{Template: catalog.TemplateDocumentAnalyzer, Version: catalog.TemplateVersion1, Behavior: catalog.BehaviorVersion1}
 }
 
 // mustVersion constructs a positive draft version or fails the test.
@@ -94,17 +81,6 @@ func storedHR(t *testing.T, version uint64, cfg valueobject.HRConfiguration, act
 	})
 	require.NoError(t, err)
 	return agentconfigport.StoredInstance{Name: instanceName, HR: instance}
-}
-
-// storedDocument restores a Document instance snapshot for repository mock returns.
-func storedDocument(t *testing.T, version uint64, cfg valueobject.DocumentConfiguration) agentconfigport.StoredInstance {
-	t.Helper()
-	instance, err := aggregate.RestoreInstance(aggregate.InstanceSnapshot[valueobject.DocumentConfiguration]{
-		ID: instanceID, Template: documentTemplate(), DraftVersion: mustVersion(t, version), Configuration: cfg,
-		CreatedAt: testdata.Now(), UpdatedAt: testdata.Now(),
-	})
-	require.NoError(t, err)
-	return agentconfigport.StoredInstance{Name: instanceName, Document: instance}
 }
 
 // storedHRRevision restores an immutable HR revision for replay reads.

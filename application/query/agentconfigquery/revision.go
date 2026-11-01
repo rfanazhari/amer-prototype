@@ -15,6 +15,13 @@ type Revision struct {
 }
 
 // Execute authorizes read before disclosing a stored revision.
-func (Revision) Execute(context.Context, string, string) (*dto.AgentRevision, error) {
-	return nil, nil
+func (q Revision) Execute(ctx context.Context, instanceID, revisionID string) (*dto.AgentRevision, error) {
+	if _, err := authorize(ctx, q.Authority, service.AgentConfigurationRead, instanceID); err != nil {
+		return nil, err
+	}
+	stored, err := q.Reader.FindRevision(ctx, instanceID, revisionID)
+	if err != nil {
+		return nil, err
+	}
+	return dto.FromStoredRevision(stored)
 }

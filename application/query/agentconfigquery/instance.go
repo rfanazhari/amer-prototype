@@ -15,6 +15,13 @@ type Instance struct {
 }
 
 // Execute authorizes read before disclosing a stored instance.
-func (Instance) Execute(context.Context, string) (*dto.AgentInstance, error) {
-	return nil, nil
+func (q Instance) Execute(ctx context.Context, id string) (*dto.AgentInstance, error) {
+	if _, err := authorize(ctx, q.Authority, service.AgentConfigurationRead, id); err != nil {
+		return nil, err
+	}
+	stored, err := q.Reader.FindInstance(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	return dto.FromStoredInstance(stored)
 }

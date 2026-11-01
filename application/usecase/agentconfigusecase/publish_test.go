@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"testing"
-	"time"
 
 	"github.com/rfanazhari/amer-prototype/application/repository/agentconfigport"
 	"github.com/rfanazhari/amer-prototype/application/service"
@@ -60,7 +59,7 @@ func TestPublishReplaysBeforeEligibilityAndWithholdsResultsUntilCommit(t *testin
 				authority.On("Authorize", mock.Anything, hrPrincipal(), service.AgentConfigurationReplay, instanceID).Return(nil).Once()
 			}
 			if tt.wantInsert {
-				clock.On("Now").Return(testdata.Now().Add(time.Minute)).Once()
+				clock.On("Now").Return(testdata.Now()).Once()
 			}
 			instances.On("WithinInstance", mock.Anything, instanceID, mock.Anything).Return(func(ctx context.Context, _ string, fn func(agentconfigport.InstanceTx) error) error {
 				tx := mocks.NewTransaction[agentconfigport.StoredInstance, aggregate.Validation, agentconfigport.StoredRevision](t)

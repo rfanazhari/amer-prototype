@@ -105,7 +105,9 @@ func TestLoginRechecksEligibilityBeforeSessionCommit(t *testing.T) {
 			if tt.wantErr != nil {
 				require.ErrorIs(t, err, tt.wantErr)
 				assert.Nil(t, got)
-				assert.NotContains(t, err.Error(), tt.password)
+				if tt.password != "" {
+					assert.NotContains(t, err.Error(), tt.password)
+				}
 				assert.NotContains(t, err.Error(), "plain-session-secret")
 				return
 			}

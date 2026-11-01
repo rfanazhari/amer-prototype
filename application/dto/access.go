@@ -1,6 +1,28 @@
 package dto
 
-import "time"
+import (
+	"time"
+
+	"github.com/rfanazhari/amer-prototype/application/repository/accessport"
+)
+
+// FromAdministrativeAccount copies identity fields and omits password material.
+func FromAdministrativeAccount(record accessport.AccountRecord) AdministrativeAccount {
+	return AdministrativeAccount{
+		ID:        record.ID,
+		Name:      record.Name,
+		Email:     record.Email,
+		Role:      record.Role.String(),
+		Status:    record.Status.String(),
+		CreatedAt: record.CreatedAt,
+		UpdatedAt: record.UpdatedAt,
+	}
+}
+
+// FromAdministrativeSession copies session metadata without the credential digest.
+func FromAdministrativeSession(record accessport.SessionRecord) AdministrativeSession {
+	return AdministrativeSession{ID: record.ID, ExpiresAt: record.ExpiresAt}
+}
 
 // AdministrativeAccount is a detached administrative identity without password material.
 type AdministrativeAccount struct {

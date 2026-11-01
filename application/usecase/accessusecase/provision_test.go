@@ -48,8 +48,8 @@ func TestProvisionHRRequiresCurrentAdminAndUniqueEmail(t *testing.T) {
 			actorSession := session
 			actorSession.AccountID = tt.actor.ID
 			current.On("Resolve", mock.Anything).Return(actorSession, tt.actor, nil).Once()
+			clock.On("Now").Return(testdata.Now())
 			if tt.wantWrite {
-				clock.On("Now").Return(testdata.Now())
 				hasher.On("Hash", mock.Anything, "correct-horse").Return(testdata.PasswordHash, nil).Once()
 				accounts.On("WithinAccounts", mock.Anything, mock.Anything).Return(func(ctx context.Context, fn func(accessport.AccountTx) error) error {
 					tx := mocks.NewAccountTx(t)

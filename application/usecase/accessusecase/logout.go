@@ -14,5 +14,23 @@ type Logout struct {
 	Clock    service.Clock
 }
 
-// Execute is an inert T6 RED stub; GREEN revokes only after current binding succeeds.
-func (Logout) Execute(context.Context) error { return nil }
+// Execute revokes the current administrative session or reports commit uncertainty.
+func (u Logout) Execute(ctx context.Context) error {
+	session, account, err := u.Current.Resolve(ctx)
+	if err != nil {
+		return err
+	}
+	now := trustedNow(u.Clock)
+	if err := authorizeCurrent(session, account, now); err != nil {
+		return err
+	}
+	restored, err := restoreSession(session)
+	if err != nil {
+		return err
+	}
+	if err := restored.Revoke(now); err != nil {
+		return err
+	}
+	snapshot := restored.Snapshot()
+	return u.Sessions.UpdateRevocation(ctx, snapshot.ID, snapshot.RevokedAt)
+}

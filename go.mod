@@ -18,6 +18,7 @@ require (
 
 require (
 	github.com/Azure/go-ntlmssp v0.1.1 // indirect
+	github.com/DATA-DOG/go-sqlmock v1.5.2 // indirect
 	github.com/aws/aws-sdk-go-v2 v1.38.2 // indirect
 	github.com/aws/aws-sdk-go-v2/credentials v1.18.8 // indirect
 	github.com/aws/smithy-go v1.23.0 // indirect

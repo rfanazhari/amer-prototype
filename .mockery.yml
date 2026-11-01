@@ -10,6 +10,15 @@ packages:
       filename: task_mock.go
     interfaces:
       Task:
+  github.com/rfanazhari/amer-prototype/application/repository/accessport:
+    config:
+      dir: test/mocks
+      outpkg: mocks
+      filename: 'access_{{.InterfaceName | snakecase}}.go'
+    interfaces:
+      Accounts:
+      AccountTx:
+      Sessions:
   github.com/rfanazhari/amer-prototype/application/service:
     config:
       dir: test/mocks

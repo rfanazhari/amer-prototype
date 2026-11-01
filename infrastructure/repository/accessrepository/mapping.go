@@ -106,3 +106,89 @@ func toSession(model SessionModel) (accessport.SessionRecord, error) {
 		RevokedAt: copyTime(model.RevokedAt),
 	}, nil
 }
+
+// fromCandidate maps a detached candidate record onto the storage model.
+func fromCandidate(record accessport.CandidateRecord) CandidateModel {
+	return CandidateModel{
+		ID:        record.ID,
+		Name:      record.Name,
+		Email:     record.Email,
+		CreatedBy: record.CreatedBy,
+		CreatedAt: record.CreatedAt.UTC(),
+		UpdatedAt: record.UpdatedAt.UTC(),
+	}
+}
+
+// toCandidate restores a detached candidate record and classifies corrupt stored facts as technical failures.
+func toCandidate(model CandidateModel) (accessport.CandidateRecord, error) {
+	if _, err := access.RestoreCandidate(access.CandidateSnapshot{
+		ID:        model.ID,
+		Name:      model.Name,
+		Email:     model.Email,
+		CreatedBy: model.CreatedBy,
+		CreatedAt: model.CreatedAt.UTC(),
+		UpdatedAt: model.UpdatedAt.UTC(),
+	}); err != nil {
+		return accessport.CandidateRecord{}, errs.Technical{Cause: err}
+	}
+	return accessport.CandidateRecord{
+		ID:        model.ID,
+		Name:      model.Name,
+		Email:     model.Email,
+		CreatedBy: model.CreatedBy,
+		CreatedAt: model.CreatedAt.UTC(),
+		UpdatedAt: model.UpdatedAt.UTC(),
+	}, nil
+}
+
+// fromInvitation maps a detached invitation record onto the storage model.
+func fromInvitation(record accessport.InvitationRecord) InvitationModel {
+	return InvitationModel{
+		ID:           record.ID,
+		AssignmentID: record.AssignmentID,
+		TokenHash:    record.TokenHash,
+		CreatedBy:    record.CreatedBy,
+		CreatedAt:    record.CreatedAt.UTC(),
+		ExpiresAt:    record.ExpiresAt.UTC(),
+		RevokedAt:    copyTime(record.RevokedAt),
+	}
+}
+
+// toInvitation restores a detached invitation record and classifies corrupt stored facts as technical failures.
+func toInvitation(model InvitationModel) (accessport.InvitationRecord, error) {
+	if _, err := access.RestoreInvitation(access.InvitationSnapshot{
+		ID:           model.ID,
+		AssignmentID: model.AssignmentID,
+		CreatedBy:    model.CreatedBy,
+		CreatedAt:    model.CreatedAt.UTC(),
+		ExpiresAt:    model.ExpiresAt.UTC(),
+		RevokedAt:    copyTime(model.RevokedAt),
+	}); err != nil {
+		return accessport.InvitationRecord{}, errs.Technical{Cause: err}
+	}
+	if model.TokenHash == "" {
+		return accessport.InvitationRecord{}, errs.Technical{Cause: access.ErrInvalidInvitation}
+	}
+	return accessport.InvitationRecord{
+		ID:           model.ID,
+		AssignmentID: model.AssignmentID,
+		TokenHash:    model.TokenHash,
+		CreatedBy:    model.CreatedBy,
+		CreatedAt:    model.CreatedAt.UTC(),
+		ExpiresAt:    model.ExpiresAt.UTC(),
+		RevokedAt:    copyTime(model.RevokedAt),
+	}, nil
+}
+
+// fromCandidateSession maps a detached candidate session record onto the storage model.
+func fromCandidateSession(record accessport.CandidateSessionRecord) CandidateSessionModel {
+	return CandidateSessionModel{
+		ID:           record.ID,
+		AssignmentID: record.AssignmentID,
+		InvitationID: record.InvitationID,
+		TokenHash:    record.TokenHash,
+		CreatedAt:    record.CreatedAt.UTC(),
+		ExpiresAt:    record.ExpiresAt.UTC(),
+		RevokedAt:    copyTime(record.RevokedAt),
+	}
+}

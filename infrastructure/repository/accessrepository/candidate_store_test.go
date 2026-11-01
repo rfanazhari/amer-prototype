@@ -62,7 +62,7 @@ func TestCandidatePersistenceSQL(t *testing.T) {
 					sqlmock.NewRows([]string{"id", "assignment_id", "token_hash", "created_by", "created_at", "expires_at", "revoked_at"}).
 						AddRow(invitation.ID, invitation.AssignmentID, invitation.TokenHash, invitation.CreatedBy, invitation.CreatedAt, invitation.ExpiresAt, nil),
 				)
-				mock.ExpectExec(`(?i)UPDATE ["']?interview_invitations["']? SET .*revoked_at`).WithArgs(revoked, invitation.ID).WillReturnResult(sqlmock.NewResult(0, 1))
+				mock.ExpectExec(`(?i)UPDATE ["']?interview_invitations["']? SET .*revoked_at`).WithArgs(revoked, invitation.ID, testdata.AssignmentID).WillReturnResult(sqlmock.NewResult(0, 1))
 				mock.ExpectExec(`(?i)INSERT INTO ["']?interview_invitations["']?`).WillReturnResult(sqlmock.NewResult(1, 1))
 				mock.ExpectCommit()
 				replacement := invitation

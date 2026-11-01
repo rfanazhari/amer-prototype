@@ -4,7 +4,7 @@ Go service foundation with the Task Tracking reference feature. The four root la
 
 ## Run locally
 
-Use Go 1.26.10. Supply `DATABASE_URL` as a PostgreSQL connection URL through the environment. `HTTP_ADDRESS` defaults to `:8080`. `APP_ENV` defaults to development in logmanager; production disables its debug mode. `TEST_DATABASE_URL` is only for explicitly authorized integration databases. Secrets must stay out of source files and command output.
+Use Go 1.26.10. Supply `DATABASE_URL` as a PostgreSQL connection URL through the environment. `HTTP_ADDRESS` defaults to `:8080`. `APP_ENV` defaults to development in logmanager; production disables its debug mode. Administrative startup requires `ACCESS_BOOTSTRAP_ADMIN_NAME`, `ACCESS_BOOTSTRAP_ADMIN_EMAIL`, `ACCESS_BOOTSTRAP_ADMIN_PASSWORD`, `ACCESS_HTTP_ORIGIN`, and `ACCESS_CSRF_SECRET` (at least 32 bytes). `TEST_DATABASE_URL` is only for explicitly authorized integration databases. Secrets must stay out of source files and command output.
 
 The composition runs GORM AutoMigrate for `tasks` at startup. This follows the selected requirement; explicit SQL migration files remain a pending schema-policy amendment. Tasks have a UUID primary key, non-null title/status/creation/update times, optional due/completion times and a status check. Rollback is manual table removal. Data persists across service restarts. Startup connection and schema checks have a ten-second budget. HTTP health reports HTTP readiness only.
 
@@ -34,7 +34,7 @@ Redis uses the `redis` profile and port 6379; RabbitMQ uses `rabbitmq`, AMQP 567
 
 ## Task API
 
-See [OpenAPI](docs/api/openapi.yaml), [endpoint documentation](docs/api/task.md), and [changelog](docs/api/CHANGELOG.md). The flow is `POST /tasks`, `POST /tasks/{id}/start`, `POST /tasks/{id}/complete`, and `GET /tasks/{id}`. `PATCH /tasks/{id}/due-date` changes or clears a date. `/health` is unauthenticated. Requests reject unknown fields; errors use the same JSON envelope, with English or Indonesian messages selected through `Accept-Language`.
+See [OpenAPI](docs/api/openapi.yaml), [Task endpoints](docs/api/task.md), [administrative access](docs/api/identity-access.md), and [changelog](docs/api/CHANGELOG.md). The Task flow is `POST /tasks`, `POST /tasks/{id}/start`, `POST /tasks/{id}/complete`, and `GET /tasks/{id}`. `PATCH /tasks/{id}/due-date` changes or clears a date. `/health` is unauthenticated. Administrative routes use cookies, origin, and CSRF; they are not attached to Task or voice. Requests reject unknown fields; errors use the same JSON envelope, with English or Indonesian messages selected through `Accept-Language`.
 
 Completion queue capacity is 100 with one consumer. Capacity is reserved before commit, released on transaction failure, and the event is enqueued only after successful commit. Events are volatile; subscriber failures are logged without automatic retry. There is no durable recovery or exactly-once guarantee.
 

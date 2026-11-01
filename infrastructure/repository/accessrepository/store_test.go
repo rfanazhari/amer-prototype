@@ -92,6 +92,25 @@ func TestAdministrativePersistenceSQL(t *testing.T) {
 			},
 		},
 		{
+			name: "login locks account then inserts session",
+			run: func(t *testing.T, store accessrepository.Store, mock sqlmock.Sqlmock) {
+				mock.ExpectBegin()
+				mock.ExpectExec(`(?i)SELECT id FROM administrative_accounts WHERE id = .* FOR UPDATE`).WithArgs(account.ID).WillReturnResult(sqlmock.NewResult(0, 1))
+				rows := sqlmock.NewRows([]string{"id", "name", "email", "password_hash", "role", "status", "created_by", "created_at", "updated_at"}).
+					AddRow(account.ID, account.Name, account.Email, account.PasswordHash, account.Role.String(), account.Status.String(), nil, account.CreatedAt, account.UpdatedAt)
+				mock.ExpectQuery(`(?i)SELECT .* FROM ["']?administrative_accounts["']?`).WithArgs(account.ID, 1).WillReturnRows(rows)
+				mock.ExpectExec(`(?i)INSERT INTO ["']?administrative_sessions["']?`).WillReturnResult(sqlmock.NewResult(1, 1))
+				mock.ExpectCommit()
+				err := store.WithinLogin(context.Background(), account.ID, func(tx accessport.LoginTx) error {
+					got, err := tx.Account(context.Background())
+					require.NoError(t, err)
+					require.Equal(t, account.ID, got.ID)
+					return tx.InsertSession(context.Background(), session)
+				})
+				require.NoError(t, err)
+			},
+		},
+		{
 			name: "session revocation writes explicit timestamp",
 			run: func(t *testing.T, store accessrepository.Store, mock sqlmock.Sqlmock) {
 				mock.ExpectBegin()

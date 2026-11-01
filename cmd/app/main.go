@@ -14,7 +14,7 @@ import (
 // main loads environment settings, initializes masked logging and signals, and runs composition under a process shutdown watchdog.
 func main() {
 	logs := logmanager.NewApplication(logmanager.WithAppName("amer-prototype"), logmanager.WithService("amer-prototype"), logmanager.WithSkipHeaders(), logmanager.WithMaskingConfig([]logmanager.MaskingConfig{
-		{FieldPattern: "authorization", Type: logmanager.FullMask}, {FieldPattern: "cookie", Type: logmanager.FullMask}, {FieldPattern: "password", Type: logmanager.FullMask}, {FieldPattern: "token", Type: logmanager.FullMask}, {FieldPattern: "email", Type: logmanager.FullMask}, {FieldPattern: "api_key", Type: logmanager.FullMask},
+		{FieldPattern: "authorization", Type: logmanager.FullMask}, {FieldPattern: "cookie", Type: logmanager.FullMask}, {FieldPattern: "password", Type: logmanager.FullMask}, {FieldPattern: "token", Type: logmanager.FullMask}, {FieldPattern: "email", Type: logmanager.FullMask}, {FieldPattern: "api_key", Type: logmanager.FullMask}, {FieldPattern: "csrf", Type: logmanager.FullMask}, {FieldPattern: "secret", Type: logmanager.FullMask},
 	}))
 	address := os.Getenv("HTTP_ADDRESS")
 	if address == "" {
@@ -34,13 +34,18 @@ func main() {
 		os.Exit(1)
 	})
 	if err := runtime.Run(ctx, runtime.Config{
-		DatabaseURL:         os.Getenv("DATABASE_URL"),
-		Address:             address,
-		ShutdownStarted:     shutdownStarted,
-		OpenAIAPIKey:        os.Getenv("OPENAI_API_KEY"),
-		OpenAIRealtimeModel: os.Getenv("OPENAI_REALTIME_MODEL"),
-		OpenAIRealtimeVoice: os.Getenv("OPENAI_REALTIME_VOICE"),
-		OpenAIRealtimeURL:   os.Getenv("OPENAI_REALTIME_URL"),
+		DatabaseURL:                  os.Getenv("DATABASE_URL"),
+		Address:                      address,
+		ShutdownStarted:              shutdownStarted,
+		OpenAIAPIKey:                 os.Getenv("OPENAI_API_KEY"),
+		OpenAIRealtimeModel:          os.Getenv("OPENAI_REALTIME_MODEL"),
+		OpenAIRealtimeVoice:          os.Getenv("OPENAI_REALTIME_VOICE"),
+		OpenAIRealtimeURL:            os.Getenv("OPENAI_REALTIME_URL"),
+		AccessBootstrapAdminName:     os.Getenv("ACCESS_BOOTSTRAP_ADMIN_NAME"),
+		AccessBootstrapAdminEmail:    os.Getenv("ACCESS_BOOTSTRAP_ADMIN_EMAIL"),
+		AccessBootstrapAdminPassword: os.Getenv("ACCESS_BOOTSTRAP_ADMIN_PASSWORD"),
+		AccessHTTPOrigin:             os.Getenv("ACCESS_HTTP_ORIGIN"),
+		AccessCSRFSecret:             os.Getenv("ACCESS_CSRF_SECRET"),
 	}, logs); err != nil {
 		txn := logs.Start("", "service failure", logmanager.TxnTypeOther)
 		txn.NoticeError(err)

@@ -1,6 +1,6 @@
 # Task Plan: Identity and Access
 
-Mode A; planning date 2026-11-01. T1–T7 are Done (Q1 resolved). Remaining tasks are Todo. Candidate access runtime is not claimed.
+Mode A; planning date 2026-11-01. T1–T8 are Done (Q1 resolved). Remaining tasks are Todo. Candidate access runtime is not claimed.
 
 ## Legend
 
@@ -48,7 +48,7 @@ Mode A; planning date 2026-11-01. T1–T7 are Done (Q1 resolved). Remaining task
   - Ticket: `CORE-IAM-007` — depends: T2, T3, T4, T6 — ref: design §2, §3 transactions, §4–5, §7.
   - DoD: real session/account resolution implements existing `AgentConfigurationAuthority`; SubjectID is stable account UUID and trusted context/session binding is checked. Current HR allowed, valid ADMIN forbidden, candidate/invalid session unauthenticated, unknown operation denied; recheck before replay. Real adapter tests cover expiry/revocation/disabled accounts and shared company scope without changing ACP fingerprints/codes. No claim that absent ACP HTTP consumers are tested.
 
-- [ ] **T8. Wire secured administrative HTTP, bootstrap and API contracts** — Delivery/runtime/contracts — L
+- [x] **T8. Wire secured administrative HTTP, bootstrap and API contracts** — Delivery/runtime/contracts — L
   - Ticket: `CORE-IAM-008` — depends: T1, T4, T5, T6, T7 — ref: design §2, §4–7.
   - DoD: four administrative paths in design §2 mounted through operation interfaces; environment bootstrap/origin/CSRF configuration is validated without logging secrets. Strict request/envelope/EN-ID errors, login origin/rate bounds, cookies, CSRF, no-store, logout commit behavior and wrong-role denial tested. Update OpenAPI, `docs/api/identity-access.md`, changelog, codes and translations together. No global auth added to Task/voice/health; lifecycle deadlines preserved.
 
@@ -120,3 +120,4 @@ T10 + T11 + Q5 → T15
 | v1.5 | 2026-11-01 | Mark T5 Done for Argon2id, kind-scoped token digests and session-bound CSRF; T6–T15 remain Todo |
 | v1.6 | 2026-11-01 | Mark T6 Done for administrative bootstrap, HR provision and session operations; T7–T15 remain Todo |
 | v1.7 | 2026-11-01 | Mark T7 Done for real ACP authority adapter, stable SubjectID and current HR recheck; T8–T15 remain Todo |
+| v1.8 | 2026-11-01 | Mark T8 Done for administrative HTTP, bootstrap configuration and published access contracts; T9–T15 remain Todo |

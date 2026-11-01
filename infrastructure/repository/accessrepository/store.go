@@ -17,6 +17,12 @@ type Store struct{ DB *gorm.DB }
 // accountTx holds the serialized uniqueness transaction for bootstrap and HR provision.
 type accountTx struct{ tx *gorm.DB }
 
+// loginTx holds the locked-account login transaction used to recheck eligibility before insert.
+type loginTx struct {
+	tx        *gorm.DB
+	accountID string
+}
+
 // classifyUnique maps a PostgreSQL unique-violation onto a classified access conflict.
 func classifyUnique(err error, conflict error) error {
 	var pgErr *pgconn.PgError
@@ -32,6 +38,43 @@ func notFoundOrError(err error) error {
 		return accessport.ErrNotFound
 	}
 	return err
+}
+
+// WithinLogin locks the account row, runs the callback, and classifies a post-callback commit failure as uncertain.
+func (s Store) WithinLogin(ctx context.Context, accountID string, fn func(accessport.LoginTx) error) error {
+	var committedCallback bool
+	err := s.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Exec("SELECT id FROM administrative_accounts WHERE id = ? FOR UPDATE", accountID).Error; err != nil {
+			return err
+		}
+		if err := fn(loginTx{tx: tx, accountID: accountID}); err != nil {
+			return err
+		}
+		committedCallback = true
+		return nil
+	})
+	if err != nil && committedCallback {
+		return &accessport.CommitUncertainError{Cause: err}
+	}
+	return err
+}
+
+// Account restores the locked account for eligibility and stored-hash recheck.
+func (t loginTx) Account(ctx context.Context) (accessport.AccountRecord, error) {
+	var model AccountModel
+	if err := t.tx.WithContext(ctx).Where("id = ?", t.accountID).Take(&model).Error; err != nil {
+		return accessport.AccountRecord{}, notFoundOrError(err)
+	}
+	return toAccount(model)
+}
+
+// InsertSession stores the session in the open transaction or classifies a duplicate digest.
+func (t loginTx) InsertSession(ctx context.Context, record accessport.SessionRecord) error {
+	model := fromSession(record)
+	if err := t.tx.WithContext(ctx).Create(&model).Error; err != nil {
+		return classifyUnique(err, accessport.TokenConflictError{})
+	}
+	return nil
 }
 
 // WithinAccounts serializes account writes with an exclusive table lock and rolls back on callback failure.

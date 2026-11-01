@@ -55,7 +55,7 @@ func (u Login) Execute(ctx context.Context, email, password string) (*dto.Admini
 		return nil, service.ErrAuthenticationFailed
 	}
 	now := trustedNow(u.Clock)
-	_, digest, err := u.Tokens.Issue(ctx, service.CredentialAdministrative)
+	plaintext, digest, err := u.Tokens.Issue(ctx, service.CredentialAdministrative)
 	if err != nil {
 		return nil, err
 	}
@@ -88,7 +88,8 @@ func (u Login) Execute(ctx context.Context, email, password string) (*dto.Admini
 		return nil, err
 	}
 	return &dto.AdministrativeLogin{
-		Account: dto.FromAdministrativeAccount(locked),
-		Session: dto.FromAdministrativeSession(record),
+		Account:      dto.FromAdministrativeAccount(locked),
+		Session:      dto.FromAdministrativeSession(record),
+		SessionToken: plaintext,
 	}, nil
 }

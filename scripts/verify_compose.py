@@ -12,6 +12,11 @@ root = str(Path(__file__).resolve().parents[1])
 env = os.environ.copy()
 secret = secrets.token_hex(20)
 env.update(POSTGRES_PASSWORD=secret, RABBITMQ_PASSWORD=secrets.token_hex(20),
+           ACCESS_BOOTSTRAP_ADMIN_NAME="Compose Admin",
+           ACCESS_BOOTSTRAP_ADMIN_EMAIL="compose-admin@example.com",
+           ACCESS_BOOTSTRAP_ADMIN_PASSWORD="correct-horse",
+           ACCESS_HTTP_ORIGIN="http://localhost:8080",
+           ACCESS_CSRF_SECRET=secrets.token_hex(16),
            POSTGRES_PORT="0", HTTP_PORT="0", REDIS_PORT="0", RABBITMQ_PORT="0",
            RABBITMQ_MANAGEMENT_PORT="0")
 project = "amer-prototype-check-" + secrets.token_hex(3)

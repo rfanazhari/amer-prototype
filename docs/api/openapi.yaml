@@ -2,8 +2,8 @@
   "openapi": "3.0.3",
   "info": {
     "title": "amer-prototype Task API",
-    "version": "0.2.0",
-    "description": "Task reference feature and voice session setup. All active responses use the standard JSON envelope. Unknown routes return 404; unsupported methods return 405. No authentication. Request bodies are limited to 1 MiB. System-owned timestamps, IDs and status are rejected as request fields. Completion events are volatile and process-local. POST /voice-sessions exchanges one WebRTC offer for a provider SDP answer."
+    "version": "0.3.0",
+    "description": "Task reference feature, voice session setup, and administrative identity/access. All active responses use the standard JSON envelope. Unknown routes return 404; unsupported methods return 405. Task, voice, and health remain unauthenticated. Request bodies are limited to 1 MiB. System-owned timestamps, IDs and status are rejected as request fields. Completion events are volatile and process-local. POST /voice-sessions exchanges one WebRTC offer for a provider SDP answer. Administrative routes use origin, cookies, and CSRF as documented in identity-access.md."
   },
   "servers": [
     {
@@ -520,6 +520,235 @@
         }
       }
     },
+    "/admin/sessions": {
+      "post": {
+        "operationId": "createAdministrativeSession",
+        "summary": "Log in an ADMIN or HR account and set the administrative session cookie after commit.",
+        "security": [],
+        "parameters": [
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": { "type": "string", "example": "id" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/AdministrativeLoginRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Committed session metadata. Cookie is the credential.",
+            "headers": {
+              "Set-Cookie": { "schema": { "type": "string" } },
+              "Cache-Control": { "schema": { "type": "string", "example": "no-store" } }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AdministrativeLoginEnvelope" }
+              }
+            }
+          },
+          "400": {
+            "description": "INVALID_INPUT.",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } }
+          },
+          "401": {
+            "description": "IA_UNAUTHENTICATED.",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } }
+          },
+          "405": {
+            "description": "METHOD_NOT_ALLOWED.",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } }
+          },
+          "429": {
+            "description": "IA_RATE_LIMITED.",
+            "headers": {
+              "Retry-After": { "schema": { "type": "string" } }
+            },
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } }
+          },
+          "503": {
+            "description": "IA_DEPENDENCY_UNAVAILABLE or SHUTTING_DOWN.",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } }
+          }
+        }
+      }
+    },
+    "/admin/session": {
+      "get": {
+        "operationId": "getAdministrativeSession",
+        "summary": "Return the current administrative account, session expiry, and CSRF material.",
+        "security": [ { "AdminCookie": [] } ],
+        "parameters": [
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": { "type": "string", "example": "id" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current session view.",
+            "headers": {
+              "Cache-Control": { "schema": { "type": "string", "example": "no-store" } }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AdministrativeCurrentEnvelope" }
+              }
+            }
+          },
+          "400": {
+            "description": "INVALID_INPUT.",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } }
+          },
+          "401": {
+            "description": "IA_UNAUTHENTICATED.",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } }
+          },
+          "405": {
+            "description": "METHOD_NOT_ALLOWED.",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } }
+          }
+        }
+      }
+    },
+    "/admin/sessions/current": {
+      "delete": {
+        "operationId": "deleteCurrentAdministrativeSession",
+        "summary": "Revoke the current administrative session then clear the cookie.",
+        "security": [ { "AdminCookie": [] } ],
+        "parameters": [
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": { "type": "string", "example": "id" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Revocation persisted; cookie cleared.",
+            "headers": {
+              "Set-Cookie": { "schema": { "type": "string" } },
+              "Cache-Control": { "schema": { "type": "string", "example": "no-store" } }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/EmptySuccessEnvelope" }
+              }
+            }
+          },
+          "401": {
+            "description": "IA_UNAUTHENTICATED.",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } }
+          },
+          "403": {
+            "description": "IA_FORBIDDEN.",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } }
+          },
+          "503": {
+            "description": "IA_DEPENDENCY_UNAVAILABLE.",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } }
+          }
+        }
+      }
+    },
+    "/admin/hr-accounts": {
+      "post": {
+        "operationId": "createHRAccount",
+        "summary": "Create an HR account. Role is fixed by the operation, not caller input.",
+        "security": [ { "AdminCookie": [] } ],
+        "parameters": [
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": { "type": "string", "example": "id" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/HRAccountRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created HR identity without password material.",
+            "headers": {
+              "Cache-Control": { "schema": { "type": "string", "example": "no-store" } }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/HRAccountEnvelope" }
+              }
+            }
+          },
+          "400": {
+            "description": "INVALID_INPUT.",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } }
+          },
+          "401": {
+            "description": "IA_UNAUTHENTICATED.",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } }
+          },
+          "403": {
+            "description": "IA_FORBIDDEN.",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } }
+          },
+          "409": {
+            "description": "IA_ACCOUNT_CONFLICT.",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } }
+          }
+        }
+      }
+    },
     "/health": {
       "get": {
         "operationId": "health",
@@ -668,6 +897,14 @@
     }
   },
   "components": {
+    "securitySchemes": {
+      "AdminCookie": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "ia-admin",
+        "description": "HttpOnly administrative session cookie. HTTPS deployments use __Host-ia-admin."
+      }
+    },
     "schemas": {
       "Task": {
         "type": "object",
@@ -841,7 +1078,13 @@
                   "EVENT_UNAVAILABLE",
                   "INTERNAL_ERROR",
                   "SHUTTING_DOWN",
-                  "SESSION_UNAVAILABLE"
+                  "SESSION_UNAVAILABLE",
+                  "IA_UNAUTHENTICATED",
+                  "IA_FORBIDDEN",
+                  "IA_ACCOUNT_CONFLICT",
+                  "IA_INVITATION_UNAVAILABLE",
+                  "IA_RATE_LIMITED",
+                  "IA_DEPENDENCY_UNAVAILABLE"
                 ]
               },
               "message": {
@@ -896,6 +1139,115 @@
           "data": {
             "$ref": "#/components/schemas/VoiceSessionAnswer"
           }
+        }
+      },
+      "AdministrativeLoginRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["email", "password"],
+        "properties": {
+          "email": { "type": "string" },
+          "password": { "type": "string" }
+        }
+      },
+      "AdministrativeAccount": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "name", "email", "role"],
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "email": { "type": "string" },
+          "role": { "type": "string", "enum": ["ADMIN", "HR"] },
+          "status": { "type": "string", "enum": ["ACTIVE", "DISABLED"] }
+        }
+      },
+      "AdministrativeSession": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "expiresAt"],
+        "properties": {
+          "id": { "type": "string" },
+          "expiresAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "AdministrativeLoginData": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["account", "session"],
+        "properties": {
+          "account": { "$ref": "#/components/schemas/AdministrativeAccount" },
+          "session": { "$ref": "#/components/schemas/AdministrativeSession" }
+        }
+      },
+      "AdministrativeLoginEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["status", "data"],
+        "properties": {
+          "status": { "type": "string", "enum": ["success"] },
+          "data": { "$ref": "#/components/schemas/AdministrativeLoginData" }
+        }
+      },
+      "AdministrativeCurrentData": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["account", "session", "csrfToken"],
+        "properties": {
+          "account": { "$ref": "#/components/schemas/AdministrativeAccount" },
+          "session": { "$ref": "#/components/schemas/AdministrativeSession" },
+          "csrfToken": { "type": "string" }
+        }
+      },
+      "AdministrativeCurrentEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["status", "data"],
+        "properties": {
+          "status": { "type": "string", "enum": ["success"] },
+          "data": { "$ref": "#/components/schemas/AdministrativeCurrentData" }
+        }
+      },
+      "HRAccountRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "email", "password"],
+        "properties": {
+          "name": { "type": "string" },
+          "email": { "type": "string" },
+          "password": { "type": "string" }
+        }
+      },
+      "HRAccount": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "name", "email", "role", "status", "createdAt", "updatedAt"],
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "email": { "type": "string" },
+          "role": { "type": "string", "enum": ["HR"] },
+          "status": { "type": "string", "enum": ["ACTIVE"] },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "updatedAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "HRAccountEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["status", "data"],
+        "properties": {
+          "status": { "type": "string", "enum": ["success"] },
+          "data": { "$ref": "#/components/schemas/HRAccount" }
+        }
+      },
+      "EmptySuccessEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["status", "data"],
+        "properties": {
+          "status": { "type": "string", "enum": ["success"] },
+          "data": { "type": "object", "additionalProperties": false, "maxProperties": 0 }
         }
       }
     }

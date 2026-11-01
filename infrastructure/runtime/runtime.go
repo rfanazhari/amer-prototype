@@ -50,6 +50,9 @@ func Run(ctx context.Context, cfg Config, logs *logmanager.Application) (result 
 	if err := ctx.Err(); err != nil {
 		return err
 	}
+	if err := ValidateAccessSettings(cfg); err != nil {
+		return err
+	}
 	var shutdownAt time.Time
 	beginShutdown := func() {
 		if !shutdownAt.IsZero() {
@@ -91,9 +94,12 @@ func Run(ctx context.Context, cfg Config, logs *logmanager.Application) (result 
 	if err = startupCtx.Err(); err != nil {
 		return errors.Join(err, listener.Close())
 	}
+	if err = bootstrapAccess(startupCtx, db, cfg); err != nil {
+		return fmt.Errorf("access bootstrap: %w", err)
+	}
 	taskHandler, queue := assembleTask(db, logs, cfg.TaskCompleted)
 	page, setup := assembleVoice(cfg, logs)
-	handler := Router{Page: page, Setup: setup, Task: taskHandler}
+	handler := Router{Page: page, Setup: setup, Task: taskHandler, Access: assembleAccess(db, cfg, logs)}
 	transport := HTTPServer(handler, logs)
 	defer transport.cancel()
 	queue.Start()

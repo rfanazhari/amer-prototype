@@ -21,3 +21,21 @@ other = "layanan sedang dihentikan"
 
 [SESSION_UNAVAILABLE]
 other = "sesi suara tidak tersedia"
+
+[IA_UNAUTHENTICATED]
+other = "autentikasi administratif gagal"
+
+[IA_FORBIDDEN]
+other = "operasi administratif dilarang"
+
+[IA_ACCOUNT_CONFLICT]
+other = "akun administratif sudah ada"
+
+[IA_INVITATION_UNAVAILABLE]
+other = "undangan tidak lagi tersedia"
+
+[IA_RATE_LIMITED]
+other = "terlalu banyak percobaan autentikasi"
+
+[IA_DEPENDENCY_UNAVAILABLE]
+other = "ketergantungan akses tidak tersedia"

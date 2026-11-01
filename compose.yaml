@@ -27,6 +27,23 @@ services:
       - no-new-privileges:true
     cap_drop:
       - ALL
+  migrate:
+    image: "${APP_IMAGE:-amer-prototype:local}"
+    build: .
+    profiles: [migration]
+    entrypoint: [/migrate]
+    command: [up]
+    environment:
+      MIGRATION_DATABASE_URL: "postgres://amer:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@database:5432/amer_prototype?sslmode=disable"
+      MIGRATION_VERSION: "${MIGRATION_VERSION:-}"
+    depends_on:
+      database:
+        condition: service_healthy
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
   database:
     image: postgres:17
     environment:

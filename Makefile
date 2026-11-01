@@ -37,7 +37,10 @@ docker.config:
 	docker compose config --quiet
 
 docker.up:
-	docker compose up --build -d
+	docker compose build app
+	docker compose up -d --wait database
+	@schema_status="$$(docker compose run --rm --no-deps migrate status)" && test "$$schema_status" = 'version=2 dirty=false' || (echo 'Prepare schema first: make docker.migrate MIGRATION_VERSION=2 (existing volumes: see database-migrations runbook)' >&2; exit 1)
+	docker compose up -d
 
 docker.down:
 	docker compose --profile redis --profile rabbitmq down
@@ -80,3 +83,8 @@ migrate.down:
 	@test "$(MIGRATION_DISPOSABLE)" = yes || (echo 'MIGRATION_DISPOSABLE=yes required' >&2; exit 1)
 	@test -n "$(MIGRATION_STEPS)" || (echo 'MIGRATION_STEPS is required' >&2; exit 1)
 	@MIGRATION_STEPS="$(MIGRATION_STEPS)" MIGRATION_DISPOSABLE=yes go run ./cmd/migrate down
+
+.PHONY: docker.migrate
+docker.migrate:
+	@test -n "$(MIGRATION_VERSION)" || (echo 'MIGRATION_VERSION is required' >&2; exit 1)
+	@MIGRATION_VERSION="$(MIGRATION_VERSION)" docker compose --profile migration run --build --rm migrate

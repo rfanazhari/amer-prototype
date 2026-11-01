@@ -85,7 +85,7 @@ func (r Runner) Execute(ctx context.Context, o Options) (version int, dirty bool
 	if err != nil {
 		return v, dirty, err
 	}
-	if dirty || v > 2 {
+	if dirty || v > 2 || v == 0 || v < -1 {
 		return v, dirty, errors.New("dirty or unsupported version")
 	}
 	if o.Action == "up" {

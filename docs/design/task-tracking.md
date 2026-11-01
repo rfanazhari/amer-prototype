@@ -4,7 +4,7 @@ Ticket: unassigned; no authoritative issue ID was supplied. Requirements: [requi
 
 ## Scope and accepted selections
 
-Task tracking only; interview, voice and transcript features remain outside scope. HTTP, PostgreSQL/GORM and an internal queue are required. Manual versioned SQL migrations supersede the original AutoMigrate selection under identity-access D8. T16–T17 capture baseline and tooling; T18 replaces transitional startup/test AutoMigrate. Redis and RabbitMQ are optional local Compose profiles; Task does not connect to them. No runtime memory fallback, authentication, RPC or bootstrap is selected.
+Task tracking only; interview, voice and transcript features remain outside scope. HTTP, PostgreSQL/GORM and an internal queue are required. Manual versioned SQL migrations supersede the original AutoMigrate selection under identity-access D8. T16–T17 capture baseline and tooling; T18 replaces startup/test AutoMigrate with explicit SQL preparation and a read-only clean-version-2 guard. See [migration operations](database-migrations.md). Redis and RabbitMQ are optional local Compose profiles; Task does not connect to them. No runtime memory fallback, authentication, RPC or bootstrap is selected.
 
 The [OpenAPI specification](../api/openapi.yaml), [API changelog](../api/CHANGELOG.md) and [business rules](../services/amer-prototype/business/README.md) own transport and business details. English/Indonesian errors use authoritative embedded TOML catalogs under `translations/`; stable codes live in `pkg/errs`.
 
@@ -33,7 +33,7 @@ Time is injected through an application port. Trusted operation/observation inst
 
 ## Runtime ownership and lifecycle
 
-Resource setup, feature assembly, HTTP setup, shutdown policy and coordinator have separate files under `infrastructure/runtime`. `cmd/app` loads configuration, initializes masked JSON logging, handles signals and enforces terminal process policy. A ten-second startup context covers connectivity, AutoMigrate and listener binding. Every acquired pool has cleanup on later failure/cancellation. The feature graph has no optional dependencies or fallback branches.
+Resource setup, feature assembly, HTTP setup, shutdown policy and coordinator have separate files under `infrastructure/runtime`. `cmd/app` loads configuration, initializes masked JSON logging, handles signals and enforces terminal process policy. A ten-second startup context covers connectivity, read-only migration compatibility and listener binding. Every acquired pool has cleanup on later failure/cancellation. The feature graph has no optional dependencies or fallback branches.
 
 The database pool uses pgx stdlib's AfterConnect hook to track physical connection cleanup channels. `databaseResources.close` closes the SQL pool and waits for driver CleanupDone; this matters because pgx can close cancelled-query connections asynchronously. A cleanup deadline is reported as failure; supported socket closure is attempted without claiming that driver goroutines have terminated. The executable watchdog provides the final process limit.
 

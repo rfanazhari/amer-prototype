@@ -137,3 +137,7 @@ T17/T18 add the proposed `make migrate.status`, `make migrate.up MIGRATION_VERSI
 | v1 | 2026-11-01 | Original Mode A strategy; administrative implementation preceded candidate integration |
 | v1.1 | 2026-11-01 | Mode C: align T1–T9 baseline, add shared manual-migration artifacts, legacy adoption, runner/runtime reconciliation, verification and recovery; owner policy D8 |
 | v1.2 | 2026-11-01 | Record T10 candidate/exchange/assignment contracts; T12 unblocked; T11 still waits T20 and Interview assignment migration |
+
+## T18–T20 execution handoff
+
+Runtime and integration setup now use the explicit migration foundation: clean version 2 is required before bootstrap/listening; no AutoMigrate caller or adapter installer remains. The separate Compose migration profile packages the pinned SQL and executable. See [operations](../../../design/database-migrations.md), [release checksums](../../../design/database-migration-checksums.sha256), and [execution evidence](t18-t20-evidence.md) for actual commands, results, recovery and compatible-image rollback rehearsal. The earlier planning tables describe intended ownership; this handoff records the implemented migration scope. No non-disposable cutover or candidate/ACP/Interview acceptance is implied.

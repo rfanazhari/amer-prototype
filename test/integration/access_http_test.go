@@ -69,11 +69,10 @@ type envelopeJSON struct {
 	} `json:"error"`
 }
 
-// newAccessHTTP migrates administrative tables and wires real adapters for HTTP proof.
+// newAccessHTTP checks the versioned schema and wires real adapters for HTTP proof.
 func newAccessHTTP(t *testing.T) accessHTTP {
 	t.Helper()
 	db := accessDB(t)
-	require.NoError(t, accessrepository.AutoMigrate(db))
 	clock := &shiftClock{at: time.Now().UTC().Truncate(time.Millisecond)}
 	store := accessrepository.Store{DB: db}
 	hasher := accesscredentials.Passwords{}

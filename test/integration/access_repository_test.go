@@ -31,6 +31,7 @@ func accessDB(t *testing.T) *gorm.DB {
 	pool, err := db.DB()
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, pool.Close()) })
+	prepareSchema(t, db)
 	return db
 }
 
@@ -46,8 +47,8 @@ func TestAdministrativeSchemaAndTransactionsProveTwoTableInstallation(t *testing
 		{
 			name: "exactly two administrative tables with constraints",
 			verify: func(t *testing.T, db *gorm.DB) {
-				require.NoError(t, db.AutoMigrate(&taskrepository.Model{}))
-				require.NoError(t, accessrepository.AutoMigrate(db))
+				migrateSchema(t, db)
+				migrateSchema(t, db)
 				var tables []string
 				require.NoError(t, db.Raw(`SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename LIKE 'administrative%'`).Scan(&tables).Error)
 				require.ElementsMatch(t, []string{"administrative_accounts", "administrative_sessions"}, tables)
@@ -65,7 +66,7 @@ func TestAdministrativeSchemaAndTransactionsProveTwoTableInstallation(t *testing
 		{
 			name: "bootstrap and provision uniqueness plus rollback",
 			verify: func(t *testing.T, db *gorm.DB) {
-				require.NoError(t, accessrepository.AutoMigrate(db))
+				prepareSchema(t, db)
 				store := accessrepository.Store{DB: db}
 				ctx := context.Background()
 				first := testdata.AdministrativeAccountRecord(t)
@@ -102,16 +103,16 @@ func TestAdministrativeSchemaAndTransactionsProveTwoTableInstallation(t *testing
 			},
 		},
 		{
-			name: "stored restoration copies revocation and survives remigrate with tasks",
+			name: "stored restoration copies revocation and survives migration rerun with tasks",
 			verify: func(t *testing.T, db *gorm.DB) {
-				require.NoError(t, db.AutoMigrate(&taskrepository.Model{}))
+				prepareSchema(t, db)
 				task := storedTask(t, taskrepository.Store{DB: db}, false)
 				sqlDB, err := db.DB()
 				require.NoError(t, err)
 				sqlDB.SetMaxOpenConns(10)
 				sqlDB.SetMaxIdleConns(5)
-				require.NoError(t, accessrepository.AutoMigrate(db))
-				require.NoError(t, accessrepository.AutoMigrate(db))
+				migrateSchema(t, db)
+				migrateSchema(t, db)
 				require.Equal(t, 10, sqlDB.Stats().MaxOpenConnections)
 				store := accessrepository.Store{DB: db}
 				ctx := context.Background()

@@ -36,7 +36,7 @@ func TestPartialStartupFailureClosesDatabase(t *testing.T) {
 	logs := logmanager.NewApplication(logmanager.WithAppName("lifecycle-test"))
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	err = appruntime.Run(ctx, appruntime.Config{DatabaseURL: databaseURL(t, label), Address: listener.Addr().String()}, logs)
+	err = appruntime.Run(ctx, lifecycleConfig(databaseURL(t, label), listener.Addr().String(), nil), logs)
 	require.ErrorContains(t, err, "listen")
 	require.Eventually(t, func() bool {
 		var count int64
@@ -45,20 +45,20 @@ func TestPartialStartupFailureClosesDatabase(t *testing.T) {
 	}, time.Second, 10*time.Millisecond)
 }
 
-// TestCancellationDuringMigrationClosesAcquisitions checks cancellation during a blocked schema operation and absence of remaining labeled sessions.
-func TestCancellationDuringMigrationClosesAcquisitions(t *testing.T) {
+// TestCancellationDuringSchemaCheckClosesAcquisitions checks cancellation during a blocked read-only schema check and absence of remaining labeled sessions.
+func TestCancellationDuringSchemaCheckClosesAcquisitions(t *testing.T) {
 	repository := store(t)
 	lock := repository.DB.Begin()
 	require.NoError(t, lock.Error)
 	defer func() { require.NoError(t, lock.Rollback().Error) }()
-	require.NoError(t, lock.Exec("LOCK TABLE tasks IN ACCESS EXCLUSIVE MODE").Error)
+	require.NoError(t, lock.Exec("LOCK TABLE schema_migrations IN ACCESS EXCLUSIVE MODE").Error)
 	label := "amer_test_" + uuid.NewString()
 	logs := logmanager.NewApplication(logmanager.WithAppName("lifecycle-test"))
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	ready := make(chan net.Addr, 1)
 	result := make(chan error, 1)
-	cfg := appruntime.Config{DatabaseURL: databaseURL(t, label), Address: "127.0.0.1:0", Ready: ready}
+	cfg := lifecycleConfig(databaseURL(t, label), "127.0.0.1:0", ready)
 	go func() { result <- appruntime.Run(ctx, cfg, logs) }()
 	deadline := time.NewTimer(3 * time.Second)
 	defer deadline.Stop()
@@ -68,7 +68,7 @@ func TestCancellationDuringMigrationClosesAcquisitions(t *testing.T) {
 	for !waiting {
 		select {
 		case <-deadline.C:
-			t.Fatal("startup did not reach locked migration")
+			t.Fatal("startup did not reach locked schema check")
 		case <-poll.C:
 			var count int64
 			require.NoError(t, repository.DB.Raw("SELECT count(*) FROM pg_stat_activity WHERE application_name = ? AND wait_event_type = 'Lock'", label).Scan(&count).Error)
@@ -106,7 +106,7 @@ func TestShutdownCancelsActiveDatabaseRequest(t *testing.T) {
 	ready := make(chan net.Addr, 1)
 	result := make(chan error, 1)
 	go func() {
-		result <- appruntime.Run(ctx, appruntime.Config{DatabaseURL: databaseURL(t, label), Address: "127.0.0.1:0", Ready: ready}, logs)
+		result <- appruntime.Run(ctx, lifecycleConfig(databaseURL(t, label), "127.0.0.1:0", ready), logs)
 	}()
 	var addr net.Addr
 	select {
@@ -159,4 +159,13 @@ func TestShutdownCancelsActiveDatabaseRequest(t *testing.T) {
 		err := repository.DB.Raw("SELECT count(*) FROM pg_stat_activity WHERE application_name = ?", label).Scan(&count).Error
 		return err == nil && count == 0
 	}, time.Second, 10*time.Millisecond)
+}
+
+// lifecycleConfig retains real administrative bootstrap settings for runtime lifecycle tests.
+func lifecycleConfig(url, address string, ready chan<- net.Addr) appruntime.Config {
+	return appruntime.Config{
+		DatabaseURL: url, Address: address, Ready: ready,
+		AccessBootstrapAdminName: "Lifecycle Admin", AccessBootstrapAdminEmail: "lifecycle@example.com",
+		AccessBootstrapAdminPassword: accessPass, AccessHTTPOrigin: accessOrigin, AccessCSRFSecret: accessSecret,
+	}
 }

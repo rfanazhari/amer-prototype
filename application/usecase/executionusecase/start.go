@@ -3,7 +3,6 @@ package executionusecase
 import (
 	"context"
 	"errors"
-	"time"
 
 	"github.com/rfanazhari/amer-prototype/application/dto"
 	"github.com/rfanazhari/amer-prototype/application/repository/executionport"
@@ -70,7 +69,7 @@ func (u Start) admitLocked(ctx context.Context, input StartInput, row executionp
 	now := trustedNow(u.Clock)
 	if row.AccessRevokedAt != nil {
 		if found {
-			if err := u.cancelNonterminal(ctx, existing, input.ActorRef, now); err != nil {
+			if err := cancelNonterminal(ctx, u.Executions, existing, accessRevokedReason, input.ActorRef, now); err != nil {
 				return nil, false, err
 			}
 		}
@@ -102,23 +101,4 @@ func (u Start) admitLocked(ctx context.Context, input StartInput, row executionp
 		return nil, false, err
 	}
 	return dto.NewExecutionView(snap, input.AssignmentID), false, nil
-}
-
-// cancelNonterminal cancels a CREATED or RUNNING execution in the open transaction and leaves a terminal one alone.
-func (u Start) cancelNonterminal(ctx context.Context, existing execution.Snapshot, actorRef string, now time.Time) error {
-	if existing.State != execution.StateCreated && existing.State != execution.StateRunning {
-		return nil
-	}
-	return u.Executions.Update(ctx, existing.ID, func(snap *execution.Snapshot) (*execution.TransitionFact, error) {
-		agg, err := execution.RestoreExecution(*snap)
-		if err != nil {
-			return nil, err
-		}
-		next, fact, err := agg.Cancel(accessRevokedReason, actorRef, now)
-		if err != nil {
-			return nil, err
-		}
-		*snap = next
-		return &fact, nil
-	})
 }

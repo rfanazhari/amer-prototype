@@ -36,11 +36,11 @@ Companion facts: [Identity and Access](../identity-access/technical-design.md) o
 
 ### Sequential foundation
 
-- [ ] **T1. Model execution identity, binding, and transitions** — Domain — M
+- [x] **T1. Model execution identity, binding, and transitions** — Domain — M
   - Ticket: `CORE-EXL-001` — depends: none — ref: design §3, §4, §6 path contracts; decision-log D2, D3, D4, D5.
   - DoD: `domain/aggregate/execution` exposes public behavior for a new `CREATED` execution, restoration of a stored `CREATED` row, the legal edges among the five states, and rejection of `WAITING_INPUT`, `ACTIVATING`, and `RECOVERING` as states. Terminal executions reject activate, progress, complete, fail, and a different cancel. `Complete` fails when no progress reference is supplied. Binding equality ignores any newer revision. A lower attempt generation and a deadline equal to trusted now are rejected. Snapshots copy time pointers. The aggregate has no assignment, stage, invoice, transcript, or salary field. Domain imports stay inside the architecture allowlist. Every new declaration is commented. `make test` and `make test.architecture` pass. No migration and no HTTP.
 
-- [ ] **T2. Define sibling-facing operations and ports** — Application — M
+- [x] **T2. Define sibling-facing operations and ports** — Application — M
   - Ticket: `CORE-EXL-002` — depends: none — ref: design §2, §4, §6, §7.
   - DoD: operation interfaces exist for `Start`, `Admit`, `Activate`, `RecordAttempt`, `CommitProgress`, `Complete`, `Fail`, `Cancel`, and `CancelNonterminal`, plus query interfaces for `Find` and `FindByAssignment`. Reporting's allowed dependency is the query package only. Ports express the assignment-first transaction, the execution lock, progress commitment, and classified errors without GORM or provider types. `.mockery.yml` registers the interfaces and `make mocks` regenerates `test/mocks/` with generator-owned comments. `make test.architecture` passes. No implementation of the rules beyond the signatures is claimed.
 
@@ -48,11 +48,11 @@ T1 and T2 may proceed in parallel. They are not a request to run two agents.
 
 ### Schema and persistence
 
-- [ ] **T3. Add migration 000008 and raise the clean schema floor to 8** — Infrastructure/operations — L
+- [x] **T3. Add migration 000008 and raise the clean schema floor to 8** — Infrastructure/operations — L
   - Ticket: `CORE-EXL-003` — depends: T1 — ref: design §3 migration artifacts and seed assessment; decision-log D1, D6.
   - DoD: `migrations/pgsql/000008_execution_lifecycle.up.sql` and `.down.sql` match design §3. Pin files `000007` are not edited. The up creates the five shared tables, backfills `CREATED` from existing pins, then adds `interview_executions_id_fkey`. The down drops that foreign key and the five new tables and does not drop `interview_executions`. No seed rows. `schema.ReleaseVersion` becomes 8. `ownedPublicTables`, `RuntimeGrantTables`, `infrastructure/database/schema/checksums.json`, and `docs/design/database-migration-checksums.sha256` include the new files and tables. The version-7 wording in `compatible.go`, `Makefile` `docker.up`, `scripts/verify_compose.py`, `README.md`, and `docs/design/database-migrations.md` now requires clean version 8. Startup still has no DDL and no `AutoMigrate`. A disposable database proves fresh up to 8, upgrade from a version-7 database that already contains a pin row, backfill shape, rerun no-op, and disposable down/up. `make test.architecture` passes. Record whether `TEST_MIGRATION_DATABASE_URL` was set; a skip is not a pass.
 
-- [ ] **T4. Implement the GORM execution store** — Infrastructure — L
+- [x] **T4. Implement the GORM execution store** — Infrastructure — L
   - Ticket: `CORE-EXL-004` — depends: T1, T2, T3 — ref: design §3 adapter and transactions, §5.
   - DoD: models are separate from the aggregate and the DTO. Inserts and updates use GORM. Updates list columns explicitly and omit `instance_id` and `published_revision_id`. Null progress and terminal times follow the map, not struct omission. There is no soft delete and no association preload. `WithAssignment` runs the verified assignment lock statement before any execution lock. `Update` locks the execution and does not lock the assignment. Interview insert writes `agent_executions` before the pin. sqlmock covers that order and a zero-row terminal update. PostgreSQL, through `make test.integration` or `make test.docker`, covers rollback of a failed callback, the unique assignment pin, and a backfilled row round-trip. Declaration comments exist. `make test` and `make lint` pass for the packages touched, and the database command's result is recorded. If the database command is skipped, say so and do not call the lock proof done.
 
@@ -62,7 +62,7 @@ T1 and T2 may proceed in parallel. They are not a request to run two agents.
   - Ticket: `CORE-EXL-005` — depends: T1, T2 — ref: design §5 interview start, §6, §7; decision-log D1, D2, D5.
   - DoD: mocked tests show one `CREATED` execution, no provider call, revision copied from the assignment rather than the active pointer, same key returns the same id, a different fingerprint returns `EXL_IDEMPOTENCY_CONFLICT` without a second row, a second key for the same assignment returns the original, a revoked assignment inserts nothing, a missing assignment is `EXL_NOT_FOUND`, and a malformed key is `INVALID_INPUT` before the lock. `Find` and `FindByAssignment` do not insert. `Admit` commits `CREATED` without an assignment port. Ambiguous commit returns `EXL_UNCERTAIN_COMMIT` and no new id. Error codes and both translation files contain the catalog from design §6. `make test` passes. Mocks are not cited as SQL proof.
 
-- [ ] **T6. Implement activation, fencing, and terminal commits** — Application — L
+- [x] **T6. Implement activation, fencing, and terminal commits** — Application — L
   - Ticket: `CORE-EXL-006` — depends: T1, T2, T5 — ref: design §3 transitions, §5 activation and cancellation race, §6; decision-log D3, D4.
   - DoD: mocked tests show `Activate` moves the same execution to `RUNNING`, a failed activation attempt leaves `CREATED`, and no test uses disconnect as a cancel. `CommitProgress` while `RUNNING` does not complete. `Complete` commits only when the progress port returns true and then stores that reference. There is no provider-success parameter. Stale version and stale generation write nothing. A deadline equal to now is stale. The same terminal command returns the first outcome. A different terminal command returns `EXL_TERMINAL_CONFLICT`. `Fail` from `CREATED` and from `RUNNING` is allowed once. Repeated complete after success does not change the binding. `make test` passes.
 

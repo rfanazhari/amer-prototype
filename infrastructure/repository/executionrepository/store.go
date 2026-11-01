@@ -207,3 +207,11 @@ func (s Store) WithTransaction(ctx context.Context, fn func(ctx context.Context)
 		return fn(context.WithValue(ctx, txKey{}, tx))
 	})
 }
+
+// FindOrInsert is not yet backed by agent_execution_commands.
+func (s Store) FindOrInsert(_ context.Context, _, _, _, _, _ string) (string, error) {
+	return "", errCommandStoreUnavailable
+}
+
+// errCommandStoreUnavailable reports that the command store has no PostgreSQL behavior yet.
+var errCommandStoreUnavailable = errors.New("execution command store is not implemented")

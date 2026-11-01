@@ -41,6 +41,9 @@ func newExecutionFixture(t *testing.T) executionFixture {
 	require.NoError(t, db.Exec(`INSERT INTO interview_assignments (id, candidate_id, instance_id, published_revision_id) VALUES (?, ?, ?, ?)`,
 		assignmentID, candidateID, instanceID, revisionID).Error)
 	t.Cleanup(func() {
+		for _, table := range []string{"agent_execution_commands", "agent_execution_operations", "agent_execution_attempts"} {
+			require.NoError(t, db.Exec(`DELETE FROM `+table+` WHERE execution_id IN (SELECT id FROM agent_executions WHERE instance_id = ?)`, instanceID).Error)
+		}
 		require.NoError(t, db.Exec(`DELETE FROM agent_execution_transitions WHERE execution_id IN (SELECT id FROM agent_executions WHERE instance_id = ?)`, instanceID).Error)
 		require.NoError(t, db.Exec(`DELETE FROM interview_executions WHERE assignment_id = ?`, assignmentID).Error)
 		require.NoError(t, db.Exec(`DELETE FROM agent_executions WHERE instance_id = ?`, instanceID).Error)

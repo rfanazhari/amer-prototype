@@ -23,8 +23,21 @@ type PublishedRevision[C Configuration[C]] struct{ state RevisionSnapshot[C] }
 
 // RestoreRevision restores structural provenance, without current creation policy.
 func RestoreRevision[C Configuration[C]](s RevisionSnapshot[C]) (PublishedRevision[C], error) {
-	return PublishedRevision[C]{}, ErrInvalid
+	if !s.Identity.valid() || s.ValidationID == "" || s.CreatedAt.IsZero() {
+		return PublishedRevision[C]{}, ErrInvalid
+	}
+	s.Configuration = s.Configuration.Clone()
+	return PublishedRevision[C]{state: s}, nil
 }
 
 // Snapshot returns a deep copy of the immutable revision.
-func (r PublishedRevision[C]) Snapshot() RevisionSnapshot[C] { return RevisionSnapshot[C]{} }
+func (r PublishedRevision[C]) Snapshot() RevisionSnapshot[C] {
+	s := r.state
+	s.Configuration = s.Configuration.Clone()
+	return s
+}
+
+// valid checks owned revision identity independently of current template policy.
+func (r RevisionIdentity) valid() bool {
+	return r.ID != "" && r.InstanceID != "" && r.Number > 0 && r.DraftVersion.number > 0 && r.Template.valid()
+}

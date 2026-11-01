@@ -1,6 +1,6 @@
 # Task Plan: Agent Configuration and Publication
 
-Planning baseline: 2026-11-01, Mode A. T2 is implemented; all other implementation tasks remain Todo. No code was written or verified for this capability during document generation.
+Planning baseline: 2026-11-01, Mode A. T2 and T3 are implemented; all other implementation tasks remain Todo. No code was written or verified for this capability during document generation.
 
 ## Ticket Identity
 
@@ -27,9 +27,10 @@ Each task has a stable ticket ID in the form `CORE-ACP-NNN`, mapped to its exist
   - Evidence: application contracts and six Mockery-generated mocks; `TestCommitUncertainError` RED `39d7c05` then GREEN. See [T2 boundary assessment](t2-boundaries.md).
   - DoD: purpose-specific read/mutation/replay contracts describe rollback, ambiguous commit, trusted principal, and immutable reference behavior without ORM handles; authority cannot be supplied as a client role; interfaces are documented and generated mocks registered. Exact Q1-dependent DTO fields remain deferred, not guessed. This does not implement or declare real admin authentication complete.
 
-- [ ] **T3. Implement instance version and ownership mechanics** — Domain — M
+- [x] **T3. Implement instance version and ownership mechanics** — Domain — M
   - Ticket ID: `CORE-ACP-003`
   - depends: none — ref: design §3–4, §6.
+  - Evidence: public domain version/ownership/restoration tests; RED `2c5d335` then GREEN; architecture/declaration checks pass. See [T3 domain assessment](t3-domain.md).
   - DoD: public tests prove version changes, stale replacement rejection, validation version/ownership matching, active selection protection, immutable revision snapshots, separate restoration, and copied mutable values. Use minimal test configuration fixtures; production template field validation is T5. Architecture/declaration checks pass; no JSON/hashing or outward imports in domain.
 
 T2 and T3 are independent work streams, not instructions to spawn agents. Changes to their interface shape must be synchronized before integration.

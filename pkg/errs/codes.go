@@ -1,14 +1,20 @@
 package errs
 
 const (
-	InvalidInput       = "INVALID_INPUT"
-	NotFound           = "NOT_FOUND"
-	MethodNotAllowed   = "METHOD_NOT_ALLOWED"
-	InvalidTransition  = "INVALID_TRANSITION"
-	EventUnavailable   = "EVENT_UNAVAILABLE"
-	InternalError      = "INTERNAL_ERROR"
-	ShuttingDown       = "SHUTTING_DOWN"
-	SessionUnavailable = "SESSION_UNAVAILABLE"
+	InvalidInput            = "INVALID_INPUT"
+	NotFound                = "NOT_FOUND"
+	MethodNotAllowed        = "METHOD_NOT_ALLOWED"
+	InvalidTransition       = "INVALID_TRANSITION"
+	EventUnavailable        = "EVENT_UNAVAILABLE"
+	InternalError           = "INTERNAL_ERROR"
+	ShuttingDown            = "SHUTTING_DOWN"
+	SessionUnavailable      = "SESSION_UNAVAILABLE"
+	IAUnauthenticated       = "IA_UNAUTHENTICATED"
+	IAForbidden             = "IA_FORBIDDEN"
+	IAAccountConflict       = "IA_ACCOUNT_CONFLICT"
+	IAInvitationUnavailable = "IA_INVITATION_UNAVAILABLE"
+	IARateLimited           = "IA_RATE_LIMITED"
+	IADependencyUnavailable = "IA_DEPENDENCY_UNAVAILABLE"
 )
 
 // Technical preserves diagnostic causes while preventing business error mapping.

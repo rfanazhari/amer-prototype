@@ -43,8 +43,9 @@ type AdministrativeSession struct {
 
 // AdministrativeLogin is the detached login result after a committed session insert.
 type AdministrativeLogin struct {
-	Account AdministrativeAccount
-	Session AdministrativeSession
+	Account      AdministrativeAccount
+	Session      AdministrativeSession
+	SessionToken string
 }
 
 // AdministrativeCurrentSession is the detached current-session view including CSRF material.

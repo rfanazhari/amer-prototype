@@ -11,7 +11,10 @@ import (
 
 // TestEveryErrorCodeHasBothTranslations checks locale coverage, lowercase messages and the default language for every public code.
 func TestEveryErrorCodeHasBothTranslations(t *testing.T) {
-	for _, code := range []string{errs.InvalidInput, errs.NotFound, errs.MethodNotAllowed, errs.InvalidTransition, errs.EventUnavailable, errs.InternalError, errs.ShuttingDown, errs.SessionUnavailable} {
+	for _, code := range []string{
+		errs.InvalidInput, errs.NotFound, errs.MethodNotAllowed, errs.InvalidTransition, errs.EventUnavailable, errs.InternalError, errs.ShuttingDown, errs.SessionUnavailable,
+		errs.IAUnauthenticated, errs.IAForbidden, errs.IAAccountConflict, errs.IAInvitationUnavailable, errs.IARateLimited, errs.IADependencyUnavailable,
+	} {
 		t.Run(code, func(t *testing.T) {
 			en := translations.Message("en", code)
 			id := translations.Message("id", code)

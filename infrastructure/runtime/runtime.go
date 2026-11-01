@@ -30,6 +30,16 @@ type Config struct {
 	OpenAIRealtimeVoice string
 	// OpenAIRealtimeURL selects the Realtime calls URL; empty uses the adapter default at composition.
 	OpenAIRealtimeURL string
+	// AccessBootstrapAdminName is the first ADMIN display name used only when no accounts exist.
+	AccessBootstrapAdminName string
+	// AccessBootstrapAdminEmail is the canonical first ADMIN email used only when no accounts exist.
+	AccessBootstrapAdminEmail string
+	// AccessBootstrapAdminPassword is the first ADMIN secret; it is never logged.
+	AccessBootstrapAdminPassword string
+	// AccessHTTPOrigin is the exact allowed Origin for administrative JSON requests.
+	AccessHTTPOrigin string
+	// AccessCSRFSecret is the HMAC key for administrative CSRF values; it is never logged.
+	AccessCSRFSecret string
 }
 
 // Run acquires required resources, assembles the Task feature and supervises HTTP and event processing. It joins runtime and cleanup errors; the executable must install WatchShutdown to enforce process termination.

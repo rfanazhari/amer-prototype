@@ -118,6 +118,7 @@ func TestLoginRechecksEligibilityBeforeSessionCommit(t *testing.T) {
 			assert.Equal(t, testdata.Now().Add(2*time.Hour), got.Session.ExpiresAt)
 			assert.NotEmpty(t, got.Session.ID)
 			assert.NotEqual(t, "plain-session-secret", got.Session.ID)
+			assert.Equal(t, "plain-session-secret", got.SessionToken)
 			assert.NotContains(t, got.Account.Name, testdata.PasswordHash)
 		})
 	}

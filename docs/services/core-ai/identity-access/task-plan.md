@@ -1,6 +1,6 @@
 # Task Plan: Identity and Access
 
-Mode A; planning date 2026-11-01. T1–T2 and T4 are Done (Q1 resolved). Remaining tasks are Todo. Candidate access runtime and T3 credential/assignment ports are not claimed.
+Mode A; planning date 2026-11-01. T1–T4 are Done (Q1 resolved). Remaining tasks are Todo. Candidate access runtime is not claimed.
 
 ## Legend
 
@@ -24,7 +24,7 @@ Mode A; planning date 2026-11-01. T1–T2 and T4 are Done (Q1 resolved). Remaini
   - Ticket: `CORE-IAM-002` — depends: none — ref: design §3–4 and rule ownership.
   - DoD: encapsulated account/session scope and lifetime primitives have public behavior tests for fixed roles/status, stable identity, exact expiry, revocation, creation vs restoration and pointer copying. Contact/password policy is not guessed; candidate/assignment-specific final construction is deferred to T12. Imports/documentation comply with architecture checks.
 
-- [ ] **T3. Define purpose-specific access ports and operation boundaries** — Application — M
+- [x] **T3. Define purpose-specific access ports and operation boundaries** — Application — M
   - Ticket: `CORE-IAM-003` — depends: none — ref: design §2–4.
   - DoD: application-owned transaction/read/credential/authority contracts express commit timing, current session/account binding, classified failures and assignment-first collaboration without GORM; preserve existing ACP authority shape. Register and generate mocks using `make mocks`; document all interface methods. Candidate integration port readiness is explicitly Q2-dependent.
 
@@ -116,3 +116,4 @@ T10 + T11 + Q5 → T15
 | v1.1 | 2026-11-01 | Mark T1 Done and record Q1 resolved in T1; T2–T15 remain Todo |
 | v1.2 | 2026-11-01 | Mark T2 Done for domain role, account and session lifetime invariants; T3–T15 remain Todo |
 | v1.3 | 2026-11-01 | Mark T4 Done for two administrative tables, uniqueness transactions and additive AutoMigrate; T3 and T5–T15 remain Todo |
+| v1.4 | 2026-11-01 | Mark T3 Done for purpose-specific access ports, classified failures and operation boundaries; T5–T15 remain Todo |

@@ -6,7 +6,7 @@ import (
 )
 
 // ErrAssignmentAccessNotReady reports that assignment-first collaboration waits on Interview Q2.
-var ErrAssignmentAccessNotReady = errors.New("pending")
+var ErrAssignmentAccessNotReady = errors.New("assignment access collaboration is not ready until interview Q2")
 
 // AssignmentFacts are the assignment-owned access facts required by invitation and session work.
 type AssignmentFacts struct {

@@ -8,7 +8,7 @@ type CommitUncertainError struct {
 }
 
 // Error returns a safe diagnostic without including the underlying storage error.
-func (e *CommitUncertainError) Error() string { return "pending" }
+func (e *CommitUncertainError) Error() string { return "access commit outcome uncertain" }
 
 // Unwrap preserves the technical cause for internal classification.
 func (e *CommitUncertainError) Unwrap() error { return e.Cause }

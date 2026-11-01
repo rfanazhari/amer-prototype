@@ -21,13 +21,13 @@ const (
 
 var (
 	// ErrAuthenticationFailed is the generic administrative proof failure.
-	ErrAuthenticationFailed = errors.New("pending")
+	ErrAuthenticationFailed = errors.New("administrative authentication failed")
 	// ErrMalformedCredential reports an unusable stored hash without allocating unbounded work.
-	ErrMalformedCredential = errors.New("pending")
+	ErrMalformedCredential = errors.New("stored credential is malformed")
 	// ErrCSRFMismatch reports a session-bound CSRF value that does not match.
-	ErrCSRFMismatch = errors.New("pending")
+	ErrCSRFMismatch = errors.New("csrf token does not match the current session")
 	// ErrSessionUnbound reports a missing, expired, revoked or account-mismatched session.
-	ErrSessionUnbound = errors.New("pending")
+	ErrSessionUnbound = errors.New("administrative session is not bound to a current account")
 )
 
 // PasswordHasher hashes and verifies administrative passwords outside persistence transactions.

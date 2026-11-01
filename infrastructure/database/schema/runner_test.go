@@ -34,7 +34,7 @@ func TestOptionsRefuseUnsafeOperations(t *testing.T) {
 	for _, tt := range []optionCase{
 		{name: "up requires target", options: schema.Options{Action: "up"}, wantErr: true},
 		{name: "up accepts configuration target", options: schema.Options{Action: "up", Version: 3}, wantErr: true, contains: "database required"},
-		{name: "up refuses unpublished target", options: schema.Options{Action: "up", Version: 4}, wantErr: true},
+		{name: "up refuses unpublished target", options: schema.Options{Action: "up", Version: schema.ReleaseVersion + 1}, wantErr: true},
 		{name: "down requires confirmation", options: schema.Options{Action: "down", Steps: 1}, wantErr: true},
 		{name: "no force", options: schema.Options{Action: "force", Version: 2}, wantErr: true},
 	} {

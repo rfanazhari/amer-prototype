@@ -60,8 +60,25 @@ func TestAgentConfigurationArtifacts(t *testing.T) {
 		},
 		{
 			name:     "reallocated assignment access",
-			path:     filepath.Join(migrations, "000005_assignment_access.up.sql"),
+			path:     filepath.Join(migrations, "000006_assignment_access.up.sql"),
 			contains: []string{"CREATE TABLE interview_invitations"},
+		},
+		{
+			name: "interview assignments",
+			path: filepath.Join(migrations, "000005_interview_assignments.up.sql"),
+			contains: []string{
+				"CREATE TABLE public.interview_assignments",
+				"published_revision_id",
+				"REFERENCES public.agent_revisions(id)",
+			},
+		},
+		{
+			name: "interview executions",
+			path: filepath.Join(migrations, "000007_interview_executions.up.sql"),
+			contains: []string{
+				"CREATE TABLE public.interview_executions",
+				"UNIQUE (assignment_id)",
+			},
 		},
 	}
 	for _, tt := range tests {
@@ -83,7 +100,10 @@ func TestAgentConfigurationArtifacts(t *testing.T) {
 	require.NoError(t, json.Unmarshal(manifest, &sums))
 	require.Contains(t, sums, "000003_agent_configuration.up.sql")
 	require.Contains(t, sums, "000003_agent_configuration.down.sql")
-	require.NotContains(t, sums, "000004_candidates.up.sql")
+	require.Contains(t, sums, "000004_candidates.up.sql")
+	require.Contains(t, sums, "000005_interview_assignments.up.sql")
+	require.Contains(t, sums, "000006_assignment_access.up.sql")
+	require.Contains(t, sums, "000007_interview_executions.up.sql")
 	require.NotContains(t, sums, "000005_assignment_access.up.sql")
 }
 
@@ -133,12 +153,12 @@ INSERT INTO administrative_accounts(id,name,email,password_hash,role,status,crea
 				require.NoError(t, db.QueryRowContext(context.Background(), "SELECT count(*) FROM tasks").Scan(&beforeTasks))
 				require.NoError(t, db.QueryRowContext(context.Background(), "SELECT count(*) FROM administrative_accounts").Scan(&beforeAccounts))
 			}
-			version, dirty, err := runner.Execute(context.Background(), schema.Options{Action: "up", Version: 3})
+			version, dirty, err := runner.Execute(context.Background(), schema.Options{Action: "up", Version: schema.ReleaseVersion})
 			require.NoError(t, err)
-			require.Equal(t, 3, version)
+			require.Equal(t, schema.ReleaseVersion, version)
 			require.False(t, dirty)
 			require.NoError(t, schema.RequireCompatible(context.Background(), db))
-			for _, table := range []string{"agent_instances", "agent_drafts", "agent_validations", "agent_revisions", "agent_publication_commands"} {
+			for _, table := range []string{"agent_instances", "agent_drafts", "agent_validations", "agent_revisions", "agent_publication_commands", "candidates", "interview_assignments", "interview_invitations", "candidate_sessions", "interview_executions"} {
 				var present bool
 				require.NoError(t, db.QueryRowContext(context.Background(), "SELECT to_regclass('public.'||$1) IS NOT NULL", table).Scan(&present))
 				require.True(t, present, table)
@@ -168,18 +188,18 @@ func TestPopulatedVersionThreeBaselinesWithoutRewrite(t *testing.T) {
 	runner := schema.Runner{DB: db, Directory: directory}
 	_, err = db.ExecContext(context.Background(), "DROP SCHEMA public CASCADE; CREATE SCHEMA public;")
 	require.NoError(t, err)
-	version, dirty, err := runner.Execute(context.Background(), schema.Options{Action: "up", Version: 3})
+	version, dirty, err := runner.Execute(context.Background(), schema.Options{Action: "up", Version: schema.ReleaseVersion})
 	require.NoError(t, err)
-	require.Equal(t, 3, version)
+	require.Equal(t, schema.ReleaseVersion, version)
 	require.False(t, dirty)
 	_, err = db.ExecContext(context.Background(), "DROP TABLE schema_migrations")
 	require.NoError(t, err)
 	version, dirty, err = runner.Execute(context.Background(), schema.Options{Action: "baseline"})
 	require.NoError(t, err)
-	require.Equal(t, 3, version)
+	require.Equal(t, schema.ReleaseVersion, version)
 	require.False(t, dirty)
-	version, dirty, err = runner.Execute(context.Background(), schema.Options{Action: "up", Version: 3})
+	version, dirty, err = runner.Execute(context.Background(), schema.Options{Action: "up", Version: schema.ReleaseVersion})
 	require.NoError(t, err)
-	require.Equal(t, 3, version)
+	require.Equal(t, schema.ReleaseVersion, version)
 	require.False(t, dirty)
 }

@@ -25,7 +25,7 @@ Primary keys are tasks_pkey, administrative_accounts_pkey, administrative_sessio
 - Production: infrastructure/runtime/resources.go calls Task AutoMigrate and accessrepository.AutoMigrate; infrastructure/repository/accessrepository/migrate.go installs both administrative models and 13 additive index/constraint statements.
 - Tests: test/integration/repository_test.go, access_repository_test.go and access_http_test.go invoke the same installers. lifecycle_test.go exercises runtime DDL cancellation indirectly.
 - No other executable installer was found by `rg 'AutoMigrate|CREATE TABLE|ALTER TABLE|CREATE.*INDEX' infrastructure test/integration`.
-- Reserve 000001 for Task and 000002 for administrative access. ACP T4 (`CORE-ACP-004`) later inserted `000003_agent_configuration` and shifted unpublished candidate/assignment files to `000004_candidates` and `000005_assignment_access`. Future assignment ordering remains its owner's responsibility.
+- Reserve 000001 for Task and 000002 for administrative access. ACP T4 (`CORE-ACP-004`) later inserted `000003_agent_configuration` and shifted unpublished candidate/assignment files to `000004_candidates` and `000005_assignment_access`. Release version 7 now pins `000004_candidates`, `000005_interview_assignments`, `000006_assignment_access`, and `000007_interview_executions`.
 
 ## Policy and limits
 

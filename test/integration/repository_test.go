@@ -191,8 +191,8 @@ func migrateSchema(t *testing.T, db *gorm.DB) {
 	require.NoError(t, err)
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
-	version, dirty, err := (schema.Runner{DB: pool, Directory: directory}).Execute(ctx, schema.Options{Action: "up", Version: 3})
+	version, dirty, err := (schema.Runner{DB: pool, Directory: directory}).Execute(ctx, schema.Options{Action: "up", Version: schema.ReleaseVersion})
 	require.NoError(t, err)
-	require.Equal(t, 3, version)
+	require.Equal(t, schema.ReleaseVersion, version)
 	require.False(t, dirty)
 }

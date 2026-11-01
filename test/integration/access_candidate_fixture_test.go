@@ -57,8 +57,8 @@ func installInterviewAssignmentFixture(t *testing.T, db *gorm.DB) {
 	t.Cleanup(func() {
 		require.NoError(t, db.Exec("DROP TABLE IF EXISTS candidate_sessions, interview_invitations, interview_assignments, candidates CASCADE").Error)
 	})
-	for _, file := range []string{"000004_candidates.up.sql", "000005_assignment_access.up.sql"} {
-		if file == "000005_assignment_access.up.sql" {
+	for _, file := range []string{"000004_candidates.up.sql", "000006_assignment_access.up.sql"} {
+		if file == "000006_assignment_access.up.sql" {
 			require.NoError(t, db.Exec(`CREATE TABLE interview_assignments (
     id uuid PRIMARY KEY, candidate_id uuid NOT NULL REFERENCES candidates(id) ON DELETE RESTRICT ON UPDATE RESTRICT,
     published_revision_id uuid NOT NULL, access_revoked_at timestamptz NULL, completed_at timestamptz NULL

@@ -21,6 +21,10 @@ const (
 
 // Handler translates candidate interview HTTP requests through injected application operation interfaces.
 type Handler struct {
+	GetExecution candidateinterviewquery.GetExecutionOperation
+	Start        candidateinterviewusecase.StartInterviewOperation
+	Takeover     candidateinterviewusecase.TakeoverOperation
+	Cancel       candidateinterviewusecase.CancelInterviewOperation
 	Get          candidateinterviewquery.GetInterviewOperation
 	Accept       candidateinterviewusecase.AcceptNoticeOperation
 	Current      service.CurrentCandidateSession

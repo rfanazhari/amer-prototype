@@ -53,11 +53,11 @@ func TestOpenAPIPublishesMountedCandidateInterviewRoutes(t *testing.T) {
 	}
 }
 
-// TestOpenAPIKeepsUnmountedInterviewRoutesAbsent verifies later-task and sibling routes are not published by T6.
+// TestOpenAPIKeepsUnmountedInterviewRoutesAbsent verifies sibling runtime and reporting routes are not published.
 func TestOpenAPIKeepsUnmountedInterviewRoutesAbsent(t *testing.T) {
 	doc := loadContract(t)
 	for path := range doc.Paths.Map() {
-		require.False(t, strings.HasPrefix(path, "/candidate/executions"), path)
+		require.NotContains(t, path, "/report")
 		require.NotContains(t, path, "session-attempts")
 		require.NotContains(t, path, "/ready")
 	}

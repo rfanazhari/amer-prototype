@@ -133,7 +133,14 @@ func TestCandidateInterviewRouteDispatch(t *testing.T) {
 		{name: "page shell", path: "/candidate/interview/page", wantPage: true},
 		{name: "exchange stays on access", path: "/candidate/access/exchange", wantAccess: true},
 		{name: "session stays on access", path: "/candidate/session", wantAccess: true},
-		{name: "unmounted execution route stays on access", path: "/candidate/executions", wantAccess: true},
+		{name: "start", path: "/candidate/executions", wantJSON: true},
+		{name: "poll", path: "/candidate/executions/e1", wantJSON: true},
+		{name: "takeover", path: "/candidate/executions/e1/takeover", wantJSON: true},
+		{name: "cancel", path: "/candidate/executions/e1/cancel", wantJSON: true},
+		{name: "session attempts absent", path: "/candidate/executions/e1/session-attempts", wantAccess: true},
+		{name: "ready absent", path: "/candidate/executions/e1/ready", wantAccess: true},
+		{name: "report absent", path: "/candidate/executions/e1/report", wantAccess: true},
+		{name: "collection prefix absent", path: "/candidate/executions-extra", wantAccess: true},
 		{name: "similar prefix is not the interview", path: "/candidate/interviews", wantAccess: true},
 	}
 	for _, tt := range tests {

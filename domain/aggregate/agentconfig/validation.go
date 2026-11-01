@@ -1,9 +1,16 @@
 package agentconfig
 
-import "time"
+import (
+	"time"
 
-// Finding is a detached assessment fact; warning policy and codes belong to T5.
-type Finding struct{ Code, Path string }
+	"github.com/rfanazhari/amer-prototype/domain/enum"
+)
+
+// Finding is a detached assessment fact with T5 severity, code, path and safe message.
+type Finding struct {
+	Severity            enum.FindingSeverity
+	Code, Path, Message string
+}
 
 // ValidationSnapshot transfers exact assessment identity and findings.
 type ValidationSnapshot struct {

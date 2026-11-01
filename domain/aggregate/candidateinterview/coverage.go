@@ -6,4 +6,6 @@ import "time"
 const InterviewBudget = 15 * time.Minute
 
 // SessionCovers reports whether the session outlives the deadline; equality is not covered.
-func SessionCovers(expiresAt, deadline time.Time) bool { return false }
+func SessionCovers(expiresAt, deadline time.Time) bool {
+	return expiresAt.After(deadline)
+}

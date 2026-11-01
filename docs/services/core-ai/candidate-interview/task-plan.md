@@ -33,9 +33,10 @@ Companion plans: [Identity and Access](../identity-access/task-plan.md) owns the
 
 ### Independent foundation
 
-- [ ] **T2. Model consent, coverage, and the controller** — Domain — M
+- [x] **T2. Model consent, coverage, and the controller** — Domain — M
   - Ticket ID: `CORE-CIN-002`
   - depends: none — ref: design §3–4 and the rule table.
+  - Evidence: `domain/aggregate/candidateinterview` with public `_test` package tests (100% statement coverage). `make test`, `make test.architecture`, and `make lint` pass. No HTTP, SQL, or stage workflow.
   - DoD: public `_test` package tests cover current-version acceptance, restoration of a retired version, copied acceptance time, coverage equality refusal, takeover increment, and stale-version refusal. `NoticeVersion` and `ControllerID` are distinct. The 15-minute budget is the platform §10 constant, not an HR stage-second field. `make test` and `make test.architecture` pass, including `test/architecture/documentation_test.go`. No HTTP, SQL, or stage workflow.
 
 - [ ] **T3. Define operations and sibling ports** — Application — M

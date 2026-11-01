@@ -21,11 +21,29 @@ type Consent struct{ state ConsentSnapshot }
 
 // NewConsent records an acceptance of the current notice version.
 func NewConsent(id, assignmentID, sessionID string, accepted, current NoticeVersion, acceptedAt time.Time) (*Consent, error) {
-	return nil, ErrInvalidConsent
+	toStore := ConsentSnapshot{ID: id, AssignmentID: assignmentID, NoticeVersion: accepted, CandidateSessionID: sessionID, AcceptedAt: acceptedAt}
+	if !toStore.consistent() {
+		return nil, ErrInvalidConsent
+	}
+	if accepted != current {
+		return nil, ErrNoticeNotCurrent
+	}
+	return &Consent{state: toStore}, nil
+}
+
+// consistent reports whether every field of the stored acceptance is present.
+func (s ConsentSnapshot) consistent() bool {
+	return s.ID != "" && s.AssignmentID != "" && s.CandidateSessionID != "" &&
+		s.NoticeVersion.value != "" && !s.AcceptedAt.IsZero()
 }
 
 // RestoreConsent rebuilds a consent from stored data, whatever the current notice version is.
-func RestoreConsent(s ConsentSnapshot) (*Consent, error) { return nil, ErrInvalidConsent }
+func RestoreConsent(s ConsentSnapshot) (*Consent, error) {
+	if !s.consistent() {
+		return nil, ErrInvalidConsent
+	}
+	return &Consent{state: s}, nil
+}
 
 // Snapshot returns a detached copy of the consent.
-func (c *Consent) Snapshot() ConsentSnapshot { return ConsentSnapshot{} }
+func (c *Consent) Snapshot() ConsentSnapshot { return c.state }

@@ -5,7 +5,10 @@ type NoticeVersion struct{ value string }
 
 // ParseNoticeVersion validates the identifier character rule without trimming or case folding.
 func ParseNoticeVersion(raw string) (NoticeVersion, error) {
-	return NoticeVersion{}, ErrInvalidNoticeVersion
+	if !validIdentifier(raw) {
+		return NoticeVersion{}, ErrInvalidNoticeVersion
+	}
+	return NoticeVersion{value: raw}, nil
 }
 
 // String returns the version text.

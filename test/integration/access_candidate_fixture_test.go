@@ -8,8 +8,11 @@ import (
 	"github.com/google/uuid"
 	"github.com/rfanazhari/amer-prototype/application/query/accessquery"
 	"github.com/rfanazhari/amer-prototype/application/usecase/accessusecase"
+	"github.com/rfanazhari/amer-prototype/application/usecase/agentbindingusecase"
 	"github.com/rfanazhari/amer-prototype/delivery/http/handler/accesshandler"
 	"github.com/rfanazhari/amer-prototype/infrastructure/repository/accessrepository"
+	"github.com/rfanazhari/amer-prototype/infrastructure/repository/agentbindingrepository"
+	"github.com/rfanazhari/amer-prototype/infrastructure/repository/agentconfigrepository"
 	"github.com/rfanazhari/amer-prototype/infrastructure/service/accessauthority"
 	"github.com/rfanazhari/amer-prototype/infrastructure/service/accesscredentials"
 	"github.com/stretchr/testify/require"
@@ -32,11 +35,15 @@ func newCandidateAccessHTTP(t *testing.T) accessHTTP {
 	candidateSessions := accessauthority.CandidateSessions{Store: candidateSecrets, Tokens: tokens, Clock: graph.clock}
 	graph.authority = accessauthority.Authority{Sessions: sessions, Clock: graph.clock}
 	graph.handler = accesshandler.Handler{
-		Login:            accessusecase.Login{Accounts: store, Issuance: store, Hasher: hasher, Tokens: tokens, Clock: graph.clock},
-		Current:          accessquery.CurrentSession{Current: sessions, CSRF: csrf, Clock: graph.clock},
-		Provision:        accessusecase.ProvisionHR{Accounts: store, Current: sessions, Hasher: hasher, Clock: graph.clock},
-		Logout:           accessusecase.Logout{Current: sessions, Sessions: store, Clock: graph.clock},
-		CreateCandidate:  accessusecase.CreateCandidate{Candidates: candidates, Current: sessions, Clock: graph.clock},
+		Login:           accessusecase.Login{Accounts: store, Issuance: store, Hasher: hasher, Tokens: tokens, Clock: graph.clock},
+		Current:         accessquery.CurrentSession{Current: sessions, CSRF: csrf, Clock: graph.clock},
+		Provision:       accessusecase.ProvisionHR{Accounts: store, Current: sessions, Hasher: hasher, Clock: graph.clock},
+		Logout:          accessusecase.Logout{Current: sessions, Sessions: store, Clock: graph.clock},
+		CreateCandidate: accessusecase.CreateCandidate{Candidates: candidates, Current: sessions, Clock: graph.clock},
+		CreateAssignment: agentbindingusecase.CreateAssignment{
+			Current: sessions, Clock: graph.clock, Candidates: candidates,
+			Instances: agentconfigrepository.Store{DB: graph.db}, Assignments: agentbindingrepository.Assignments{DB: graph.db},
+		},
 		Candidate:        accessquery.Candidate{Candidates: candidates, Current: sessions, Clock: graph.clock},
 		IssueInvitation:  accessusecase.IssueInvitation{Assignments: store, Current: sessions, Tokens: tokens, Clock: graph.clock},
 		Exchange:         accessusecase.ExchangeInvitation{Invitations: invitations, Candidates: candidates, Assignments: store, Tokens: tokens, Clock: graph.clock},

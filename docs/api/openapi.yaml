@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "amer-prototype Task API",
-    "version": "0.5.0",
+    "version": "0.6.0",
     "description": "Task reference feature, voice session setup, identity/access, and HR agent configuration. All active responses use the standard JSON envelope. Unknown routes return 404; unsupported methods return 405. Task, voice, and health remain unauthenticated. Request bodies are limited to 1 MiB. System-owned timestamps, IDs and status are rejected as request fields. Completion events are volatile and process-local. POST /voice-sessions exchanges one WebRTC offer for a provider SDP answer. Administrative, candidate, and configuration routes use origin, cookies, and CSRF as documented in identity-access.md and agent-configuration.md."
   },
   "servers": [
@@ -11,6 +11,28 @@
     }
   ],
   "security": [],
+  "tags": [
+    {
+      "name": "tasks",
+      "description": "Task tracking reference routes."
+    },
+    {
+      "name": "admin",
+      "description": "Administrative identity, candidate, invitation, and agent configuration routes."
+    },
+    {
+      "name": "candidate",
+      "description": "Candidate invitation access and session routes."
+    },
+    {
+      "name": "health",
+      "description": "Unauthenticated process readiness."
+    },
+    {
+      "name": "voice-sessions",
+      "description": "Voice session setup."
+    }
+  ],
   "paths": {
     "/tasks": {
       "post": {
@@ -89,7 +111,10 @@
               }
             }
           }
-        }
+        },
+        "tags": [
+          "tasks"
+        ]
       }
     },
     "/tasks/{id}": {
@@ -181,7 +206,10 @@
               }
             }
           }
-        }
+        },
+        "tags": [
+          "tasks"
+        ]
       }
     },
     "/tasks/{id}/start": {
@@ -293,7 +321,10 @@
               }
             }
           }
-        }
+        },
+        "tags": [
+          "tasks"
+        ]
       }
     },
     "/tasks/{id}/complete": {
@@ -405,7 +436,10 @@
               }
             }
           }
-        }
+        },
+        "tags": [
+          "tasks"
+        ]
       }
     },
     "/tasks/{id}/due-date": {
@@ -517,7 +551,10 @@
               }
             }
           }
-        }
+        },
+        "tags": [
+          "tasks"
+        ]
       }
     },
     "/admin/agent-templates": {
@@ -525,16 +562,87 @@
         "operationId": "listAgentTemplates",
         "summary": "List supported HR Interviewer and Document Analyzer template versions.",
         "parameters": [
-          { "name": "Origin", "in": "header", "required": true, "schema": { "type": "string" } },
-          { "name": "Accept-Language", "in": "header", "required": false, "schema": { "type": "string", "example": "id" } }
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "example": "id"
+            }
+          }
         ],
         "responses": {
-          "200": { "description": "Catalog of supported templates.", "headers": { "Cache-Control": { "schema": { "type": "string", "example": "no-store" } } }, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AgentCatalogEnvelope" } } } },
-          "400": { "description": "INVALID_INPUT.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
-          "401": { "description": "ACP_UNAUTHENTICATED.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
-          "403": { "description": "ACP_FORBIDDEN.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
-          "405": { "description": "METHOD_NOT_ALLOWED.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } }
-        }
+          "200": {
+            "description": "Catalog of supported templates.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentCatalogEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "INVALID_INPUT.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "ACP_UNAUTHENTICATED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ACP_FORBIDDEN.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "METHOD_NOT_ALLOWED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "admin"
+        ]
       }
     },
     "/admin/agent-instances": {
@@ -542,133 +650,704 @@
         "operationId": "createAgentInstance",
         "summary": "Create an unpublished instance for a specific template version.",
         "parameters": [
-          { "name": "Origin", "in": "header", "required": true, "schema": { "type": "string" } },
-          { "name": "X-CSRF-Token", "in": "header", "required": true, "schema": { "type": "string" } },
-          { "name": "Accept-Language", "in": "header", "required": false, "schema": { "type": "string" } }
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
         ],
-        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CreateAgentInstance" } } } },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateAgentInstance"
+              }
+            }
+          }
+        },
         "responses": {
-          "201": { "description": "Created instance with draft version 1.", "headers": { "Cache-Control": { "schema": { "type": "string", "example": "no-store" } } }, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AgentInstanceEnvelope" } } } },
-          "400": { "description": "INVALID_INPUT.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
-          "401": { "description": "ACP_UNAUTHENTICATED.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
-          "403": { "description": "ACP_FORBIDDEN.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
-          "405": { "description": "METHOD_NOT_ALLOWED.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } }
-        }
+          "201": {
+            "description": "Created instance with draft version 1.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentInstanceEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "INVALID_INPUT.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "ACP_UNAUTHENTICATED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ACP_FORBIDDEN.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "METHOD_NOT_ALLOWED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "admin"
+        ]
       }
     },
     "/admin/agent-instances/{id}": {
       "parameters": [
-        { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
       ],
       "get": {
         "operationId": "getAgentInstance",
         "summary": "Read an authorized draft and nullable active revision identity.",
         "parameters": [
-          { "name": "Origin", "in": "header", "required": true, "schema": { "type": "string" } },
-          { "name": "Accept-Language", "in": "header", "required": false, "schema": { "type": "string" } }
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
         ],
         "responses": {
-          "200": { "description": "Detached instance view.", "headers": { "Cache-Control": { "schema": { "type": "string", "example": "no-store" } } }, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AgentInstanceEnvelope" } } } },
-          "400": { "description": "INVALID_INPUT.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
-          "401": { "description": "ACP_UNAUTHENTICATED.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
-          "403": { "description": "ACP_FORBIDDEN.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
-          "404": { "description": "NOT_FOUND.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } }
-        }
+          "200": {
+            "description": "Detached instance view.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentInstanceEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "INVALID_INPUT.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "ACP_UNAUTHENTICATED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ACP_FORBIDDEN.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "admin"
+        ]
       }
     },
     "/admin/agent-instances/{id}/draft": {
       "parameters": [
-        { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
       ],
       "put": {
         "operationId": "replaceAgentDraft",
         "summary": "Replace the current draft using the expected version.",
         "parameters": [
-          { "name": "Origin", "in": "header", "required": true, "schema": { "type": "string" } },
-          { "name": "X-CSRF-Token", "in": "header", "required": true, "schema": { "type": "string" } },
-          { "name": "Accept-Language", "in": "header", "required": false, "schema": { "type": "string" } }
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
         ],
-        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ReplaceAgentDraft" } } } },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReplaceAgentDraft"
+              }
+            }
+          }
+        },
         "responses": {
-          "200": { "description": "Replaced draft.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AgentInstanceEnvelope" } } } },
-          "400": { "description": "INVALID_INPUT.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
-          "401": { "description": "ACP_UNAUTHENTICATED.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
-          "403": { "description": "ACP_FORBIDDEN.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
-          "404": { "description": "NOT_FOUND.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
-          "409": { "description": "ACP_DRAFT_CONFLICT.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } }
-        }
+          "200": {
+            "description": "Replaced draft.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentInstanceEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "INVALID_INPUT.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "ACP_UNAUTHENTICATED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ACP_FORBIDDEN.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "ACP_DRAFT_CONFLICT.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "admin"
+        ]
       }
     },
     "/admin/agent-instances/{id}/validations": {
       "parameters": [
-        { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
       ],
       "post": {
         "operationId": "validateAgentDraft",
         "summary": "Validate an exact draft version and persist findings.",
         "parameters": [
-          { "name": "Origin", "in": "header", "required": true, "schema": { "type": "string" } },
-          { "name": "X-CSRF-Token", "in": "header", "required": true, "schema": { "type": "string" } },
-          { "name": "Accept-Language", "in": "header", "required": false, "schema": { "type": "string" } }
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
         ],
-        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ValidateAgentDraft" } } } },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ValidateAgentDraft"
+              }
+            }
+          }
+        },
         "responses": {
-          "201": { "description": "Persisted assessment, including blocking findings.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AgentValidationEnvelope" } } } },
-          "400": { "description": "INVALID_INPUT.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
-          "401": { "description": "ACP_UNAUTHENTICATED.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
-          "403": { "description": "ACP_FORBIDDEN.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
-          "404": { "description": "NOT_FOUND.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
-          "409": { "description": "ACP_DRAFT_CONFLICT.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
-          "503": { "description": "ACP_DEPENDENCY_UNAVAILABLE.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } }
-        }
+          "201": {
+            "description": "Persisted assessment, including blocking findings.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentValidationEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "INVALID_INPUT.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "ACP_UNAUTHENTICATED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ACP_FORBIDDEN.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "ACP_DRAFT_CONFLICT.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "ACP_DEPENDENCY_UNAVAILABLE.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "admin"
+        ]
       }
     },
     "/admin/agent-instances/{id}/publications": {
       "parameters": [
-        { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
       ],
       "post": {
         "operationId": "publishAgentDraft",
         "summary": "Publish an exact draft and validation, or replay the original result.",
         "parameters": [
-          { "name": "Origin", "in": "header", "required": true, "schema": { "type": "string" } },
-          { "name": "X-CSRF-Token", "in": "header", "required": true, "schema": { "type": "string" } },
-          { "name": "Idempotency-Key", "in": "header", "required": true, "schema": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$" } },
-          { "name": "Accept-Language", "in": "header", "required": false, "schema": { "type": "string" } }
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+            }
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
         ],
-        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PublishAgentDraft" } } } },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublishAgentDraft"
+              }
+            }
+          }
+        },
         "responses": {
-          "200": { "description": "Same-intent replay of the original revision.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AgentRevisionEnvelope" } } } },
-          "201": { "description": "New published revision.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AgentRevisionEnvelope" } } } },
-          "400": { "description": "INVALID_INPUT.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
-          "401": { "description": "ACP_UNAUTHENTICATED.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
-          "403": { "description": "ACP_FORBIDDEN.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
-          "404": { "description": "NOT_FOUND.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
-          "409": { "description": "ACP_IDEMPOTENCY_CONFLICT or ACP_DRAFT_CONFLICT or ACP_VALIDATION_CONFLICT.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
-          "422": { "description": "ACP_PUBLICATION_BLOCKED.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
-          "503": { "description": "ACP_PUBLICATION_UNCERTAIN or ACP_DEPENDENCY_UNAVAILABLE.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } }
-        }
+          "200": {
+            "description": "Same-intent replay of the original revision.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentRevisionEnvelope"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "New published revision.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentRevisionEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "INVALID_INPUT.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "ACP_UNAUTHENTICATED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ACP_FORBIDDEN.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "ACP_IDEMPOTENCY_CONFLICT or ACP_DRAFT_CONFLICT or ACP_VALIDATION_CONFLICT.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "ACP_PUBLICATION_BLOCKED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "ACP_PUBLICATION_UNCERTAIN or ACP_DEPENDENCY_UNAVAILABLE.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "admin"
+        ]
       }
     },
     "/admin/agent-instances/{id}/revisions/{revision_id}": {
       "parameters": [
-        { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } },
-        { "name": "revision_id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        {
+          "name": "revision_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
       ],
       "get": {
         "operationId": "getAgentRevision",
         "summary": "Read one immutable published revision in authorized scope.",
         "parameters": [
-          { "name": "Origin", "in": "header", "required": true, "schema": { "type": "string" } },
-          { "name": "Accept-Language", "in": "header", "required": false, "schema": { "type": "string" } }
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
         ],
         "responses": {
-          "200": { "description": "Detached revision view.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AgentRevisionEnvelope" } } } },
-          "400": { "description": "INVALID_INPUT.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
-          "401": { "description": "ACP_UNAUTHENTICATED.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
-          "403": { "description": "ACP_FORBIDDEN.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
-          "404": { "description": "NOT_FOUND.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } }
-        }
+          "200": {
+            "description": "Detached revision view.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentRevisionEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "INVALID_INPUT.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "ACP_UNAUTHENTICATED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ACP_FORBIDDEN.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "admin"
+        ]
       }
     },
     "/admin/sessions": {
@@ -681,20 +1360,27 @@
             "name": "Origin",
             "in": "header",
             "required": true,
-            "schema": { "type": "string" }
+            "schema": {
+              "type": "string"
+            }
           },
           {
             "name": "Accept-Language",
             "in": "header",
             "required": false,
-            "schema": { "type": "string", "example": "id" }
+            "schema": {
+              "type": "string",
+              "example": "id"
+            }
           }
         ],
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/AdministrativeLoginRequest" }
+              "schema": {
+                "$ref": "#/components/schemas/AdministrativeLoginRequest"
+              }
             }
           }
         },
@@ -702,170 +1388,311 @@
           "201": {
             "description": "Committed session metadata. Cookie is the credential.",
             "headers": {
-              "Set-Cookie": { "schema": { "type": "string" } },
-              "Cache-Control": { "schema": { "type": "string", "example": "no-store" } }
+              "Set-Cookie": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "no-store"
+                }
+              }
             },
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/AdministrativeLoginEnvelope" }
+                "schema": {
+                  "$ref": "#/components/schemas/AdministrativeLoginEnvelope"
+                }
               }
             }
           },
           "400": {
             "description": "INVALID_INPUT.",
-            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } }
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
           },
           "401": {
             "description": "IA_UNAUTHENTICATED.",
-            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } }
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
           },
           "405": {
             "description": "METHOD_NOT_ALLOWED.",
-            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } }
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
           },
           "429": {
             "description": "IA_RATE_LIMITED.",
             "headers": {
-              "Retry-After": { "schema": { "type": "string" } }
+              "Retry-After": {
+                "schema": {
+                  "type": "string"
+                }
+              }
             },
-            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } }
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
           },
           "503": {
             "description": "IA_DEPENDENCY_UNAVAILABLE or SHUTTING_DOWN.",
-            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } }
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
           }
-        }
+        },
+        "tags": [
+          "admin"
+        ]
       }
     },
     "/admin/session": {
       "get": {
         "operationId": "getAdministrativeSession",
         "summary": "Return the current administrative account, session expiry, and CSRF material.",
-        "security": [ { "AdminCookie": [] } ],
+        "security": [
+          {
+            "AdminCookie": []
+          }
+        ],
         "parameters": [
           {
             "name": "Origin",
             "in": "header",
             "required": true,
-            "schema": { "type": "string" }
+            "schema": {
+              "type": "string"
+            }
           },
           {
             "name": "Accept-Language",
             "in": "header",
             "required": false,
-            "schema": { "type": "string", "example": "id" }
+            "schema": {
+              "type": "string",
+              "example": "id"
+            }
           }
         ],
         "responses": {
           "200": {
             "description": "Current session view.",
             "headers": {
-              "Cache-Control": { "schema": { "type": "string", "example": "no-store" } }
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "no-store"
+                }
+              }
             },
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/AdministrativeCurrentEnvelope" }
+                "schema": {
+                  "$ref": "#/components/schemas/AdministrativeCurrentEnvelope"
+                }
               }
             }
           },
           "400": {
             "description": "INVALID_INPUT.",
-            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } }
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
           },
           "401": {
             "description": "IA_UNAUTHENTICATED.",
-            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } }
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
           },
           "405": {
             "description": "METHOD_NOT_ALLOWED.",
-            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } }
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
           }
-        }
+        },
+        "tags": [
+          "admin"
+        ]
       }
     },
     "/admin/sessions/current": {
       "delete": {
         "operationId": "deleteCurrentAdministrativeSession",
         "summary": "Revoke the current administrative session then clear the cookie.",
-        "security": [ { "AdminCookie": [] } ],
+        "security": [
+          {
+            "AdminCookie": []
+          }
+        ],
         "parameters": [
           {
             "name": "Origin",
             "in": "header",
             "required": true,
-            "schema": { "type": "string" }
+            "schema": {
+              "type": "string"
+            }
           },
           {
             "name": "X-CSRF-Token",
             "in": "header",
             "required": true,
-            "schema": { "type": "string" }
+            "schema": {
+              "type": "string"
+            }
           },
           {
             "name": "Accept-Language",
             "in": "header",
             "required": false,
-            "schema": { "type": "string", "example": "id" }
+            "schema": {
+              "type": "string",
+              "example": "id"
+            }
           }
         ],
         "responses": {
           "200": {
             "description": "Revocation persisted; cookie cleared.",
             "headers": {
-              "Set-Cookie": { "schema": { "type": "string" } },
-              "Cache-Control": { "schema": { "type": "string", "example": "no-store" } }
+              "Set-Cookie": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "no-store"
+                }
+              }
             },
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/EmptySuccessEnvelope" }
+                "schema": {
+                  "$ref": "#/components/schemas/EmptySuccessEnvelope"
+                }
               }
             }
           },
           "401": {
             "description": "IA_UNAUTHENTICATED.",
-            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } }
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
           },
           "403": {
             "description": "IA_FORBIDDEN.",
-            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } }
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
           },
           "503": {
             "description": "IA_DEPENDENCY_UNAVAILABLE.",
-            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } }
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
           }
-        }
+        },
+        "tags": [
+          "admin"
+        ]
       }
     },
     "/admin/hr-accounts": {
       "post": {
         "operationId": "createHRAccount",
         "summary": "Create an HR account. Role is fixed by the operation, not caller input.",
-        "security": [ { "AdminCookie": [] } ],
+        "security": [
+          {
+            "AdminCookie": []
+          }
+        ],
         "parameters": [
           {
             "name": "Origin",
             "in": "header",
             "required": true,
-            "schema": { "type": "string" }
+            "schema": {
+              "type": "string"
+            }
           },
           {
             "name": "X-CSRF-Token",
             "in": "header",
             "required": true,
-            "schema": { "type": "string" }
+            "schema": {
+              "type": "string"
+            }
           },
           {
             "name": "Accept-Language",
             "in": "header",
             "required": false,
-            "schema": { "type": "string", "example": "id" }
+            "schema": {
+              "type": "string",
+              "example": "id"
+            }
           }
         ],
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/HRAccountRequest" }
+              "schema": {
+                "$ref": "#/components/schemas/HRAccountRequest"
+              }
             }
           }
         },
@@ -873,107 +1700,497 @@
           "201": {
             "description": "Created HR identity without password material.",
             "headers": {
-              "Cache-Control": { "schema": { "type": "string", "example": "no-store" } }
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "no-store"
+                }
+              }
             },
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/HRAccountEnvelope" }
+                "schema": {
+                  "$ref": "#/components/schemas/HRAccountEnvelope"
+                }
               }
             }
           },
           "400": {
             "description": "INVALID_INPUT.",
-            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } }
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
           },
           "401": {
             "description": "IA_UNAUTHENTICATED.",
-            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } }
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
           },
           "403": {
             "description": "IA_FORBIDDEN.",
-            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } }
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
           },
           "409": {
             "description": "IA_ACCOUNT_CONFLICT.",
-            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } }
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
           }
-        }
+        },
+        "tags": [
+          "admin"
+        ]
       }
     },
     "/admin/candidates": {
       "post": {
         "operationId": "createCandidate",
         "summary": "Record a reusable candidate identity. Email is contact only and is never unique.",
-        "security": [ { "AdminCookie": [] } ],
+        "security": [
+          {
+            "AdminCookie": []
+          }
+        ],
         "parameters": [
-          { "name": "Origin", "in": "header", "required": true, "schema": { "type": "string" } },
-          { "name": "X-CSRF-Token", "in": "header", "required": true, "schema": { "type": "string" } },
-          { "name": "Accept-Language", "in": "header", "required": false, "schema": { "type": "string", "example": "id" } }
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "example": "id"
+            }
+          }
         ],
         "requestBody": {
           "required": true,
-          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CandidateRequest" } } }
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CandidateRequest"
+              }
+            }
+          }
         },
         "responses": {
           "201": {
             "description": "Created candidate identity.",
-            "headers": { "Cache-Control": { "schema": { "type": "string", "example": "no-store" } } },
-            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CandidateEnvelope" } } }
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CandidateEnvelope"
+                }
+              }
+            }
           },
-          "400": { "description": "INVALID_INPUT.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
-          "401": { "description": "IA_UNAUTHENTICATED.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
-          "403": { "description": "IA_FORBIDDEN.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } }
-        }
+          "400": {
+            "description": "INVALID_INPUT.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "IA_UNAUTHENTICATED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "IA_FORBIDDEN.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "admin"
+        ]
       }
     },
     "/admin/candidates/{id}": {
       "get": {
         "operationId": "getCandidate",
         "summary": "Return one candidate after current HR authorization. Unknown identities are 404.",
-        "security": [ { "AdminCookie": [] } ],
+        "security": [
+          {
+            "AdminCookie": []
+          }
+        ],
         "parameters": [
-          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } },
-          { "name": "Origin", "in": "header", "required": true, "schema": { "type": "string" } },
-          { "name": "Accept-Language", "in": "header", "required": false, "schema": { "type": "string", "example": "id" } }
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "example": "id"
+            }
+          }
         ],
         "responses": {
           "200": {
             "description": "Candidate identity.",
-            "headers": { "Cache-Control": { "schema": { "type": "string", "example": "no-store" } } },
-            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CandidateEnvelope" } } }
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CandidateEnvelope"
+                }
+              }
+            }
           },
-          "401": { "description": "IA_UNAUTHENTICATED.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
-          "403": { "description": "IA_FORBIDDEN.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
-          "404": { "description": "NOT_FOUND.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } }
-        }
+          "401": {
+            "description": "IA_UNAUTHENTICATED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "IA_FORBIDDEN.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/admin/interview-assignments": {
+      "post": {
+        "operationId": "createInterviewAssignment",
+        "summary": "Pin an existing candidate to the current HR Interviewer active revision. The server mints the assignment id.",
+        "security": [
+          {
+            "AdminCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "example": "id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateInterviewAssignment"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created assignment pin. Use data.id on the invitation path.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InterviewAssignmentEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "INVALID_INPUT.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "IA_UNAUTHENTICATED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "IA_FORBIDDEN.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "IA_NO_ACTIVE_REVISION or IA_UNSUPPORTED_TEMPLATE.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "admin"
+        ]
       }
     },
     "/admin/interview-assignments/{id}/invitations": {
       "post": {
         "operationId": "createInterviewInvitation",
         "summary": "Issue or replace an assignment invitation. The plaintext token is returned once.",
-        "security": [ { "AdminCookie": [] } ],
+        "security": [
+          {
+            "AdminCookie": []
+          }
+        ],
         "parameters": [
-          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } },
-          { "name": "Origin", "in": "header", "required": true, "schema": { "type": "string" } },
-          { "name": "X-CSRF-Token", "in": "header", "required": true, "schema": { "type": "string" } },
-          { "name": "Accept-Language", "in": "header", "required": false, "schema": { "type": "string", "example": "id" } }
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "example": "id"
+            }
+          }
         ],
         "requestBody": {
           "required": false,
-          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/EmptyObject" } } }
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmptyObject"
+              }
+            }
+          }
         },
         "responses": {
           "201": {
             "description": "Issued invitation with token shown once.",
-            "headers": { "Cache-Control": { "schema": { "type": "string", "example": "no-store" } } },
-            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/IssuedInvitationEnvelope" } } }
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IssuedInvitationEnvelope"
+                }
+              }
+            }
           },
-          "400": { "description": "INVALID_INPUT.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
-          "401": { "description": "IA_UNAUTHENTICATED.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
-          "403": { "description": "IA_FORBIDDEN.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
-          "404": { "description": "NOT_FOUND.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } }
-        }
+          "400": {
+            "description": "INVALID_INPUT.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "IA_UNAUTHENTICATED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "IA_FORBIDDEN.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "admin"
+        ]
       }
     },
     "/candidate/access": {
@@ -985,13 +2202,41 @@
           "200": {
             "description": "Invitation landing HTML with no-store and no-referrer.",
             "headers": {
-              "Cache-Control": { "schema": { "type": "string", "example": "no-store" } },
-              "Referrer-Policy": { "schema": { "type": "string", "example": "no-referrer" } }
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "no-store"
+                }
+              },
+              "Referrer-Policy": {
+                "schema": {
+                  "type": "string",
+                  "example": "no-referrer"
+                }
+              }
             },
-            "content": { "text/html": { "schema": { "type": "string" } } }
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           },
-          "405": { "description": "METHOD_NOT_ALLOWED.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } }
-        }
+          "405": {
+            "description": "METHOD_NOT_ALLOWED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "candidate"
+        ]
       }
     },
     "/candidate/access/exchange": {
@@ -1000,52 +2245,192 @@
         "summary": "Exchange an invitation token for a candidate session cookie after commit. GET is not an exchange.",
         "security": [],
         "parameters": [
-          { "name": "Origin", "in": "header", "required": true, "schema": { "type": "string" } },
-          { "name": "Accept-Language", "in": "header", "required": false, "schema": { "type": "string", "example": "id" } }
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "example": "id"
+            }
+          }
         ],
         "requestBody": {
           "required": true,
-          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CandidateExchangeRequest" } } }
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CandidateExchangeRequest"
+              }
+            }
+          }
         },
         "responses": {
           "201": {
             "description": "Committed candidate session metadata. Cookie is the credential.",
             "headers": {
-              "Set-Cookie": { "schema": { "type": "string" } },
-              "Cache-Control": { "schema": { "type": "string", "example": "no-store" } }
+              "Set-Cookie": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "no-store"
+                }
+              }
             },
-            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CandidateAccessEnvelope" } } }
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CandidateAccessEnvelope"
+                }
+              }
+            }
           },
-          "400": { "description": "INVALID_INPUT.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
-          "405": { "description": "METHOD_NOT_ALLOWED. GET/prefetch cannot exchange.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
-          "410": { "description": "IA_INVITATION_UNAVAILABLE.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
+          "400": {
+            "description": "INVALID_INPUT.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "METHOD_NOT_ALLOWED. GET/prefetch cannot exchange.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "IA_INVITATION_UNAVAILABLE.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
           "429": {
             "description": "IA_RATE_LIMITED.",
-            "headers": { "Retry-After": { "schema": { "type": "string" } } },
-            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } }
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
           },
-          "503": { "description": "IA_DEPENDENCY_UNAVAILABLE.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } }
-        }
+          "503": {
+            "description": "IA_DEPENDENCY_UNAVAILABLE.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "candidate"
+        ]
       }
     },
     "/candidate/session": {
       "get": {
         "operationId": "getCandidateSession",
         "summary": "Return the current candidate session, assignment identity, and CSRF material without exchanging or starting an interview.",
-        "security": [ { "CandidateCookie": [] } ],
+        "security": [
+          {
+            "CandidateCookie": []
+          }
+        ],
         "parameters": [
-          { "name": "Origin", "in": "header", "required": true, "schema": { "type": "string" } },
-          { "name": "Accept-Language", "in": "header", "required": false, "schema": { "type": "string", "example": "id" } }
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "example": "id"
+            }
+          }
         ],
         "responses": {
           "200": {
             "description": "Current candidate session view.",
-            "headers": { "Cache-Control": { "schema": { "type": "string", "example": "no-store" } } },
-            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CandidateCurrentEnvelope" } } }
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CandidateCurrentEnvelope"
+                }
+              }
+            }
           },
-          "400": { "description": "INVALID_INPUT.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
-          "401": { "description": "IA_UNAUTHENTICATED.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } }
-        }
+          "400": {
+            "description": "INVALID_INPUT.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "IA_UNAUTHENTICATED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "candidate"
+        ]
       }
     },
     "/health": {
@@ -1095,7 +2480,10 @@
               }
             }
           }
-        }
+        },
+        "tags": [
+          "health"
+        ]
       }
     },
     "/voice-sessions": {
@@ -1175,7 +2563,10 @@
               }
             }
           }
-        }
+        },
+        "tags": [
+          "voice-sessions"
+        ]
       },
       "get": {
         "operationId": "getVoiceSessions",
@@ -1191,7 +2582,10 @@
               }
             }
           }
-        }
+        },
+        "tags": [
+          "voice-sessions"
+        ]
       }
     }
   },
@@ -1457,384 +2851,938 @@
       "AdministrativeLoginRequest": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["email", "password"],
+        "required": [
+          "email",
+          "password"
+        ],
         "properties": {
-          "email": { "type": "string" },
-          "password": { "type": "string" }
+          "email": {
+            "type": "string"
+          },
+          "password": {
+            "type": "string"
+          }
         }
       },
       "AdministrativeAccount": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["id", "name", "email", "role"],
+        "required": [
+          "id",
+          "name",
+          "email",
+          "role"
+        ],
         "properties": {
-          "id": { "type": "string" },
-          "name": { "type": "string" },
-          "email": { "type": "string" },
-          "role": { "type": "string", "enum": ["ADMIN", "HR"] },
-          "status": { "type": "string", "enum": ["ACTIVE", "DISABLED"] }
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "ADMIN",
+              "HR"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "DISABLED"
+            ]
+          }
         }
       },
       "AdministrativeSession": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["id", "expiresAt"],
+        "required": [
+          "id",
+          "expiresAt"
+        ],
         "properties": {
-          "id": { "type": "string" },
-          "expiresAt": { "type": "string", "format": "date-time" }
+          "id": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          }
         }
       },
       "AdministrativeLoginData": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["account", "session"],
+        "required": [
+          "account",
+          "session"
+        ],
         "properties": {
-          "account": { "$ref": "#/components/schemas/AdministrativeAccount" },
-          "session": { "$ref": "#/components/schemas/AdministrativeSession" }
+          "account": {
+            "$ref": "#/components/schemas/AdministrativeAccount"
+          },
+          "session": {
+            "$ref": "#/components/schemas/AdministrativeSession"
+          }
         }
       },
       "AdministrativeLoginEnvelope": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["status", "data"],
+        "required": [
+          "status",
+          "data"
+        ],
         "properties": {
-          "status": { "type": "string", "enum": ["success"] },
-          "data": { "$ref": "#/components/schemas/AdministrativeLoginData" }
+          "status": {
+            "type": "string",
+            "enum": [
+              "success"
+            ]
+          },
+          "data": {
+            "$ref": "#/components/schemas/AdministrativeLoginData"
+          }
         }
       },
       "AdministrativeCurrentData": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["account", "session", "csrfToken"],
+        "required": [
+          "account",
+          "session",
+          "csrfToken"
+        ],
         "properties": {
-          "account": { "$ref": "#/components/schemas/AdministrativeAccount" },
-          "session": { "$ref": "#/components/schemas/AdministrativeSession" },
-          "csrfToken": { "type": "string" }
+          "account": {
+            "$ref": "#/components/schemas/AdministrativeAccount"
+          },
+          "session": {
+            "$ref": "#/components/schemas/AdministrativeSession"
+          },
+          "csrfToken": {
+            "type": "string"
+          }
         }
       },
       "AdministrativeCurrentEnvelope": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["status", "data"],
+        "required": [
+          "status",
+          "data"
+        ],
         "properties": {
-          "status": { "type": "string", "enum": ["success"] },
-          "data": { "$ref": "#/components/schemas/AdministrativeCurrentData" }
+          "status": {
+            "type": "string",
+            "enum": [
+              "success"
+            ]
+          },
+          "data": {
+            "$ref": "#/components/schemas/AdministrativeCurrentData"
+          }
         }
       },
       "HRAccountRequest": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["name", "email", "password"],
+        "required": [
+          "name",
+          "email",
+          "password"
+        ],
         "properties": {
-          "name": { "type": "string" },
-          "email": { "type": "string" },
-          "password": { "type": "string" }
+          "name": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "password": {
+            "type": "string"
+          }
         }
       },
       "HRAccount": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["id", "name", "email", "role", "status", "createdAt", "updatedAt"],
+        "required": [
+          "id",
+          "name",
+          "email",
+          "role",
+          "status",
+          "createdAt",
+          "updatedAt"
+        ],
         "properties": {
-          "id": { "type": "string" },
-          "name": { "type": "string" },
-          "email": { "type": "string" },
-          "role": { "type": "string", "enum": ["HR"] },
-          "status": { "type": "string", "enum": ["ACTIVE"] },
-          "createdAt": { "type": "string", "format": "date-time" },
-          "updatedAt": { "type": "string", "format": "date-time" }
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "HR"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ACTIVE"
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
         }
       },
       "HRAccountEnvelope": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["status", "data"],
+        "required": [
+          "status",
+          "data"
+        ],
         "properties": {
-          "status": { "type": "string", "enum": ["success"] },
-          "data": { "$ref": "#/components/schemas/HRAccount" }
+          "status": {
+            "type": "string",
+            "enum": [
+              "success"
+            ]
+          },
+          "data": {
+            "$ref": "#/components/schemas/HRAccount"
+          }
         }
       },
       "CandidateRequest": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["name", "email"],
+        "required": [
+          "name",
+          "email"
+        ],
         "properties": {
-          "name": { "type": "string" },
-          "email": { "type": "string" }
+          "name": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          }
         }
       },
       "Candidate": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["id", "name", "email", "createdAt", "updatedAt"],
+        "required": [
+          "id",
+          "name",
+          "email",
+          "createdAt",
+          "updatedAt"
+        ],
         "properties": {
-          "id": { "type": "string" },
-          "name": { "type": "string" },
-          "email": { "type": "string" },
-          "createdAt": { "type": "string", "format": "date-time" },
-          "updatedAt": { "type": "string", "format": "date-time" }
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "CreateInterviewAssignment": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "candidateId",
+          "instanceId"
+        ],
+        "properties": {
+          "candidateId": {
+            "type": "string"
+          },
+          "instanceId": {
+            "type": "string"
+          }
+        }
+      },
+      "InterviewAssignment": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "candidateId",
+          "instanceId",
+          "publishedRevisionId"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "candidateId": {
+            "type": "string"
+          },
+          "instanceId": {
+            "type": "string"
+          },
+          "publishedRevisionId": {
+            "type": "string"
+          }
+        }
+      },
+      "InterviewAssignmentEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "status",
+          "data"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "success"
+            ]
+          },
+          "data": {
+            "$ref": "#/components/schemas/InterviewAssignment"
+          }
         }
       },
       "CandidateEnvelope": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["status", "data"],
+        "required": [
+          "status",
+          "data"
+        ],
         "properties": {
-          "status": { "type": "string", "enum": ["success"] },
-          "data": { "$ref": "#/components/schemas/Candidate" }
+          "status": {
+            "type": "string",
+            "enum": [
+              "success"
+            ]
+          },
+          "data": {
+            "$ref": "#/components/schemas/Candidate"
+          }
         }
       },
       "IssuedInvitation": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["id", "assignmentId", "expiresAt", "token"],
+        "required": [
+          "id",
+          "assignmentId",
+          "expiresAt",
+          "token"
+        ],
         "properties": {
-          "id": { "type": "string" },
-          "assignmentId": { "type": "string" },
-          "expiresAt": { "type": "string", "format": "date-time" },
-          "token": { "type": "string" }
+          "id": {
+            "type": "string"
+          },
+          "assignmentId": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "token": {
+            "type": "string"
+          }
         }
       },
       "IssuedInvitationEnvelope": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["status", "data"],
+        "required": [
+          "status",
+          "data"
+        ],
         "properties": {
-          "status": { "type": "string", "enum": ["success"] },
-          "data": { "$ref": "#/components/schemas/IssuedInvitation" }
+          "status": {
+            "type": "string",
+            "enum": [
+              "success"
+            ]
+          },
+          "data": {
+            "$ref": "#/components/schemas/IssuedInvitation"
+          }
         }
       },
       "CandidateExchangeRequest": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["token"],
+        "required": [
+          "token"
+        ],
         "properties": {
-          "token": { "type": "string" }
+          "token": {
+            "type": "string"
+          }
         }
       },
       "CandidateAccessData": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["candidate", "assignment", "session"],
+        "required": [
+          "candidate",
+          "assignment",
+          "session"
+        ],
         "properties": {
           "candidate": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["id", "name"],
+            "required": [
+              "id",
+              "name"
+            ],
             "properties": {
-              "id": { "type": "string" },
-              "name": { "type": "string" }
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              }
             }
           },
           "assignment": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["id"],
-            "properties": { "id": { "type": "string" } }
+            "required": [
+              "id"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              }
+            }
           },
-          "session": { "$ref": "#/components/schemas/AdministrativeSession" }
+          "session": {
+            "$ref": "#/components/schemas/AdministrativeSession"
+          }
         }
       },
       "CandidateAccessEnvelope": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["status", "data"],
+        "required": [
+          "status",
+          "data"
+        ],
         "properties": {
-          "status": { "type": "string", "enum": ["success"] },
-          "data": { "$ref": "#/components/schemas/CandidateAccessData" }
+          "status": {
+            "type": "string",
+            "enum": [
+              "success"
+            ]
+          },
+          "data": {
+            "$ref": "#/components/schemas/CandidateAccessData"
+          }
         }
       },
       "CandidateCurrentData": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["candidate", "assignment", "session", "csrfToken"],
+        "required": [
+          "candidate",
+          "assignment",
+          "session",
+          "csrfToken"
+        ],
         "properties": {
           "candidate": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["id", "name"],
+            "required": [
+              "id",
+              "name"
+            ],
             "properties": {
-              "id": { "type": "string" },
-              "name": { "type": "string" }
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              }
             }
           },
           "assignment": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["id"],
-            "properties": { "id": { "type": "string" } }
+            "required": [
+              "id"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              }
+            }
           },
-          "session": { "$ref": "#/components/schemas/AdministrativeSession" },
-          "csrfToken": { "type": "string" }
+          "session": {
+            "$ref": "#/components/schemas/AdministrativeSession"
+          },
+          "csrfToken": {
+            "type": "string"
+          }
         }
       },
       "CandidateCurrentEnvelope": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["status", "data"],
+        "required": [
+          "status",
+          "data"
+        ],
         "properties": {
-          "status": { "type": "string", "enum": ["success"] },
-          "data": { "$ref": "#/components/schemas/CandidateCurrentData" }
+          "status": {
+            "type": "string",
+            "enum": [
+              "success"
+            ]
+          },
+          "data": {
+            "$ref": "#/components/schemas/CandidateCurrentData"
+          }
         }
       },
       "EmptySuccessEnvelope": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["status", "data"],
+        "required": [
+          "status",
+          "data"
+        ],
         "properties": {
-          "status": { "type": "string", "enum": ["success"] },
-          "data": { "type": "object", "additionalProperties": false, "maxProperties": 0 }
+          "status": {
+            "type": "string",
+            "enum": [
+              "success"
+            ]
+          },
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "maxProperties": 0
+          }
         }
       },
       "CreateAgentInstance": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["templateId", "templateVersion", "name", "configuration"],
+        "required": [
+          "templateId",
+          "templateVersion",
+          "name",
+          "configuration"
+        ],
         "properties": {
-          "templateId": { "type": "string", "enum": ["hr-interviewer", "document-analyzer"] },
-          "templateVersion": { "type": "string" },
-          "name": { "type": "string" },
-          "configuration": { "type": "object" }
+          "templateId": {
+            "type": "string",
+            "enum": [
+              "hr-interviewer",
+              "document-analyzer"
+            ]
+          },
+          "templateVersion": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "configuration": {
+            "type": "object"
+          }
         }
       },
       "ReplaceAgentDraft": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["expectedDraftVersion", "configuration"],
+        "required": [
+          "expectedDraftVersion",
+          "configuration"
+        ],
         "properties": {
-          "expectedDraftVersion": { "type": "integer", "minimum": 1 },
-          "configuration": { "type": "object" }
+          "expectedDraftVersion": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "configuration": {
+            "type": "object"
+          }
         }
       },
       "ValidateAgentDraft": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["expectedDraftVersion"],
-        "properties": { "expectedDraftVersion": { "type": "integer", "minimum": 1 } }
+        "required": [
+          "expectedDraftVersion"
+        ],
+        "properties": {
+          "expectedDraftVersion": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
       },
       "PublishAgentDraft": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["expectedDraftVersion", "validationId"],
+        "required": [
+          "expectedDraftVersion",
+          "validationId"
+        ],
         "properties": {
-          "expectedDraftVersion": { "type": "integer", "minimum": 1 },
-          "validationId": { "type": "string", "format": "uuid" }
+          "expectedDraftVersion": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "validationId": {
+            "type": "string",
+            "format": "uuid"
+          }
         }
       },
       "AgentTemplate": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["templateId", "templateVersion", "behaviorVersion", "displayName", "configurationSchema", "warningPolicy"],
+        "required": [
+          "templateId",
+          "templateVersion",
+          "behaviorVersion",
+          "displayName",
+          "configurationSchema",
+          "warningPolicy"
+        ],
         "properties": {
-          "templateId": { "type": "string" },
-          "templateVersion": { "type": "string" },
-          "behaviorVersion": { "type": "string" },
-          "displayName": { "type": "string" },
-          "configurationSchema": { "type": "object" },
-          "warningPolicy": { "type": "string", "enum": ["informational"] }
+          "templateId": {
+            "type": "string"
+          },
+          "templateVersion": {
+            "type": "string"
+          },
+          "behaviorVersion": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "configurationSchema": {
+            "type": "object"
+          },
+          "warningPolicy": {
+            "type": "string",
+            "enum": [
+              "informational"
+            ]
+          }
         }
       },
       "AgentCatalogData": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["templates"],
-        "properties": { "templates": { "type": "array", "items": { "$ref": "#/components/schemas/AgentTemplate" } } }
+        "required": [
+          "templates"
+        ],
+        "properties": {
+          "templates": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AgentTemplate"
+            }
+          }
+        }
       },
       "AgentCatalogEnvelope": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["status", "data"],
+        "required": [
+          "status",
+          "data"
+        ],
         "properties": {
-          "status": { "type": "string", "enum": ["success"] },
-          "data": { "$ref": "#/components/schemas/AgentCatalogData" }
+          "status": {
+            "type": "string",
+            "enum": [
+              "success"
+            ]
+          },
+          "data": {
+            "$ref": "#/components/schemas/AgentCatalogData"
+          }
         }
       },
       "AgentInstance": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["id", "name", "templateId", "templateVersion", "behaviorVersion", "draftVersion", "configuration", "activeRevisionId", "createdAt", "updatedAt"],
+        "required": [
+          "id",
+          "name",
+          "templateId",
+          "templateVersion",
+          "behaviorVersion",
+          "draftVersion",
+          "configuration",
+          "activeRevisionId",
+          "createdAt",
+          "updatedAt"
+        ],
         "properties": {
-          "id": { "type": "string", "format": "uuid" },
-          "name": { "type": "string" },
-          "templateId": { "type": "string" },
-          "templateVersion": { "type": "string" },
-          "behaviorVersion": { "type": "string" },
-          "draftVersion": { "type": "integer" },
-          "configuration": { "type": "object" },
-          "activeRevisionId": { "type": "string", "format": "uuid", "nullable": true },
-          "createdAt": { "type": "string", "format": "date-time" },
-          "updatedAt": { "type": "string", "format": "date-time" }
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "templateId": {
+            "type": "string"
+          },
+          "templateVersion": {
+            "type": "string"
+          },
+          "behaviorVersion": {
+            "type": "string"
+          },
+          "draftVersion": {
+            "type": "integer"
+          },
+          "configuration": {
+            "type": "object"
+          },
+          "activeRevisionId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
         }
       },
       "AgentInstanceEnvelope": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["status", "data"],
+        "required": [
+          "status",
+          "data"
+        ],
         "properties": {
-          "status": { "type": "string", "enum": ["success"] },
-          "data": { "$ref": "#/components/schemas/AgentInstance" }
+          "status": {
+            "type": "string",
+            "enum": [
+              "success"
+            ]
+          },
+          "data": {
+            "$ref": "#/components/schemas/AgentInstance"
+          }
         }
       },
       "AgentFinding": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["severity", "code", "path", "message"],
+        "required": [
+          "severity",
+          "code",
+          "path",
+          "message"
+        ],
         "properties": {
-          "severity": { "type": "string", "enum": ["error", "warning"] },
-          "code": { "type": "string" },
-          "path": { "type": "string" },
-          "message": { "type": "string" }
+          "severity": {
+            "type": "string",
+            "enum": [
+              "error",
+              "warning"
+            ]
+          },
+          "code": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
         }
       },
       "AgentValidation": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["validationId", "instanceId", "draftVersion", "templateId", "templateVersion", "behaviorVersion", "eligible", "findings", "createdAt"],
+        "required": [
+          "validationId",
+          "instanceId",
+          "draftVersion",
+          "templateId",
+          "templateVersion",
+          "behaviorVersion",
+          "eligible",
+          "findings",
+          "createdAt"
+        ],
         "properties": {
-          "validationId": { "type": "string", "format": "uuid" },
-          "instanceId": { "type": "string", "format": "uuid" },
-          "draftVersion": { "type": "integer" },
-          "templateId": { "type": "string" },
-          "templateVersion": { "type": "string" },
-          "behaviorVersion": { "type": "string" },
-          "eligible": { "type": "boolean" },
-          "findings": { "type": "array", "items": { "$ref": "#/components/schemas/AgentFinding" } },
-          "createdAt": { "type": "string", "format": "date-time" }
+          "validationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "instanceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "draftVersion": {
+            "type": "integer"
+          },
+          "templateId": {
+            "type": "string"
+          },
+          "templateVersion": {
+            "type": "string"
+          },
+          "behaviorVersion": {
+            "type": "string"
+          },
+          "eligible": {
+            "type": "boolean"
+          },
+          "findings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AgentFinding"
+            }
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
         }
       },
       "AgentValidationEnvelope": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["status", "data"],
+        "required": [
+          "status",
+          "data"
+        ],
         "properties": {
-          "status": { "type": "string", "enum": ["success"] },
-          "data": { "$ref": "#/components/schemas/AgentValidation" }
+          "status": {
+            "type": "string",
+            "enum": [
+              "success"
+            ]
+          },
+          "data": {
+            "$ref": "#/components/schemas/AgentValidation"
+          }
         }
       },
       "AgentRevision": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["revisionId", "instanceId", "revisionNumber", "sourceDraftVersion", "validationId", "templateId", "templateVersion", "behaviorVersion", "configuration", "publishedAt"],
+        "required": [
+          "revisionId",
+          "instanceId",
+          "revisionNumber",
+          "sourceDraftVersion",
+          "validationId",
+          "templateId",
+          "templateVersion",
+          "behaviorVersion",
+          "configuration",
+          "publishedAt"
+        ],
         "properties": {
-          "revisionId": { "type": "string", "format": "uuid" },
-          "instanceId": { "type": "string", "format": "uuid" },
-          "revisionNumber": { "type": "integer" },
-          "sourceDraftVersion": { "type": "integer" },
-          "validationId": { "type": "string", "format": "uuid" },
-          "templateId": { "type": "string" },
-          "templateVersion": { "type": "string" },
-          "behaviorVersion": { "type": "string" },
-          "configuration": { "type": "object" },
-          "publishedAt": { "type": "string", "format": "date-time" }
+          "revisionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "instanceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "revisionNumber": {
+            "type": "integer"
+          },
+          "sourceDraftVersion": {
+            "type": "integer"
+          },
+          "validationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "templateId": {
+            "type": "string"
+          },
+          "templateVersion": {
+            "type": "string"
+          },
+          "behaviorVersion": {
+            "type": "string"
+          },
+          "configuration": {
+            "type": "object"
+          },
+          "publishedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
         }
       },
       "AgentRevisionEnvelope": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["status", "data"],
+        "required": [
+          "status",
+          "data"
+        ],
         "properties": {
-          "status": { "type": "string", "enum": ["success"] },
-          "data": { "$ref": "#/components/schemas/AgentRevision" }
+          "status": {
+            "type": "string",
+            "enum": [
+              "success"
+            ]
+          },
+          "data": {
+            "$ref": "#/components/schemas/AgentRevision"
+          }
         }
       }
     }

@@ -40,6 +40,12 @@ other = "too many authentication attempts"
 [IA_DEPENDENCY_UNAVAILABLE]
 other = "access dependency is unavailable"
 
+[IA_NO_ACTIVE_REVISION]
+other = "agent instance has no active published revision"
+
+[IA_UNSUPPORTED_TEMPLATE]
+other = "interview assignment requires an hr interviewer instance"
+
 [ACP_UNAUTHENTICATED]
 other = "administrative session is missing or no longer valid"
 

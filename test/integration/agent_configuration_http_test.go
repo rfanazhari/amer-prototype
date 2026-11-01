@@ -16,10 +16,12 @@ import (
 	"github.com/rfanazhari/amer-prototype/application/query/agentconfigquery"
 	"github.com/rfanazhari/amer-prototype/application/service"
 	"github.com/rfanazhari/amer-prototype/application/usecase/accessusecase"
+	"github.com/rfanazhari/amer-prototype/application/usecase/agentbindingusecase"
 	"github.com/rfanazhari/amer-prototype/application/usecase/agentconfigusecase"
 	"github.com/rfanazhari/amer-prototype/delivery/http/handler/accesshandler"
 	"github.com/rfanazhari/amer-prototype/delivery/http/handler/agentconfighandler"
 	"github.com/rfanazhari/amer-prototype/infrastructure/repository/accessrepository"
+	"github.com/rfanazhari/amer-prototype/infrastructure/repository/agentbindingrepository"
 	"github.com/rfanazhari/amer-prototype/infrastructure/repository/agentconfigrepository"
 	appruntime "github.com/rfanazhari/amer-prototype/infrastructure/runtime"
 	"github.com/rfanazhari/amer-prototype/infrastructure/service/accessauthority"
@@ -154,15 +156,26 @@ func newConfigHTTP(t *testing.T) configHTTP {
 	csrf := accesscredentials.CSRF{Secret: []byte(accessSecret)}
 	sessions := accessauthority.Sessions{Store: accessStore, Tokens: tokens, Clock: clock}
 	authority := accessauthority.Authority{Sessions: sessions, Clock: clock}
+	candidates := accessrepository.CandidateIdentities{Store: accessStore}
+	invitations := accessrepository.InvitationSecrets{Store: accessStore}
+	candidateSecrets := accessrepository.CandidateSessionSecrets{Store: accessStore}
+	candidateSessions := accessauthority.CandidateSessions{Store: candidateSecrets, Tokens: tokens, Clock: clock}
 	accessHandler := accesshandler.Handler{
-		Login:     accessusecase.Login{Accounts: accessStore, Issuance: accessStore, Hasher: hasher, Tokens: tokens, Clock: clock},
-		Current:   accessquery.CurrentSession{Current: sessions, CSRF: csrf, Clock: clock},
-		Provision: accessusecase.ProvisionHR{Accounts: accessStore, Current: sessions, Hasher: hasher, Clock: clock},
-		Logout:    accessusecase.Logout{Current: sessions, Sessions: accessStore, Clock: clock},
-		CSRF:      csrf,
-		Sessions:  sessions,
-		Origin:    accessOrigin,
-		Limiter:   &accesshandler.LoginLimiter{},
+		Login:            accessusecase.Login{Accounts: accessStore, Issuance: accessStore, Hasher: hasher, Tokens: tokens, Clock: clock},
+		Current:          accessquery.CurrentSession{Current: sessions, CSRF: csrf, Clock: clock},
+		Provision:        accessusecase.ProvisionHR{Accounts: accessStore, Current: sessions, Hasher: hasher, Clock: clock},
+		Logout:           accessusecase.Logout{Current: sessions, Sessions: accessStore, Clock: clock},
+		CreateCandidate:  accessusecase.CreateCandidate{Candidates: candidates, Current: sessions, Clock: clock},
+		CreateAssignment: agentbindingusecase.CreateAssignment{Current: sessions, Clock: clock, Candidates: candidates, Instances: configStore, Assignments: agentbindingrepository.Assignments{DB: db}},
+		Candidate:        accessquery.Candidate{Candidates: candidates, Current: sessions, Clock: clock},
+		IssueInvitation:  accessusecase.IssueInvitation{Assignments: accessStore, Current: sessions, Tokens: tokens, Clock: clock},
+		Exchange:         accessusecase.ExchangeInvitation{Invitations: invitations, Candidates: candidates, Assignments: accessStore, Tokens: tokens, Clock: clock},
+		CandidateSession: accessquery.CandidateSession{Current: candidateSessions, Candidates: candidates, Assignments: accessStore, CSRF: csrf, Clock: clock},
+		CSRF:             csrf,
+		Sessions:         sessions,
+		Origin:           accessOrigin,
+		Limiter:          &accesshandler.LoginLimiter{},
+		ExchangeLimiter:  &accesshandler.LoginLimiter{},
 	}
 	configHandler := agentconfighandler.Handler{
 		Catalog:  agentconfigquery.Catalog{Authority: authority},

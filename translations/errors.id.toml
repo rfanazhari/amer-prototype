@@ -40,6 +40,12 @@ other = "terlalu banyak percobaan autentikasi"
 [IA_DEPENDENCY_UNAVAILABLE]
 other = "ketergantungan akses tidak tersedia"
 
+[IA_NO_ACTIVE_REVISION]
+other = "instans agen tidak memiliki revisi terbit yang aktif"
+
+[IA_UNSUPPORTED_TEMPLATE]
+other = "penugasan wawancara memerlukan instans pewawancara hr"
+
 [ACP_UNAUTHENTICATED]
 other = "sesi administratif hilang atau tidak lagi valid"
 

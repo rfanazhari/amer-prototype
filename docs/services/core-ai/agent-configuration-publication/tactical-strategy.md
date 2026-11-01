@@ -2,7 +2,7 @@
 
 ## 1. Implementation Strategy
 
-Mode C alignment of the additive capability in the existing Go modular monolith. Implement the assessed [technical design](technical-design.md) for [BR-CORE-001–014](../business/capabilities/agent-configuration-publication.md). Keep existing Task, voice, and administrative access behavior compatible. T1–T3 are done. Remaining code and verification below are planned work.
+Mode C alignment of the additive capability in the existing Go modular monolith. Implement the assessed [technical design](technical-design.md) for [BR-CORE-001–014](../business/capabilities/agent-configuration-publication.md). Keep existing Task, voice, and administrative access behavior compatible. T1–T12 are Done. Q6 is closed. T13 mounts `POST /admin/interview-assignments` on the existing pin. Startup accepts clean version 7. Sentences below that still say clean version 3 describe the 2026-11-01 installation step.
 
 Use the approved T1 contracts in technical-design §6 for field validators, persistent payloads, and HTTP behavior. Install the five configuration tables as SQL version 3, ahead of the unpublished candidate and assignment-access files, then prove atomic publication through PostgreSQL. Mount configuration routes only by reusing `accessauthority.Authority`, the administrative cookie, and the existing CSRF verifier. Do not build a second session system and do not register AutoMigrate.
 
@@ -38,10 +38,12 @@ Paths are repository-relative and were inspected during planning.
 | `Clock`, `System` | `application/service/ports.go`, `infrastructure/service/clock/clock.go` | Trusted time | Reuse as-is; application canonicalizes UTC milliseconds |
 | Handler decoding/envelope/error mapping | `delivery/http/handler/taskhandler/handler.go` | HTTP behavior reference | Helpers are private and Task-specific; implement parity locally or extract only with regression proof |
 | Public errors and translations | `pkg/errs/codes.go`, `translations/` | Error classification and EN/ID messages | Implement approved design §6.5 catalog entries in T8; preserve technical-error precedence |
-| `openDatabase`, `schema.RequireCompatible` | `infrastructure/runtime/resources.go`, `infrastructure/database/schema/compatible.go` | Shared pool and read-only schema gate | Startup accepts only clean version 3 and performs no DDL. Do not add workers or change shutdown budgets |
+| `openDatabase`, `schema.RequireCompatible` | `infrastructure/runtime/resources.go`, `infrastructure/database/schema/compatible.go`, `infrastructure/database/schema/version.go` | Shared pool and read-only schema gate | Startup accepts only clean version 7 and performs no DDL. Do not add workers or change shutdown budgets |
+| `PinAssignment`, `Assignments.Insert` | `application/usecase/agentbindingusecase/pin_assignment.go`, `infrastructure/repository/agentbindingrepository/store.go` | Copy `active_revision_id` into `interview_assignments.published_revision_id` | Reuse for T13. Not mounted in `infrastructure/runtime`. The caller currently supplies the assignment id; the HTTP command must mint it |
+| `IssueInvitation`, `WithAssignment` | `application/usecase/accessusecase/issue_invitation.go`, `infrastructure/repository/accessrepository/candidate_store.go` | Read and lock an existing assignment before writing an invitation | Do not insert an assignment from this path. T13's returned id is the invitation path id |
 | Administrative authority | `infrastructure/service/accessauthority/authority.go`, `application/service/policy.go` | Trusted principal and current HR authorization | Reuse as-is. Operation names are `create`, `replace`, `validate`, `publish`, `read`, and `replay`. `Authorize` ignores resource identity because company scope is shared |
 | Administrative cookie, origin, and CSRF | `delivery/http/handler/accesshandler/cookies.go`, `errors.go` | Session binding and `X-CSRF-Token` verification | Reuse the credential binding and verifier. Configuration routes map failures to ACP codes, not access codes |
-| Router | `infrastructure/runtime/voice.go` | Request dispatch | `/admin/` currently all goes to access. T8 must send `/admin/agent-templates` and `/admin/agent-instances` to the configuration handler first |
+| Router | `infrastructure/runtime/voice.go` | Request dispatch | Configuration paths precede the `/admin/` access catch-all. T13 must register `POST /admin/interview-assignments` before that catch-all, or the access handler returns 404 |
 | Mock generation and verification targets | `.mockery.yml`, `Makefile`, `test/architecture/` | Mocked orchestration and boundary checks | Register new interfaces; preserve generated documentation; mocks do not prove SQL consistency |
 
 No template catalog, instance storage, or publication implementation is available for direct reuse. Administrative sessions, HR authorization, cookies, and CSRF are. The existing voice provider adapter and Task event queue stay out of this feature graph because publication has no provider or event-dispatch side effect.
@@ -67,11 +69,14 @@ Planned names may be refined within design authority; domain classifications do 
 | Command intent/fingerprint | Application | `application/usecase/agentconfigusecase/` | Application value/helper | Approved normalized request identity; scope is `SubjectID`, not a client role |
 | Result DTOs | Application | `application/dto/agentconfiguration.go` | Detached data | Safe views, copied nested values, nullable active reference |
 | Store and five storage record types | Infrastructure | `infrastructure/repository/agentconfigrepository/` | GORM adapter/models | JSONB encoding/decoding, references, row locks, explicit updates; CRUD only |
-| Configuration migration | Infrastructure | `migrations/pgsql/000003_agent_configuration.{up,down}.sql` | Versioned SQL | Five tables and constraints. Unpublished candidate/assignment files are 000004/000005. Clean-version floor is 3 |
+| Configuration migration | Infrastructure | `migrations/pgsql/000003_agent_configuration.{up,down}.sql` | Versioned SQL | Five configuration tables. The release stream continues through `000007_interview_executions`. Clean-version floor is 7. T13 adds no migration |
 | Admin configuration handler | Delivery | `delivery/http/handler/agentconfighandler/` | HTTP adapter | Strict schemas, envelopes, and ACP errors; reuses access cookie and CSRF |
 | Feature composition | Infrastructure | `infrastructure/runtime/agentconfiguration.go` | Composition function | Construct `accessauthority.Authority`; register only the secured configuration paths |
+| Assignment create command | Application | `application/usecase/agentbindingusecase/` or the operation package T13 selects | Operation interface and implementation | Authorize current HR, mint the assignment id, call the existing pin. Blocked until T12 |
+| Assignment create route | Delivery | New handler, or the handler T12's contract names | HTTP adapter | Origin, HR cookie, CSRF, and the envelope. Not `issueInvitation` |
+| Assignment create composition | Infrastructure | `infrastructure/runtime/` | Composition and router arm | Construct `PinAssignment` with the configuration reader and `agentbindingrepository.Assignments` |
 
-Also modify the schema compatibility floor, checksum manifest, runtime grants, migration operations document, error catalogs, `.mockery.yml`, API specification/docs/changelog, and tests. No new authentication, assignment, execution, artifact, job, or reporting tables belong in this inventory.
+Also modify the schema compatibility floor, checksum manifest, runtime grants, migration operations document, error catalogs, `.mockery.yml`, API specification/docs/changelog, and tests. T13 does not add an assignment, execution, consent, voice, or reporting table. It mounts a create command on the existing `interview_assignments` pin.
 
 ## 4. Branching / PR Strategy
 
@@ -81,8 +86,9 @@ Recommended review order, not authorization to create branches, commits or PRs:
 2. Resolved template/contracts and domain validators (T1/T5), schema definition (T4).
 3. Application operations (T6) and PostgreSQL adapter (T7), with fault/concurrency proof.
 4. Secured HTTP, contract documentation, runtime integration, and acceptance (T8–T9), using the existing authority adapter after T4–T7.
+5. T12 approved the assignment contract. T13 mounts the create route on the existing pin. Do not add a migration or change `schema.ReleaseVersion`.
 
-Keep each task's changes reviewable. Commit per task when the user authorizes implementation/commits; this planning request creates documents only. T10 version compatibility and T11 consumer integration remain separately visible rather than being buried in an MVP-complete claim.
+Keep each task's changes reviewable. Commit per task when the user authorizes implementation/commits. T10–T12 are Done. T13 is executable.
 
 ## 5. Testing Strategy
 
@@ -110,7 +116,9 @@ Real PostgreSQL is required for these claims:
 - Repeated queries do not load all historical revisions or perform implicit association writes. Inspect statements for ordinary bounded reads; do not invent a performance benchmark target.
 - Real HR, ADMIN, candidate-cookie, expiry, revocation, and CSRF cases on the configuration routes. Mocked authority tests do not establish this boundary. CORE-IAM-009 already proves the adapter outside these routes.
 
-BR-CORE-013 has local immutable-read proof in T7/T9, plus external assignment/execution proof in T11. Neither substitutes for the other. Q4 must govern tests for historical template versions before multi-version deployment.
+BR-CORE-013 has local immutable-read proof in T7/T9, plus external assignment/execution proof in T11. Neither substitutes for the other. Q4 governs tests for historical template versions before multi-version deployment.
+
+T13, after T12, adds this PostgreSQL proof and no schema change: HR create pins `active_revision_id`; a later publication leaves that `published_revision_id` in place; a second create after that publication pins the new active revision; invitation issue with the returned id stores an invitation; invitation issue with the candidate id still returns 404. Mocked HTTP covers Origin, CSRF, ADMIN, and a candidate cookie before insert. Unknown candidate, unknown instance, and a null active revision use only the codes T12 approved.
 
 ### Regression Tests and Commands
 
@@ -147,3 +155,5 @@ None of these runtime commands was executed to generate this tripack. Documentat
 | v1.4 | 2026-11-01 | Align schema installation with manual SQL version 3 and treat the existing authority adapter as the access prerequisite |
 | v1.5 | 2026-11-01 | Record T9 real HTTP/PostgreSQL acceptance; UI and T11 binding proof remain outside this slice |
 | v1.6 | 2026-11-01 | Record T11 assignment/execution pin consumers; UI remains outside this slice |
+| v1.7 | 2026-11-02 | Point the remaining work at blocked T12–T13 and the existing assignment pin; current startup floor is version 7 |
+| v1.8 | 2026-11-02 | Record T12 approved create contract and unblock T13 |

@@ -2,7 +2,7 @@
 
 ## 1. Overview
 
-Date: 2026-11-01. Mode C — align this plan with the implemented Identity and Access administrative adapter and the owner-approved service-wide SQL migrations (Identity and Access D8/D9). Status: T1–T11 are Done. Q4 and Q5 are resolved. Admin UI remains outside this slice.
+Date: 2026-11-01. Mode C — align this plan with the implemented Identity and Access administrative adapter and the owner-approved service-wide SQL migrations (Identity and Access D8/D9). Status: T1–T12 are Done. Q4, Q5, and Q6 are resolved. T13 mounts the approved `POST /admin/interview-assignments` contract in §11. Admin UI remains outside this slice. Sentences below that still say clean version 3 or unpublished `000005_assignment_access` are historical and are superseded where §11 states the current release.
 
 T1 (`CORE-ACP-001`) is Done. The user approved sections A–E on 2026-11-01:
 “approve. - Setujui bagian A–E sebagai kontrak T1”. Section 6 now contains
@@ -31,18 +31,18 @@ Execution initiation, lifecycle, candidate access/consent, interview workflow, i
 | `domain/aggregate/task.go`, `domain/valueobject/title.go` | Encapsulated aggregate state, validated value objects, separate restoration and copied snapshots. Task title limits are not agent naming requirements. |
 | `application/usecase/taskusecase/create.go`, `application/repository/task.go` | Operation interface + injected plain struct; repository transaction callback; detached result after persistence. |
 | `infrastructure/repository/taskrepository/task.go` | Separate ORM model, row-lock transaction, explicit update fields, technical classification of corrupt persisted state. One-row Task storage cannot be reused as the publication repository. |
-| `infrastructure/runtime/resources.go`, `infrastructure/database/schema/compatible.go`, `docs/design/database-migrations.md` | Startup calls `schema.RequireCompatible` and accepts only one clean version 3. It performs no DDL. `test/architecture/schema_test.go` rejects executable `AutoMigrate` calls. Versions `000001`–`000003` are checksum-pinned. |
+| `infrastructure/runtime/resources.go`, `infrastructure/database/schema/compatible.go`, `infrastructure/database/schema/version.go`, `docs/design/database-migrations.md` | Startup calls `schema.RequireCompatible` and accepts only clean `schema.ReleaseVersion` 7. It performs no DDL. Versions `000001`–`000007` are the release stream, including `000005_interview_assignments` and `000007_interview_executions`. The 2026-11-01 note of clean version 3 is historical. |
 | `delivery/http/handler/taskhandler/handler.go`, `docs/api/openapi.yaml`, `docs/api/task.md` | Bounded strict JSON, standard envelope, EN/ID errors; helpers are currently package-private and Task-oriented. |
-| `application/service/agentconfiguration.go`, `application/service/policy.go`, `infrastructure/service/accessauthority/authority.go` | `AdminPrincipal.SubjectID` and `AgentConfigurationAuthority` exist. The real adapter allows current HR, denies ADMIN, and rejects unbound, expired, revoked, and disabled sessions. Production HTTP composition does not yet construct this adapter for configuration routes. |
-| `infrastructure/runtime/voice.go`, `infrastructure/runtime/access.go`, `delivery/http/handler/accesshandler` | Every `/admin/` request currently goes to the access handler. That handler owns the administrative cookie, origin check, and `X-CSRF-Token` verification, and maps its own access error catalog. | 
-| `migrations/pgsql/000004_candidates.*.sql`, `000005_assignment_access.up.sql` | Candidate identity SQL can follow version 3. Assignment-access SQL references `interview_assignments`, which this repository does not migrate. Those versions are packaged and are not in `infrastructure/database/schema/checksums.json`. |
+| `application/service/agentconfiguration.go`, `application/service/policy.go`, `infrastructure/service/accessauthority/authority.go`, `infrastructure/runtime/agentconfiguration.go` | `AdminPrincipal.SubjectID` and `AgentConfigurationAuthority` exist. The real adapter allows current HR, denies ADMIN, and rejects unbound, expired, revoked, and disabled sessions. `assembleAgentConfiguration` mounts that adapter. It does not construct `PinAssignment`. |
+| `infrastructure/runtime/voice.go`, `infrastructure/runtime/access.go`, `delivery/http/handler/accesshandler` | Configuration paths are dispatched before the `/admin/` access catch-all. Access owns candidate and invitation routes, the administrative cookie, origin, and `X-CSRF-Token`. `POST /admin/interview-assignments` is not registered. `GET /voice-session` and `POST /voice-sessions` stay on the voice handlers. |
+| `migrations/pgsql/000004_candidates.*.sql` through `000007_interview_executions.*.sql` | These versions are in the release stream and checksum manifest. The current assignment migration is `000005_interview_assignments`. There is no `000005_assignment_access` file. Access does not create `interview_assignments`. |
 | `Makefile`, `.mockery.yml`, `test/architecture/` | Generated mocks, race checks, contract checks, import allowlist, per-declaration documentation enforcement. |
 
 The skill's Backend Service Standard and Design Assessment were read. Project instructions and Identity and Access D8 override the bundled golang-migrate default only by fixing the already chosen service stream: GORM remains the CRUD adapter, and schema changes are reviewed SQL applied by `cmd/migrate` before startup. Test delivery through mocked operations, application-owned repository contracts, and encapsulated aggregates remain in force. Schema assertions below are planned additions. No live database was inspected for this revision.
 
 Binding behavior includes BR rules, authorization, version matching, immutable revision meaning, idempotency, and stable bindings. Package names and helper decomposition below are assessed internal choices. Changes to consistency boundaries, normalization, public errors, or retention require a resolved contract decision and synchronized documents before dependent work.
 
-Companion planning: [Identity and Access capability](../business/capabilities/identity-access.md), BR-CORE-020..039, its [decision log](../identity-access/decision-log.md), and its [assessed design](../identity-access/technical-design.md). Its five access tables stay separate from the five configuration tables. D1–D7 and CORE-IAM-007/009 supply the administrative principal, HR-only authorization, cookies, and CSRF. D8 supplies the schema policy. D9 approves candidate contact and exchange contracts; it does not create assignment or execution consumers, so Q5 stays open. Identity and Access Q2 means candidate collaboration and is not this document's Q2.
+Companion planning: [Identity and Access capability](../business/capabilities/identity-access.md), BR-CORE-020..039, its [decision log](../identity-access/decision-log.md), and its [assessed design](../identity-access/technical-design.md). Its five access tables stay separate from the five configuration tables. D1–D7 and CORE-IAM-007/009 supply the administrative principal, HR-only authorization, cookies, and CSRF. D8 supplies the schema policy. Identity and Access D9 approves candidate contact and exchange contracts and does not create assignment rows. This document's Q5 is the resolved pin-consumer proof in D9 below, not that access decision. Identity and Access Q2 means candidate collaboration and is not this document's Q2. Its technical design still contains historical sentences that the startup floor is clean version 3 and that invitation foreign keys wait for a future assignment migration; the release stream has moved past both. §11 is the current assignment-write account.
 
 ### Access revision baseline and impact (2026-11-01)
 
@@ -56,17 +56,19 @@ The owner approved separate ADMIN and HR roles, one company with shared HR confi
 | Planned AutoMigrate installation | Contract violation against Identity and Access D8 and the current startup check | T4 uses the next applicable SQL version. No ACP code repair exists because T4–T11 are not implemented |
 | T4–T11 configuration behavior | Not yet implemented | Preserve Todo. Q2 access prerequisite is satisfied; configuration-route proof remains T8/T9 |
 
+The two rows that say configuration routes are unmounted and T4–T11 are not implemented record the 2026-11-01 baseline only. Those routes and tasks are done. They still do not include a public assignment create.
+
 Publication identity remains `AdminPrincipal.SubjectID`, the administrative account UUID, including across new sessions. Command scope stores that UUID and references `administrative_accounts(id)`. Role separation does not change approved payloads, fingerprints, or error precedence. No existing database was inspected. No implemented configuration behavior violates the refined access contract.
 
 ### Identity and access alignment (2026-11-01)
 
-Identity and Access D8 requires reviewed SQL applied before startup. The current binary starts only on clean version 3. `000005_assignment_access.up.sql` cannot run until Interview creates `interview_assignments`. Versions 1–3 stay immutable. Unpublished candidate and assignment-access files are versions 4–5 and are not checksum-pinned.
+Identity and Access D8 requires reviewed SQL applied before startup. The current binary starts only on clean version 7. `000005_interview_assignments` is Interview-owned and is already in the release stream. `000006_assignment_access` adds invitation and session foreign keys to that table. Versions already applied stay immutable. The filename `000005_assignment_access` is not current.
 
-D9 does not change configuration payloads, salary filtering, or publication identity. Candidate cookies still fail principal resolution with 401 `ACP_UNAUTHENTICATED`. Q5 remains blocked on real assignment and execution consumers.
+Identity and Access candidate contracts do not change configuration payloads, salary filtering, or publication identity. Candidate cookies still fail principal resolution with 401 `ACP_UNAUTHENTICATED`. Pin consumers exist and are not mounted as a public assignment create; see §11.
 
 ## 2. API / Interface Contract Changes
 
-The platform design already selects these endpoint directions. The accepted payloads and error ordering are in §6; they are not yet present in the current OpenAPI.
+The platform design already selects these endpoint directions. The accepted configuration payloads and error ordering are in §6 and are present in the current OpenAPI. `POST /admin/interview-assignments` is not in that OpenAPI. §11 sketches it and does not authorize an edit.
 
 | Method and path | Operation | Planned result |
 |---|---|---|
@@ -118,7 +120,7 @@ Template definitions are versioned developer-provided data with a concrete two-t
 - A reported ambiguous commit does not authorize a new identity. Reconcile using the same command key. If the database is unavailable, return a safe uncertain technical outcome; a later retry can resolve it. Do not claim rollback or issue a second publication without evidence.
 - The adapter uses GORM 1.25.12, with explicit field selections and separate mapping types. Use bounded direct queries for current draft, validation, or a single revision, avoiding implicit association writes and N+1 history loading. Do not use `Updates(struct)` omission for zero, empty, false, or null replacement. Constraint DDL belongs in the versioned SQL file, not in adapter startup code.
 
-Forward schema policy: `migrations/pgsql/000003_agent_configuration.{up,down}.sql` owns the five tables, primary keys, same-instance composite references, uniqueness, and the account-scope foreign key. Unpublished candidate/assignment files are `000004_candidates` and `000005_assignment_access`. `schema.RequireCompatible`, the checksum manifest, runtime grants, and `docs/design/database-migrations.md` accept clean version 3. Startup still performs no DDL. GORM models map rows only.
+Forward schema policy: `migrations/pgsql/000003_agent_configuration.{up,down}.sql` owns the five configuration tables, primary keys, same-instance composite references, uniqueness, and the account-scope foreign key. Later release files are `000004_candidates`, `000005_interview_assignments`, `000006_assignment_access`, and `000007_interview_executions`. `schema.RequireCompatible`, the checksum manifest, runtime grants, and `docs/design/database-migrations.md` accept clean version 7. Startup still performs no DDL. GORM models map rows only. The earlier "unpublished `000005_assignment_access`" wording is withdrawn.
 
 Verify a fresh migrate to version 3 and an upgrade from a version-2 database that already contains Task and administrative rows. No Task or account backfill is planned. Rollback unmounts configuration routes and starts a binary that still accepts the previous clean version while retaining the new tables. Do not use an AutoMigrate binary as rollback, and do not run down against retained publication data. Physical deletion remains a separate retention decision. The runtime role gains CRUD on the five configuration tables and keeps SELECT on `schema_migrations`; it still must not receive CREATE.
 
@@ -140,7 +142,7 @@ Every row is planned verification, not passing evidence.
 | BR-CORE-010 | Publication transaction | New publication | Fault at each write and commit leaves no partial active/revision/command outcome |
 | BR-CORE-011 | Publication command lookup + transaction | Duplicate/ambiguous retry | Same ID returns same revision, including after a newer active publication |
 | BR-CORE-012 | Command identity/fingerprint contract | New request and replay | Same key with different intent conflicts; concurrent duplicates create one revision |
-| BR-CORE-013 | Immutable revision query; future admission consumers own binding selection | Read-by-revision now; assignment/execution integration later | Old revision remains retrievable; later consumer integration must prove pinned references, not claimed complete here |
+| BR-CORE-013 | Immutable revision query; assignment and execution pin consumers | `Publish` moves only `agent_instances.active_revision_id`; `PinAssignment` copies that id once; `StartExecution` copies the stored pin | Pin-before-later-publication is proven in `TestBindingPreservationPinsOriginalRevisionAcrossLaterPublication`. The public assignment create that would call the pin is absent; see §11 |
 | BR-CORE-014 | Validation/application boundary | Validation/publication; future execution admission | Provider outage cannot invalidate local configuration; no activation side effects; live revocation remains enforced |
 
 ## 4. Component Breakdown
@@ -185,7 +187,7 @@ Assessment gate: all fourteen rules have an owner, enforcement path, and proof p
 5. Authorize before returning any stored result. Parse/compare the normalized intent under §6.4; inside serialized publication, resolve matching command first. A replay returns the original revision and cannot update the active pointer.
 6. For a new command, verify current draft, validation ownership/version, and eligibility. Commit revision, active selection, and command result together.
 7. Return a detached, confidentiality-filtered revision after commit. Logs include safe identifiers/outcome only, never configuration bodies or confidential salary data.
-8. New bindings may select the active revision; consumers holding an explicit revision continue to read it. This feature does not create those consumers or start model work.
+8. New bindings may select the active revision; consumers holding an explicit revision continue to read it. The pin and execution-start commands exist and are not HTTP routes. §11 traces the missing assignment write. This feature does not start model work.
 
 ## 6. Request / Response
 
@@ -447,7 +449,8 @@ T9 (`CORE-ACP-009`) records `TestAgentConfigurationHTTPAcceptance` and the repos
 | Q2 | **Access prerequisite satisfied 2026-11-01:** `accessauthority.Authority` resolves `administrative_accounts.id`, allows current HR, denies ADMIN, and rejects candidate, expired, revoked, and disabled sessions. Evidence: [q2-access-evidence.md](q2-access-evidence.md) and CORE-IAM-009. T9 proved the same outcomes on the configuration routes | T8/T9 secured configuration exposure with that adapter. T2–T7 do not wait on another access decision | Configuration-route proof is `TestAgentConfigurationHTTPAcceptance`. No permissive stub. ACP error codes stay §6.5 |
 | Q3 | **Resolved 2026-11-01:** informational warnings without acknowledgment; only v1 warning is `CURRENCY_NOT_REQUIRED`; §6.2 | T1 Done; implement/prove in T5–T9 | Approval recorded in decision-log; warnings retained and errors block publication |
 | Q4 | **Resolved 2026-11-01 (T10):** retain-and-restrict deployment; `SupportedRestoration`/`RequireAgentConfigurationDeploymentCompatible`; restoration without current assessor reinterpretation — §6.6 | T10 Done; multi-version rollout gate | Policy and fixtures approved in [t10-contract.md](t10-contract.md); first-version publication work proceeded independently |
-| Q5 | **Resolved 2026-11-01 (T11):** thin assignment/execution consumers pin `published_revision_id` and restore immutable requirements; Identity and Access D9 still does not own Interview product tables | T11 Done | Assignment pin before later publication, execution start before later publication, and new assignment after publication are proven |
+| Q5 | **Resolved 2026-11-01 (T11):** thin assignment/execution consumers pin `published_revision_id` and restore immutable requirements; Identity and Access does not own Interview product tables | T11 Done | Assignment pin before later publication, execution start before later publication, and new assignment after publication are proven. Those consumers are not a public create route |
+| Q6 | **Resolved 2026-11-02 (T12):** HR create copies only the current active revision of an `hr-interviewer` instance; body is `candidateId` and `instanceId`; lost 201 mints another assignment; public catalog is `IA_*` plus `NOT_FOUND`/`INVALID_INPUT` as in §11 | T12 Done; T13 may mount the route | Approval recorded in decision-log D10 and §11; no older `publishedRevisionId`, Document Analyzer instance, timestamps, or idempotency key |
 
 No live database was inspected and no runtime tests were run for this planning task. Exact SQL constraints must be exercised on the project's selected versions, not assumed from a generic ORM recipe. Sensitive HR configuration also needs response-filtering tests even for authorized views; confidentiality is not satisfied by route protection alone.
 
@@ -464,5 +467,136 @@ No live database was inspected and no runtime tests were run for this planning t
 | v1.5 | 2026-11-01 | Consume the existing HR authority adapter; replace AutoMigrate with SQL version 3 ahead of unpublished candidate/assignment versions; keep Q4/Q5 open | Identity and Access D8/D9 and the version-2 startup contract; configuration routes still unproven |
 | v1.6 | 2026-11-01 | Record T9 backend acceptance and check §8; keep UI, Q4, and Q5 open | Configuration-route proof now exists without an MVP-complete claim |
 | v1.7 | 2026-11-01 | Record T11 assignment/execution pin consumers and resolve Q5 | BR-CORE-013 external consumer proof; UI remains open |
+| v1.8 | 2026-11-02 | Record the missing assignment write in §11; replace current-tense version 3 and `000005_assignment_access` claims with release version 7 | The invitation route already reads `interview_assignments`; nothing public inserts that row. Q6 stays open. No route or SQL change |
+| v1.9 | 2026-11-02 | Replace the §11 sketch with the approved create contract and resolve Q6 | T12 `CORE-ACP-012`. T13 may implement the route. No OpenAPI or SQL in T12 |
 
 Business-driven consequences are recorded in [decision-log.md](decision-log.md). Execution order and verification are in [tactical-strategy.md](tactical-strategy.md) and [task-plan.md](task-plan.md).
+
+## 11. Interview assignment create contract (approved T12)
+
+Documents only for T12. This section does not add a route, edit `docs/api/openapi.yaml`, or change SQL. Decision D10 adopts the contract below. T13 implements it on the existing pin without a new migration.
+
+### The HR action
+
+After a candidate exists, and before an invitation can be issued, HR creates one interview assignment. The assignment references that candidate and the current published revision of an agent instance HR already published. The id returned by that create is the `{id}` in `POST /admin/interview-assignments/{id}/invitations`. A candidate id is the wrong value. The observed candidate `1517c057-efa9-4c53-a14c-09bfcfcb67e5` (name rendi, create 201, read 200) is a candidate id, so the invitation request that reused it returned 404 `NOT_FOUND`.
+
+**Actor.** Current HR, with the same administrative cookie, `Origin`, and `X-CSRF-Token` as other HR writes. ADMIN can provision HR accounts and cannot call configuration routes (`BR-CORE-003`, `AllowsAgentConfiguration`). Candidate email is contact on `candidates` and is not a login (`000004_candidates.up.sql`; Identity and Access resolved Q4).
+
+**Preconditions already fixed.**
+
+- The candidate row exists. One candidate may have many assignments (`BR-CORE-030`).
+- The agent instance has a current active published revision. Publication stores that pointer on `agent_instances.active_revision_id`. An unpublished instance cannot be pinned (`PinAssignment` returns `agentbindingport.ErrNoActiveRevision`).
+- The invitation command refuses to invent a missing assignment (`BR-CORE-031`).
+
+**Invariants already fixed.**
+
+- One assignment stores one `published_revision_id`. A later publication changes the instance's active pointer and does not update that column (`BR-CORE-013`). `AgentInstance.Publish` replaces `state.Active` for the instance only. `Publish.publishNew` then inserts the revision and saves the instance. It does not write `interview_assignments`.
+- Access locks and reads the assignment. It does not create the table or the row (`identity-access` technical design §6.9; `000005_interview_assignments.up.sql` header).
+- Completing or reissuing access does not start an execution (`BR-CORE-034`, `BR-CORE-039`). `ExchangeInvitation.Execute` inserts a candidate session only.
+
+**Out of scope.** Consent, execution start, a provider session, voice binding, Document Analyzer jobs, RabbitMQ, and a new template or job-description CMS. `StartExecution` exists and is also unmounted; it is not this step. `GET /voice-session` and `POST /voice-sessions` are a separate unauthenticated WebRTC prototype (`runtime.Router`). They are not candidate access and not interview execution.
+
+### 1. Trace
+
+`POST /admin/interview-assignments/{candidate-id}/invitations` is a real route. The 404 is the missing assignment row, not an unmatched path.
+
+1. `runtime.Router.ServeHTTP` sends `/admin/interview-assignments/...` to the access handler. The path is not an agent-configuration path and not a voice path.
+2. `accesshandler.Handler.ServeHTTP` falls through to `dispatchCandidateRoutes`.
+3. The path has prefix `/admin/interview-assignments/` and suffix `/invitations`, so `issueInvitation` runs. `assignmentInvitationID` returns the single path segment. A candidate UUID matches that shape.
+4. Origin, optional empty JSON, and CSRF run. `IssueInvitation.Execute` then requires a current HR session (`AllowsCandidateAdministration`). ADMIN is 403 `IA_FORBIDDEN` before any assignment read. A missing session is 401 `IA_UNAUTHENTICATED`.
+5. `accessrepository.Store.WithAssignment` runs `SELECT id FROM interview_assignments WHERE id = ? FOR UPDATE`, then `assignmentCollaborationTx.Facts` selects `id`, `candidate_id`, `published_revision_id`, `access_revoked_at`, and `completed_at`.
+6. No row makes `Facts` return `accessport.ErrNotFound`. `accesshandler.Handler.sendError` maps that to 404 `NOT_FOUND`.
+7. There is no earlier write. `assembleAccess` wires `IssueInvitation` and does not wire `PinAssignment`. `assembleAgentConfiguration` wires `Publish` and does not wire `PinAssignment`. A repository search of `infrastructure/runtime` finds no `PinAssignment` construction. The only constructors are tests: `application/usecase/agentbindingusecase/binding_test.go` and `test/integration/agent_configuration_binding_test.go`.
+8. Invitation integration proof inserts a row in `insertAssignment` (`test/integration/access_candidate_fixture_test.go`). That fixture is not a product command.
+
+What a future create must pin:
+
+1. `POST /admin/agent-instances/{id}/publications` reaches `agentconfighandler` and `agentconfigusecase.Publish.Execute`.
+2. `publishNew` calls `publishStored`, which calls `AgentInstance.Publish`. That sets the in-memory active revision.
+3. The same transaction inserts `agent_revisions` and `SaveInstance` writes `agent_instances.active_revision_id` (`infrastructure/repository/agentconfigrepository/transaction.go`). The composite foreign key `agent_instances_active_revision_fkey` requires that pointer to be a revision of the same instance.
+4. `PinAssignment.Execute` calls `FindInstance`, then `activeRevisionID`, and inserts `AssignmentBinding` with that revision id. It does not take a revision id from the caller. The caller supplies `assignmentID`, `candidateID`, and `instanceID`.
+5. `agentbindingrepository.Assignments.Insert` writes `interview_assignments` (`id`, `candidate_id`, `instance_id`, `published_revision_id`). Database defaults fill `created_at` and `updated_at`. `access_revoked_at` and `completed_at` stay null. The release table also has foreign keys to `candidates`, `agent_instances`, and `agent_revisions` (`000005_interview_assignments.up.sql`).
+6. A later publication changes `active_revision_id` only. `StartExecution.Execute` copies `assignment.RevisionID` after `FindRevision` and does not read the new active pointer. `TestBindingPreservationPinsOriginalRevisionAcrossLaterPublication` covers both the retained pin and a new pin that selects the later active revision.
+
+Candidate exchange after a real invitation is access, not execution:
+
+- `GET /candidate/access` is the landing page. It does not exchange and does not start an interview.
+- `POST /candidate/access/exchange` calls `ExchangeInvitation.Execute`, which inserts `candidate_sessions` under the assignment lock.
+- `GET /candidate/session` reads that session and returns a CSRF token. It does not create another session.
+
+### 2. Gap
+
+| Already persisted | Internal port only | Absent |
+|---|---|---|
+| `interview_assignments` at schema version 5, with candidate, instance, and published-revision foreign keys. Startup floor is version 7 | `agentbindingusecase.PinAssignment` and `agentbindingport.Assignments` | Any public `POST` that inserts an assignment. `POST /admin/interview-assignments` is not in `delivery/` or `docs/api/openapi.yaml` |
+| `interview_invitations` and `candidate_sessions` at version 6, foreign-keyed to the assignment | `accessrepository.Store.WithAssignment` reads and locks the row for invitation issue and exchange | A domain assignment aggregate. No type under `domain/` represents an interview assignment |
+| `interview_executions` at version 7, one row per assignment, copying `published_revision_id` | `agentbindingusecase.StartExecution` | Mounting of either pin command in `infrastructure/runtime` |
+| Active revision on `agent_instances.active_revision_id` after `Publish` | Direct SQL inserts in access integration fixtures | Consent, execution admission, provider session, and voice binding |
+
+`POST /admin/interview-assignments` without an id also 404s today, from `accesshandler.Handler.ServeHTTP` after `dispatchCandidateRoutes` returns false. That is a different 404 from the invitation path above: the collection path never reaches `IssueInvitation`.
+
+### 3. Approved assignment contract
+
+`POST /admin/interview-assignments`
+
+The caller is current HR. The request uses `Origin` equal to `ACCESS_HTTP_ORIGIN`, cookie `__Host-ia-admin` or localhost `ia-admin`, and `X-CSRF-Token` for that administrative session. A body requires `Content-Type: application/json`. Unknown fields, duplicate keys, and system-owned fields are rejected the same way as other administrative writes: 400 `INVALID_INPUT`. Responses use `{"status":"success","data":...}` or `{"status":"error","data":{},"error":{"code","message"}}`, with `Cache-Control: no-store`. `Accept-Language: id` selects Indonesian.
+
+Approved body (exactly these members):
+
+```json
+{"candidateId":"<candidate uuid>","instanceId":"<agent instance uuid>"}
+```
+
+The server mints the assignment id. The server copies `agent_instances.active_revision_id` into `published_revision_id`. The client must not send `id`, `publishedRevisionId`, `access_revoked_at`, `completed_at`, `createdAt`, or `updatedAt`. There is no idempotency key. A lost 201 retried with the same body creates another assignment.
+
+The instance must be template `hr-interviewer` with a non-null active revision. A Document Analyzer instance is rejected even when it has an active revision. Document Analyzer jobs remain out of this step.
+
+Success is 201. `data.id` is the assignment id required by `POST /admin/interview-assignments/{id}/invitations`. The 201 body is:
+
+```json
+{"id":"<assignment uuid>","candidateId":"...","instanceId":"...","publishedRevisionId":"..."}
+```
+
+`createdAt` and `updatedAt` are omitted. The pin port does not return them. GET assignment, revoke, and report remain out of this step.
+
+Approved error mapping after Origin/JSON/CSRF:
+
+| Condition | HTTP | Code |
+|---|---|---|
+| Missing, expired, revoked, or candidate-substituted administrative session | 401 | `IA_UNAUTHENTICATED` |
+| ADMIN role, or CSRF mismatch | 403 | `IA_FORBIDDEN` |
+| Unknown candidate or unknown instance, after HR authorization | 404 | `NOT_FOUND` |
+| HR Interviewer instance with a null active revision | 409 | `IA_NO_ACTIVE_REVISION` |
+| Instance whose template is not `hr-interviewer` | 409 | `IA_UNSUPPORTED_TEMPLATE` |
+| Store uncertainty or unclassified technical failure | 503 | `IA_DEPENDENCY_UNAVAILABLE` |
+
+A later publication still does not rewrite `published_revision_id`. Access still does not insert the row. The command does not start consent, execution, a provider session, voice binding, or a Document Analyzer job.
+
+### Layer that would own the route
+
+A new HTTP route is required. The table and the internal insert already exist.
+
+| Layer | Ownership of this step |
+|---|---|
+| Delivery | The new route, parsing, Origin, cookie, CSRF, envelope, and error mapping. It does not belong inside `issueInvitation`. |
+| Application | The command that reads the current active revision and inserts one pin. `PinAssignment` is that shape, except the HTTP command must mint `assignmentID` and enforce HR authority. `PinAssignmentOperation` is not on a handler. |
+| Infrastructure | `000005_interview_assignments` and `agentbindingrepository.Assignments.Insert` already persist the pin. No new SQL. |
+| Domain | `AgentInstance.Publish` already moves only the instance active pointer. There is no assignment aggregate. This section does not add one. |
+
+Access remains the reader. `AssignmentAccess.WithAssignment` stays the invitation and session boundary.
+
+### 4. Q6 choices (resolved T12)
+
+These choices close Q6. They are not implied by `BR-CORE-001`–`BR-CORE-014` alone; T12 records them as the approved create contract.
+
+- The server copies only the current active revision. HR may not send `publishedRevisionId`. Stable inputs are the existing candidate and instance identities.
+- Only an `hr-interviewer` instance may be pinned. A Document Analyzer instance is `409` `IA_UNSUPPORTED_TEMPLATE`.
+- Session and CSRF failures use the invitation catalog (`IA_UNAUTHENTICATED`, `IA_FORBIDDEN`). Unknown candidate or instance is `404` `NOT_FOUND`. Unpublished HR Interviewer is `409` `IA_NO_ACTIVE_REVISION`. A lost 201 is a new assignment.
+- The 201 body does not include `createdAt` or `updatedAt`. GET, revoke, and report routes remain later work.
+
+### Stale statements still outside this correction
+
+§1, §3, and the revision row v1.8 replace the current-tense version 3 and `000005_assignment_access` claims in this design. These other documents still describe the old floor or the old filename and were not edited here:
+
+- `docs/services/core-ai/agent-configuration-publication/tactical-strategy.md` and `task-plan.md` recorded the 2026-11-01 version 3 baseline. Task-plan v1.13 and tactical-strategy v1.7 add blocked T12–T13 and state the current floor as version 7. Older sentences in those files that still say version 3 describe that installation step.
+- `docs/services/core-ai/identity-access/technical-design.md` still says ACP raised the startup guard to clean version 3, and §6.9 still says invitation foreign keys wait until Interview's migration exists. `000006_assignment_access.up.sql` already installs those foreign keys. §6.9 remains right that Access does not create `interview_assignments`. Its Q2 text that real assignment persistence remains T14 is only half current: the table and the unmounted pin writer exist; the public create does not.

@@ -50,6 +50,20 @@ type candidateRequest struct {
 	Email string `json:"email"`
 }
 
+// assignmentRequest accepts the candidate and instance identities chosen by current HR.
+type assignmentRequest struct {
+	CandidateID string `json:"candidateId"`
+	InstanceID  string `json:"instanceId"`
+}
+
+// assignmentBody is the created interview assignment pin without timestamps.
+type assignmentBody struct {
+	ID                  string `json:"id"`
+	CandidateID         string `json:"candidateId"`
+	InstanceID          string `json:"instanceId"`
+	PublishedRevisionID string `json:"publishedRevisionId"`
+}
+
 // exchangeRequest accepts the invitation secret only; assignment overrides are unknown fields.
 type exchangeRequest struct {
 	Token string `json:"token"`

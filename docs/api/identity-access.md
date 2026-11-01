@@ -24,6 +24,8 @@ POST `/admin/candidates` requires current HR and CSRF, accepts exactly `name` an
 
 GET `/admin/candidates/{id}` requires current HR and returns the same identity fields. Unknown identities are `404` after authorization.
 
+POST `/admin/interview-assignments` requires current HR and CSRF, accepts exactly `candidateId` and `instanceId`, mints the assignment id, copies the current `hr-interviewer` active revision, and returns `201` with `id`, `candidateId`, `instanceId`, and `publishedRevisionId`. A Document Analyzer instance is `409` `IA_UNSUPPORTED_TEMPLATE`. An unpublished HR Interviewer instance is `409` `IA_NO_ACTIVE_REVISION`. Unknown candidate or instance is `404` `NOT_FOUND`. A lost `201` creates another assignment. The invitation path must use `data.id`, not the candidate id.
+
 POST `/admin/interview-assignments/{id}/invitations` requires current HR and CSRF, accepts an empty object or absent body, and returns `201` with `id`, `assignmentId`, `expiresAt`, and `token` once.
 
 ## Candidate landing, exchange and session
@@ -38,4 +40,4 @@ Authenticated candidate unsafe methods require `X-CSRF-Token` bound to credentia
 
 ## Errors
 
-Origin, content-type, size, and JSON failures are `400` `INVALID_INPUT`. Missing or substituted administrative sessions are `401` `IA_UNAUTHENTICATED`. Invalid CSRF and insufficient role are `403` `IA_FORBIDDEN`. Duplicate canonical email is `409` `IA_ACCOUNT_CONFLICT`. Failed login proof is `401` `IA_UNAUTHENTICATED`. Missing, expired, revoked, or inaccessible invitations are `410` `IA_INVITATION_UNAVAILABLE`. Store uncertainty is `503` `IA_DEPENDENCY_UNAVAILABLE`. Shutdown admission remains `503` `SHUTTING_DOWN`.
+Origin, content-type, size, and JSON failures are `400` `INVALID_INPUT`. Missing or substituted administrative sessions are `401` `IA_UNAUTHENTICATED`. Invalid CSRF and insufficient role are `403` `IA_FORBIDDEN`. Duplicate canonical email is `409` `IA_ACCOUNT_CONFLICT`. Failed login proof is `401` `IA_UNAUTHENTICATED`. Missing, expired, revoked, or inaccessible invitations are `410` `IA_INVITATION_UNAVAILABLE`. Store uncertainty is `503` `IA_DEPENDENCY_UNAVAILABLE`. Unpublished HR Interviewer instances are `409` `IA_NO_ACTIVE_REVISION`. Non-HR Interviewer instances are `409` `IA_UNSUPPORTED_TEMPLATE`. Shutdown admission remains `503` `SHUTTING_DOWN`.

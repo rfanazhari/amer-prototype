@@ -2,7 +2,7 @@
 
 These entries explain technical consequences of the approved capability and platform decisions. They do not claim implementation or new owner approval of unresolved details. Technical library and package choices remain in [technical-design.md](technical-design.md).
 
-T1 (`CORE-ACP-001`) A–E approval is recorded in D5 below. Q1/Q3 are resolved. The administrative access prerequisite is satisfied by Identity and Access D1/D6/D7 and CORE-IAM-009; configuration-route proof remains ACP T8/T9. Schema installation follows Identity and Access D8, recorded here as D7. T10 (`CORE-ACP-010`) records historical deployment compatibility in D8 and resolves Q4. T11 (`CORE-ACP-011`) records assignment/execution pin consumers in D9 and resolves Q5.
+T1 (`CORE-ACP-001`) A–E approval is recorded in D5 below. Q1/Q3 are resolved. The administrative access prerequisite is satisfied by Identity and Access D1/D6/D7 and CORE-IAM-009; configuration-route proof remains ACP T8/T9. Schema installation follows Identity and Access D8, recorded here as D7. T10 (`CORE-ACP-010`) records historical deployment compatibility in D8 and resolves Q4. T11 (`CORE-ACP-011`) records assignment/execution pin consumers in D9 and resolves Q5. D10 adopts the T12 assignment-create contract. T13 mounts the route.
 
 ## D1: Published settings remain reliable while users prepare changes
 
@@ -80,7 +80,7 @@ T1 (`CORE-ACP-001`) A–E approval is recorded in D5 below. Q1/Q3 are resolved. 
 - **Alternatives considered:** Creating the tables automatically on startup would contradict the approved operational change. Putting configuration tables after the assignment-access migration would make HR configuration wait for an Interview table that does not exist yet.
 - **Trade-offs accepted:** Release procedure gains a migration step and a new accepted database version. If candidate or assignment SQL has already been applied in an environment, that environment needs a reviewed forward plan before configuration tables can be inserted at version 3.
 - **Revisit when:** Database ownership splits into separate services, or Interview's assignment migration is applied first and the version order must be replanned.
-- **Status:** active; applies Identity and Access D8 to this capability. D1–D6 remain active.
+- **Status:** active for the manual-migration rule. The 2026-11-01 statement that the Interview table does not exist yet is historical. The release stream now includes `000004_candidates`, `000005_interview_assignments`, `000006_assignment_access`, and `000007_interview_executions`. Startup accepts clean version 7 (`schema.ReleaseVersion`). There is no `000005_assignment_access` file. The public assignment create route is still absent; see D10.
 
 ## D8: Historical template deployment compatibility is approved
 
@@ -100,8 +100,21 @@ T1 (`CORE-ACP-001`) A–E approval is recorded in D5 below. Q1/Q3 are resolved. 
 - **Ticket:** `CORE-ACP-011` / T11.
 - **Confirming actor/date:** user in this conversation, 2026-11-01; exclusive T11 execution.
 - **Business driver:** BR-CORE-013 requires existing assignments and executions to keep the revision they bound, while new bindings may select the later active revision.
-- **Technical decision:** Thin Interview-shaped consumers persist `published_revision_id` on assignment and execution rows and restore requirements through `FindRevision`. They do not implement consent, voice, provider admission, or production Interview migrations.
+- **Technical decision:** Thin Interview-shaped consumers persist `published_revision_id` on assignment and execution rows and restore requirements through `FindRevision`. They do not implement consent, voice, or provider admission. The 2026-11-01 exclusion of production Interview migrations is historical: versions 5 and 7 are now in the release stream. Those migrations do not add an HTTP create route.
 - **What this means for the product:** An assignment pinned before a later publication, and an execution started against that assignment, continue to use the original required fields. A new assignment after publication selects the new active revision.
 - **Alternatives considered:** An in-memory fake consumer would not prove SQL pins. Implementing the entire execution capability exceeds T11.
-- **Closure:** Q5 resolved as executable consumer proof with Mockery, sqlmock, and PostgreSQL evidence. Admin UI remains outside this slice.
-- **Status:** active.
+- **Closure:** Q5 resolved as executable consumer proof with Mockery, sqlmock, and PostgreSQL evidence. Admin UI remains outside this slice. The consumers are not mounted on a public route; see D10.
+- **Status:** active for the pin rule.
+
+## D10: Publication does not create the interview assignment HR must pin
+
+- **Ticket:** `CORE-ACP-012` / T12 (contract). `CORE-ACP-013` / T13 mounts the route.
+- **Confirming actor/date:** user in this conversation, 2026-11-02; exclusive T12–T13 execution of the remaining assignment-create work.
+- **Business driver:** `BR-CORE-013` says a new binding may select the later active revision and an existing pin stays put. Sibling `BR-CORE-030` and `BR-CORE-031` say an invitation targets an existing assignment for an existing candidate. Identity and Access owns invitations and sessions. Interview owns `interview_assignments`. Access must not create that table or that row.
+- **Technical finding:** `POST /admin/interview-assignments/{id}/invitations` is live. `{id}` is an assignment id. When that id is a candidate id, the handler reaches `IssueInvitation`, the assignment lock finds no row, and the response is 404 `NOT_FOUND`. `agentbindingusecase.PinAssignment` can insert a pin to the current `active_revision_id`. Publication updates only the instance's active pointer.
+- **Approved contract:** [technical-design §11](technical-design.md#11-interview-assignment-create-contract-approved-t12). Body is `candidateId` and `instanceId`. The server mints the assignment id and copies the current `hr-interviewer` active revision. Document Analyzer instances are refused. Lost 201 creates another assignment. 201 returns `id`, `candidateId`, `instanceId`, and `publishedRevisionId` without timestamps. Errors use `IA_UNAUTHENTICATED`, `IA_FORBIDDEN`, `NOT_FOUND`, `IA_NO_ACTIVE_REVISION`, `IA_UNSUPPORTED_TEMPLATE`, and `IA_DEPENDENCY_UNAVAILABLE`.
+- **What this means for the product:** After HR creates a candidate, HR creates one assignment that names that candidate and the current published HR Interviewer revision. The invitation request must use that assignment id. Candidate email is contact, not a login. ADMIN cannot create the assignment.
+- **Alternatives considered:** Treating the candidate id as the assignment id would make one person unable to hold two interviews. Letting Access insert the assignment would break Identity and Access ownership. Letting HR name an older revision would contradict `BR-CORE-013` new-binding selection. Returning timestamps would expand the pin port. Idempotent create would need a new request-key store.
+- **Trade-offs accepted:** Duplicate assignments after a lost response. No GET/revoke/report in this step. Document Analyzer remains a later initiation binding.
+- **Closure:** Q6 resolved as the §11 contract. T12 edits documents only. T13 implements the route without new SQL.
+- **Status:** active for the create contract.

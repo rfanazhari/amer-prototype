@@ -1,16 +1,16 @@
 # Task Plan: Agent Configuration and Publication
 
-Planning baseline: 2026-11-01, Mode C. T1–T11 are implemented.
+Planning baseline: 2026-11-02, Mode C. T1–T13 are implemented. Q6 is closed. Startup accepts clean version 7. No new SQL was added for assignment create.
 
 ## Ticket Identity
 
 Capability group: **ACP — Agent Configuration and Publication**. Ticket prefix: `CORE-ACP` (`CORE` identifies the service group). These are repository planning IDs; no external tracker tickets have been created.
 
-Each task has a stable ticket ID in the form `CORE-ACP-NNN`, mapped to its existing local task ID: `T1` → `CORE-ACP-001`, through `T11` → `CORE-ACP-011`. Keep both identities on revisions, including obsolete tasks; allocate new numbers without reusing earlier IDs. Other capability groups use their own distinct prefix under `CORE`.
+Each task has a stable ticket ID in the form `CORE-ACP-NNN`, mapped to its existing local task ID: `T1` → `CORE-ACP-001`, through `T11` → `CORE-ACP-011`. T12 is `CORE-ACP-012` and T13 is `CORE-ACP-013`. Keep both identities on revisions, including obsolete tasks; allocate new numbers without reusing earlier IDs. Other capability groups use their own distinct prefix under `CORE`.
 
 ## Legend
 
-- IDs T1–T11 are stable; never renumber them on revision.
+- IDs T1–T13 are stable; never renumber them on revision.
 - Complexity: S (<2h), M (2–4h), L (>4h); rough estimates requiring engineer validation.
 - Status: `[ ]` Todo, `[~]` In Progress, `[x]` Done, `~~obsolete~~` superseded work.
 - `ref` identifies sections of [technical-design.md](technical-design.md); DoD is required observable evidence.
@@ -23,7 +23,7 @@ Companion dependency: [Identity and Access task plan](../identity-access/task-pl
 
 Documents-only Mode C revision: preserve T1/T2/T3 Done and all task IDs. No configuration code exists to repair. T6 mocks HR allow, ADMIN deny, candidate deny, and current-authority replay through the existing port and operation names. T8/T9 prove the same behavior on real configuration routes, including HR access to another HR's company configuration. ADMIN account management never implies configuration authority. Publication scope remains the stable account UUID.
 
-T4 registered `migrations/pgsql/000003_agent_configuration.{up,down}.sql`, shifted unpublished candidate/assignment SQL to versions 4–5, and raised the startup floor to clean version 3. T8 still waits for T7. Q4 and Q5 remain open.
+T4 registered `migrations/pgsql/000003_agent_configuration.{up,down}.sql`, shifted unpublished candidate/assignment SQL to versions 4–5, and raised the startup floor to clean version 3. That paragraph is the 2026-11-01 baseline. The release stream is now versions 1–7, including `000005_interview_assignments`. There is no `000005_assignment_access` file. Q4, Q5, and Q6 are resolved.
 
 ## Tasks
 
@@ -110,7 +110,21 @@ T4 and T5 may proceed independently once their shared prerequisites are complete
   - Ticket ID: `CORE-ACP-011`
   - depends: T9 — ref: design §3 BR-CORE-013, §5, §9 Q5.
   - Evidence: Mockery `PinAssignment`/`StartExecution`/`LoadRequirements` tests, sqlmock `TestBindingPersistenceSQL`, architecture contract, and PostgreSQL `TestAgentConfigurationBindingConsumers`. RED `3e64890` then GREEN. Q5 consumers are thin Interview-shaped pin adapters, not the full execution capability.
-  - DoD: assignment pinned before new publication keeps its original revision at start; execution started before publication retains its original requirements; intentional new binding selects the appropriate active revision. Record real integration evidence. Do not implement the entire execution capability inside this task or count a fake consumer as full acceptance.
+  - DoD: assignment pinned before new publication keeps its original revision at start; execution started before publication retains its original requirements; intentional new binding selects the appropriate active revision. Record real integration evidence. Do not implement the entire execution capability inside this task or count a fake consumer as full acceptance. T11 does not mount a public create route.
+
+### Assignment create after Q6
+
+- [x] **T12. Approve the interview-assignment create contract** — Product/API — S
+  - Ticket ID: `CORE-ACP-012`
+  - depends: T11 — ref: design §11, §9 Q6; [decision D10](decision-log.md#d10-publication-does-not-create-the-interview-assignment-hr-must-pin).
+  - Evidence: design §11 approved body/success/errors; Q6 resolved; D10 active for the contract. Documents only. No behavioral RED/GREEN SHAs apply to this document-only task.
+  - DoD: §11 states one approved body, success payload, and error mapping. The invitation path still uses the returned assignment id. Access still does not create the row. A later publication still does not move an existing pin. No route, OpenAPI edit, or SQL change is made here.
+
+- [x] **T13. Mount HR assignment create on the existing pin** — Application/delivery/runtime — M
+  - Ticket ID: `CORE-ACP-013`
+  - depends: T11, T12 — ref: design §11.
+  - Evidence: Mockery application and HTTP tests, sqlmock `TestCreateAssignmentPersistenceSQL`, architecture contract, PostgreSQL `TestInterviewAssignmentCreateHTTP`. RED `4127338` then GREEN.
+  - DoD: `POST /admin/interview-assignments` follows that contract, the standard envelope, Origin, the HR cookie, and CSRF. The server mints the assignment id. The implementation reads the current active revision through the existing pin path unless T12 explicitly allows a caller-selected revision. `data.id` is the id required by `POST /admin/interview-assignments/{id}/invitations`. ADMIN and a candidate cookie are denied before insert. An unpublished instance is rejected with the code T12 selected. A later publication leaves `published_revision_id` unchanged. The command does not start consent, execution, a provider session, voice binding, or a Document Analyzer job. No migration is added, and `schema.ReleaseVersion` stays 7. Update OpenAPI, the endpoint document, and `docs/api/CHANGELOG.md` together. Prove the HTTP mapping with a mocked operation, the pin selection with mocked ports, and the foreign keys plus the retained pin with PostgreSQL. Run `make test`, `make test.contract`, `make test.architecture`, and `make lint`. Existing invitation, configuration, Task, and voice routes stay intact.
 
 ## Dependency Graph
 
@@ -125,7 +139,9 @@ T1 + T2 + T3 + T4 + T5 + T6 → T7 (PostgreSQL adapter)
 T1 + T2 + T5 + T6 + T7 + existing authority adapter → T8 (HTTP)
 T4 + T5 + T6 + T7 + T8 → T9 (backend acceptance)
 T1 + T3 + T4 + T5 + Q4 → T10 (multi-version deployment gate)
-T9 + Q5 consumers [and T10 for multiple behavior versions] → T11
+T9 + Q5 consumers [and T10 for multiple behavior versions] → T11 (Done)
+T11 + Q6 → T12 (approved create contract; documents only)
+T12 → T13 (HTTP create on the existing pin; no new SQL)
 ```
 
 ## Revision History
@@ -146,3 +162,5 @@ T9 + Q5 consumers [and T10 for multiple behavior versions] → T11
 | v1.9 | 2026-11-01 | Mark T6 Done for authorized configuration commands, detached queries, and Mockery-generated application tests |
 | v1.11 | 2026-11-01 | Mark T10 Done; resolve Q4 with retain-and-restrict deployment and restoration fixtures |
 | v1.12 | 2026-11-01 | Mark T11 Done; resolve Q5 with assignment/execution revision-pin consumers |
+| v1.13 | 2026-11-02 | Add decision-blocked T12 and dependent T13 for the public assignment create; record release version 7 | Design §11 and D10. Q6 stays open, so T13 is not executable |
+| v1.14 | 2026-11-02 | Mark T12 and T13 Done; Q6 closed with the approved create contract and mounted route | No new SQL; startup floor remains version 7 |

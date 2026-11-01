@@ -1,5 +1,9 @@
 # API changelog
 
+## 0.6.0 — interview assignment create
+
+Added `POST /admin/interview-assignments`. Current HR creates a pin to the current `hr-interviewer` active revision. The server mints `data.id` for `POST /admin/interview-assignments/{id}/invitations`. Failures use `IA_*` codes plus `NOT_FOUND`. See [identity-access.md](identity-access.md) and [openapi.yaml](openapi.yaml).
+
 ## 0.5.0 — agent configuration and publication
 
 Added `GET /admin/agent-templates`, `POST /admin/agent-instances`, `GET /admin/agent-instances/{id}`, `PUT /admin/agent-instances/{id}/draft`, `POST /admin/agent-instances/{id}/validations`, `POST /admin/agent-instances/{id}/publications`, and `GET /admin/agent-instances/{id}/revisions/{revision_id}`. Routes reuse administrative cookies and CSRF, require HR authority, and map failures to `ACP_*` codes. Publication replay is `200`; new publication is `201`. See [agent-configuration.md](agent-configuration.md) and [openapi.yaml](openapi.yaml).

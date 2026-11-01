@@ -25,6 +25,10 @@ type Router struct {
 	Access        http.Handler
 	Landing       http.Handler
 	Configuration http.Handler
+	// Interview serves the candidate interview JSON routes ahead of the access catch-all.
+	Interview http.Handler
+	// InterviewPage serves the candidate interview page shell ahead of the access catch-all.
+	InterviewPage http.Handler
 }
 
 // isAgentConfigurationPath reports the configuration collections that must precede the access catch-all.

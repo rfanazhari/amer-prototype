@@ -106,3 +106,47 @@ func TestConfigurationRouteDispatch(t *testing.T) {
 		})
 	}
 }
+
+// interviewRouteCase names one composed-router candidate interview dispatch outcome.
+type interviewRouteCase struct {
+	name       string
+	path       string
+	wantJSON   bool
+	wantPage   bool
+	wantAccess bool
+}
+
+// recordedHandler records which composed handler a request reached.
+type recordedHandler struct{ called atomic.Bool }
+
+// ServeHTTP records the request and returns an empty success.
+func (h *recordedHandler) ServeHTTP(w http.ResponseWriter, _ *http.Request) {
+	h.called.Store(true)
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// TestCandidateInterviewRouteDispatch sends the interview paths ahead of the access catch-all and leaves access paths alone.
+func TestCandidateInterviewRouteDispatch(t *testing.T) {
+	tests := []interviewRouteCase{
+		{name: "interview read", path: "/candidate/interview", wantJSON: true},
+		{name: "consent accept", path: "/candidate/consents", wantJSON: true},
+		{name: "page shell", path: "/candidate/interview/page", wantPage: true},
+		{name: "exchange stays on access", path: "/candidate/access/exchange", wantAccess: true},
+		{name: "session stays on access", path: "/candidate/session", wantAccess: true},
+		{name: "unmounted execution route stays on access", path: "/candidate/executions", wantAccess: true},
+		{name: "similar prefix is not the interview", path: "/candidate/interviews", wantAccess: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			task, jsonHandler, page, access := &recordedTaskHandler{}, &recordedHandler{}, &recordedHandler{}, &recordedHandler{}
+			router := appruntime.Router{Task: task, Access: access, Interview: jsonHandler, InterviewPage: page}
+
+			router.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, tt.path, nil))
+
+			require.False(t, task.called.Load())
+			require.Equal(t, tt.wantJSON, jsonHandler.called.Load())
+			require.Equal(t, tt.wantPage, page.called.Load())
+			require.Equal(t, tt.wantAccess, access.called.Load())
+		})
+	}
+}

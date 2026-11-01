@@ -26,6 +26,18 @@ const (
 	ACPDependencyUnavailable = "ACP_DEPENDENCY_UNAVAILABLE"
 	ACPPublicationUncertain  = "ACP_PUBLICATION_UNCERTAIN"
 
+	CINForbidden             = "CIN_FORBIDDEN"
+	CINConsentRequired       = "CIN_CONSENT_REQUIRED"
+	CINSessionCoverage       = "CIN_SESSION_COVERAGE"
+	CINIdempotencyConflict   = "CIN_IDEMPOTENCY_CONFLICT"
+	CINControllerConflict    = "CIN_CONTROLLER_CONFLICT"
+	CINNotController         = "CIN_NOT_CONTROLLER"
+	CINTerminal              = "CIN_TERMINAL"
+	CINNotLive               = "CIN_NOT_LIVE"
+	CINNoticeUnavailable     = "CIN_NOTICE_UNAVAILABLE"
+	CINDependencyUnavailable = "CIN_DEPENDENCY_UNAVAILABLE"
+	CINStartUncertain        = "CIN_START_UNCERTAIN"
+
 	EXLNotFound              = "EXL_NOT_FOUND"
 	EXLAssignmentUnavailable = "EXL_ASSIGNMENT_UNAVAILABLE"
 	EXLIdempotencyConflict   = "EXL_IDEMPOTENCY_CONFLICT"

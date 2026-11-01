@@ -67,3 +67,16 @@ test.docker:
 .PHONY: docker.verify
 docker.verify:
 	python3 scripts/verify_compose.py --stack
+
+.PHONY: migrate.status migrate.up migrate.baseline migrate.down
+migrate.status:
+	@go run ./cmd/migrate status
+migrate.up:
+	@test -n "$(MIGRATION_VERSION)" || (echo 'MIGRATION_VERSION is required' >&2; exit 1)
+	@MIGRATION_VERSION="$(MIGRATION_VERSION)" go run ./cmd/migrate up
+migrate.baseline:
+	@go run ./cmd/migrate baseline
+migrate.down:
+	@test "$(MIGRATION_DISPOSABLE)" = yes || (echo 'MIGRATION_DISPOSABLE=yes required' >&2; exit 1)
+	@test -n "$(MIGRATION_STEPS)" || (echo 'MIGRATION_STEPS is required' >&2; exit 1)
+	@MIGRATION_STEPS="$(MIGRATION_STEPS)" MIGRATION_DISPOSABLE=yes go run ./cmd/migrate down

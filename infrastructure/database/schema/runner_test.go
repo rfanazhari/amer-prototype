@@ -12,7 +12,7 @@ import (
 func TestStatusReadsOnly(t *testing.T) {
 	db, m, e := sqlmock.New()
 	require.NoError(t, e)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	m.ExpectQuery("SELECT version, dirty FROM public.schema_migrations").WillReturnRows(sqlmock.NewRows([]string{"version", "dirty"}).AddRow(2, false))
 	v, d, e := (schema.Runner{DB: db}).Execute(context.Background(), schema.Options{Action: "status"})
 	require.NoError(t, e)

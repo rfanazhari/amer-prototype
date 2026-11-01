@@ -8,6 +8,7 @@ require (
 	github.com/SALT-Indonesia/salt-pkg/clientmanager v0.10.1
 	github.com/SALT-Indonesia/salt-pkg/logmanager v1.44.1
 	github.com/getkin/kin-openapi v0.133.0
+	github.com/golang-migrate/migrate/v4 v4.19.0
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.9.2
 	github.com/nicksnyder/go-i18n/v2 v2.4.0
@@ -39,6 +40,8 @@ require (
 	github.com/go-playground/validator/v10 v10.27.0 // indirect
 	github.com/golang-jwt/jwt/v5 v5.3.0 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.29.0 // indirect
+	github.com/hashicorp/errwrap v1.1.0 // indirect
+	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	github.com/hiyosi/hawk v1.0.1 // indirect
 	github.com/icholy/digest v1.1.0 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect

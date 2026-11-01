@@ -6,7 +6,7 @@ Go service foundation with the Task Tracking reference feature. The four root la
 
 Use Go 1.26.10. Supply `DATABASE_URL` as a PostgreSQL connection URL through the environment. `HTTP_ADDRESS` defaults to `:8080`. `APP_ENV` defaults to development in logmanager; production disables its debug mode. Administrative startup requires `ACCESS_BOOTSTRAP_ADMIN_NAME`, `ACCESS_BOOTSTRAP_ADMIN_EMAIL`, `ACCESS_BOOTSTRAP_ADMIN_PASSWORD`, `ACCESS_HTTP_ORIGIN`, and `ACCESS_CSRF_SECRET` (at least 32 bytes). `TEST_DATABASE_URL` is only for explicitly authorized integration databases. Secrets must stay out of source files and command output.
 
-The composition runs GORM AutoMigrate for `tasks` at startup. This follows the selected requirement; explicit SQL migration files remain a pending schema-policy amendment. Tasks have a UUID primary key, non-null title/status/creation/update times, optional due/completion times and a status check. Rollback is manual table removal. Data persists across service restarts. Startup connection and schema checks have a ten-second budget. HTTP health reports HTTP readiness only.
+The composition runs GORM AutoMigrate for `tasks` at startup. Manual versioned SQL migrations are now approved by identity-access D8. T16–T17 supply baseline artifacts/tooling; startup replacement is T18, so this transitional binary still runs AutoMigrate. Tasks have a UUID primary key, non-null title/status/creation/update times, optional due/completion times and a status check. Retained data requires backup/restore or reviewed forward repair; destructive reversal is for disposable databases. Data persists across service restarts. Startup connection and schema checks have a ten-second budget. HTTP health reports HTTP readiness only.
 
 ## Local Docker setup
 
@@ -61,3 +61,19 @@ The executable installs a five-second process watchdog. HTTP admission stops, gr
 See the owning [design and verification record](docs/design/task-tracking.md), [business rules](docs/services/amer-prototype/business/README.md), and [audit](docs/gonesis-audit.md). Historical TDD evidence and remaining acceptance limitations are recorded explicitly there.
 
 `make docker.verify` also builds and starts the full isolated stack, verifies the container's HTTP health and optional service readiness, then runs the real integration suite. It removes only its own project resources afterward. Statement coverage and passing current scenarios do not reconstruct missing historical TDD evidence; see the design record for that limitation.
+
+## Explicit migration tooling (T16–T17)
+
+Supply `MIGRATION_DATABASE_URL` through the environment with DDL permissions. Commands never accept or print credentials. From the repository root:
+
+```sh
+make migrate.status
+make migrate.up MIGRATION_VERSION=2
+make migrate.baseline
+# Disposable databases only; removes data in the selected tables:
+make migrate.down MIGRATION_STEPS=1 MIGRATION_DISPOSABLE=yes
+```
+
+Up requires target 1 or 2 and never applies future candidate artifacts. Baseline requires absent metadata and exact legacy Task-only or three-table catalog equivalence. Stop legacy writers and take a restorable backup before adoption. Drift, partial/foreign schemas and dirty versions require inspection; no automatic force is provided. Baseline uses the same advisory lock as up/down. Commands allow 59 seconds for operations and one second for cleanup; lock waits are capped at five seconds. Baseline SQL uses explicit transactions and pinned checksums; change future schema through new versions rather than editing applied files. Run status after failures and use reviewed forward repair or restore.
+
+`DATABASE_URL` remains the application connection. Runtime still performs transitional AutoMigrate until T18; these artifacts alone do not switch schema ownership. A DDL-denied runtime role and pre-start Compose migration wiring belong to T18–T20.

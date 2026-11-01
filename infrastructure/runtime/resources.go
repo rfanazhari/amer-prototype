@@ -11,7 +11,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/stdlib"
-	"github.com/rfanazhari/amer-prototype/infrastructure/repository/taskrepository"
+	"github.com/rfanazhari/amer-prototype/infrastructure/database/schema"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -79,7 +79,7 @@ func (r *databaseResources) close(ctx context.Context) error {
 	return result
 }
 
-// openDatabase parses PostgreSQL settings, acquires the tracked pool, checks connectivity and applies the selected AutoMigrate policy. Later startup failures release acquired resources.
+// openDatabase parses PostgreSQL settings, acquires the tracked pool, checks connectivity and checks read-only schema compatibility. Later startup failures release acquired resources.
 func openDatabase(ctx context.Context, url string, beginCleanup func()) (_ *gorm.DB, resources *databaseResources, result error) {
 	config, err := pgx.ParseConfig(url)
 	if err != nil {
@@ -105,8 +105,8 @@ func openDatabase(ctx context.Context, url string, beginCleanup func()) (_ *gorm
 	if err = resources.pool.PingContext(ctx); err != nil {
 		return nil, resources, fmt.Errorf("database ping: %w", err)
 	}
-	if err = db.WithContext(ctx).AutoMigrate(&taskrepository.Model{}); err != nil {
-		return nil, resources, fmt.Errorf("database migration: %w", err)
+	if err = schema.RequireCompatible(ctx, resources.pool); err != nil {
+		return nil, resources, fmt.Errorf("database schema: %w", err)
 	}
 	if err = ctx.Err(); err != nil {
 		return nil, resources, err

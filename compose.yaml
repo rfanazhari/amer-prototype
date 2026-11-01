@@ -13,10 +13,32 @@ services:
       OPENAI_REALTIME_MODEL: "${OPENAI_REALTIME_MODEL:-}"
       OPENAI_REALTIME_VOICE: "${OPENAI_REALTIME_VOICE:-}"
       OPENAI_REALTIME_URL: "${OPENAI_REALTIME_URL:-}"
+      ACCESS_BOOTSTRAP_ADMIN_NAME: "${ACCESS_BOOTSTRAP_ADMIN_NAME:?set ACCESS_BOOTSTRAP_ADMIN_NAME}"
+      ACCESS_BOOTSTRAP_ADMIN_EMAIL: "${ACCESS_BOOTSTRAP_ADMIN_EMAIL:?set ACCESS_BOOTSTRAP_ADMIN_EMAIL}"
+      ACCESS_BOOTSTRAP_ADMIN_PASSWORD: "${ACCESS_BOOTSTRAP_ADMIN_PASSWORD:?set ACCESS_BOOTSTRAP_ADMIN_PASSWORD}"
+      ACCESS_HTTP_ORIGIN: "${ACCESS_HTTP_ORIGIN:-http://localhost:8080}"
+      ACCESS_CSRF_SECRET: "${ACCESS_CSRF_SECRET:?set ACCESS_CSRF_SECRET}"
     depends_on:
       database:
         condition: service_healthy
     stop_grace_period: 7s
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+  migrate:
+    image: "${APP_IMAGE:-amer-prototype:local}"
+    build: .
+    profiles: [migration]
+    entrypoint: [/migrate]
+    command: [up]
+    environment:
+      MIGRATION_DATABASE_URL: "postgres://amer:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@database:5432/amer_prototype?sslmode=disable"
+      MIGRATION_VERSION: "${MIGRATION_VERSION:-}"
+    depends_on:
+      database:
+        condition: service_healthy
     read_only: true
     security_opt:
       - no-new-privileges:true

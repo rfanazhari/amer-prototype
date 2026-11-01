@@ -62,7 +62,7 @@ Choose tests for the changed behavior, then run the applicable repository checks
 ## Local resources and secrets
 
 - Supply credentials through environment variables. Keep `.env` values, database URLs, and passwords out of committed files, logs, and command output; use the example environment files for setting names.
-- Startup runs GORM AutoMigrate for `tasks`. Use a suitable development database when launching the service; changing to explicit SQL migrations requires an intentional schema-policy change.
+- Manual versioned SQL migrations are the approved schema policy (identity-access D8). T16–T17 capture the legacy schema and add tooling; runtime/test AutoMigrate remains transitional until T18 replaces it. Use only a suitable development database when launching this transitional binary.
 - Follow `README.md` for Compose setup. Preserve normal development volumes; isolated verification scripts manage only their own resources.
 - Keep unrelated working-tree changes intact. Remote publication, deployment, commits, and PR creation follow the user's current request.
 

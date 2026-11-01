@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/SALT-Indonesia/salt-pkg/logmanager"
 	"github.com/rfanazhari/amer-prototype/application/usecase/voicesession"
@@ -16,11 +17,13 @@ const (
 	defaultRealtimeURL   = "https://api.openai.com/v1/realtime/calls"
 )
 
-// Router sends prototype voice paths to their handlers and every other path to Task.
+// Router sends prototype voice paths to their handlers, administrative paths to access, and every other path to Task.
 type Router struct {
-	Page  http.Handler
-	Setup http.Handler
-	Task  http.Handler
+	Page    http.Handler
+	Setup   http.Handler
+	Task    http.Handler
+	Access  http.Handler
+	Landing http.Handler
 }
 
 // firstNonEmpty returns value when it is set and fallback otherwise.
@@ -50,7 +53,7 @@ func assembleVoice(cfg Config, logs *logmanager.Application) (http.Handler, http
 	return voicepage.Handler{}, setup
 }
 
-// ServeHTTP sends /voice-session and /voice-sessions to voice handlers and every other path to Task.
+// ServeHTTP sends /voice-session and /voice-sessions to voice handlers, /admin to access, and every other path to Task.
 func (h Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch r.URL.Path {
 	case "/voice-session":
@@ -58,6 +61,14 @@ func (h Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case "/voice-sessions":
 		h.Setup.ServeHTTP(w, r)
 	default:
+		if h.Landing != nil && r.URL.Path == "/candidate/access" {
+			h.Landing.ServeHTTP(w, r)
+			return
+		}
+		if h.Access != nil && (strings.HasPrefix(r.URL.Path, "/admin/") || strings.HasPrefix(r.URL.Path, "/candidate/")) {
+			h.Access.ServeHTTP(w, r)
+			return
+		}
 		h.Task.ServeHTTP(w, r)
 	}
 }

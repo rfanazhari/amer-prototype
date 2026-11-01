@@ -47,3 +47,7 @@ Real PostgreSQL verification now runs through the owner-authorized isolated Dock
 AutoMigrate remains selected, so SQL migration up/down artifacts remain a pending policy choice, rather than an implemented migration path. Genuine historical RED/GREEN evidence for every business rule cannot be reconstructed; that completion limitation is explicitly retained. The owning [feature design](design/task-tracking.md) is the current source for decisions, scenario mapping, assessment and verification results.
 
 The final full-stack run passed after adding unexpected HTTP/consumer-exit scenarios. The owner's documentation amendment is implemented across authored Go declarations and interface methods and guarded by `TestDeclarationDocumentation`; Python orchestration helpers also have docstrings. Generated mocks retain their generator comments. Schema selection remains AutoMigrate pending an explicit switch.
+
+## Current schema policy (2026-11-01)
+
+Identity-access D8 supersedes the historical AutoMigrate selection. T16–T17 capture the legacy schema and add explicit versioned tooling; T18 replaces runtime/test schema ownership. Historical audit findings and verification above remain historical evidence.

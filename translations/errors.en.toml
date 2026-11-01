@@ -21,3 +21,21 @@ other = "service is shutting down"
 
 [SESSION_UNAVAILABLE]
 other = "voice session unavailable"
+
+[IA_UNAUTHENTICATED]
+other = "administrative authentication failed"
+
+[IA_FORBIDDEN]
+other = "administrative operation is forbidden"
+
+[IA_ACCOUNT_CONFLICT]
+other = "administrative account already exists"
+
+[IA_INVITATION_UNAVAILABLE]
+other = "invitation is no longer available"
+
+[IA_RATE_LIMITED]
+other = "too many authentication attempts"
+
+[IA_DEPENDENCY_UNAVAILABLE]
+other = "access dependency is unavailable"

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -16,6 +17,7 @@ import (
 	"github.com/rfanazhari/amer-prototype/domain/enum"
 	"github.com/rfanazhari/amer-prototype/domain/event"
 	"github.com/rfanazhari/amer-prototype/domain/valueobject"
+	"github.com/rfanazhari/amer-prototype/infrastructure/database/schema"
 	"github.com/rfanazhari/amer-prototype/infrastructure/repository/taskrepository"
 	"github.com/rfanazhari/amer-prototype/infrastructure/service/clock"
 	"github.com/rfanazhari/amer-prototype/infrastructure/service/eventqueue"
@@ -39,7 +41,7 @@ func store(t *testing.T) taskrepository.Store {
 	pool, err := db.DB()
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, pool.Close()) })
-	require.NoError(t, db.AutoMigrate(&taskrepository.Model{}))
+	prepareSchema(t, db)
 	return taskrepository.Store{DB: db}
 }
 
@@ -163,4 +165,34 @@ func TestCommitFailureCancelsEventReservation(t *testing.T) {
 	reservation.Cancel()
 	require.NoError(t, queue.Shutdown(ctx))
 	require.Empty(t, events)
+}
+
+// prepareSchema installs release SQL only on an unprepared authorized test database.
+func prepareSchema(t *testing.T, db *gorm.DB) {
+	t.Helper()
+	pool, err := db.DB()
+	require.NoError(t, err)
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+	var prepared bool
+	require.NoError(t, pool.QueryRowContext(ctx, "SELECT to_regclass('public.schema_migrations') IS NOT NULL").Scan(&prepared))
+	if !prepared {
+		migrateSchema(t, db)
+	}
+	require.NoError(t, schema.RequireCompatible(ctx, pool))
+}
+
+// migrateSchema explicitly applies the release target and verifies a clean result without changing pool bounds.
+func migrateSchema(t *testing.T, db *gorm.DB) {
+	t.Helper()
+	pool, err := db.DB()
+	require.NoError(t, err)
+	directory, err := filepath.Abs("../../migrations/pgsql")
+	require.NoError(t, err)
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+	version, dirty, err := (schema.Runner{DB: pool, Directory: directory}).Execute(ctx, schema.Options{Action: "up", Version: 2})
+	require.NoError(t, err)
+	require.Equal(t, 2, version)
+	require.False(t, dirty)
 }

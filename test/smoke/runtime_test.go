@@ -53,6 +53,23 @@ func start(t *testing.T, subscriber func(context.Context, event.TaskCompleted) e
 	return startWithListener(t, subscriber, nil)
 }
 
+// smokeAccessConfig supplies administrative startup settings required by identity-access bootstrap.
+func smokeAccessConfig(databaseURL string, ready chan<- net.Addr, shutdown chan<- time.Time, subscriber func(context.Context, event.TaskCompleted) error, listen func(context.Context, string, string) (net.Listener, error)) appruntime.Config {
+	return appruntime.Config{
+		DatabaseURL:                  databaseURL,
+		Address:                      "127.0.0.1:0",
+		Ready:                        ready,
+		ShutdownStarted:              shutdown,
+		TaskCompleted:                subscriber,
+		Listen:                       listen,
+		AccessBootstrapAdminName:     "Smoke Admin",
+		AccessBootstrapAdminEmail:    "smoke-admin@example.com",
+		AccessBootstrapAdminPassword: "correct-horse",
+		AccessHTTPOrigin:             "http://localhost:8080",
+		AccessCSRFSecret:             "abcdefghijklmnopqrstuvwxyz012345",
+	}
+}
+
 // startWithListener starts composition on an ephemeral loopback listener and registers bounded cleanup; an optional listener seam enables deterministic server failures.
 func startWithListener(t *testing.T, subscriber func(context.Context, event.TaskCompleted) error, listen func(context.Context, string, string) (net.Listener, error)) fixture {
 	t.Helper()
@@ -66,7 +83,7 @@ func startWithListener(t *testing.T, subscriber func(context.Context, event.Task
 	shutdown := make(chan time.Time, 1)
 	logs := logmanager.NewApplication(logmanager.WithAppName("smoke-test"), logmanager.WithSkipHeaders())
 	go func() {
-		result <- appruntime.Run(ctx, appruntime.Config{DatabaseURL: databaseURL, Address: "127.0.0.1:0", Ready: ready, ShutdownStarted: shutdown, TaskCompleted: subscriber, Listen: listen}, logs)
+		result <- appruntime.Run(ctx, smokeAccessConfig(databaseURL, ready, shutdown, subscriber, listen), logs)
 	}()
 	var once sync.Once
 	var stopErr error

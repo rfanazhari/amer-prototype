@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="referrer" content="no-referrer">
+  <meta http-equiv="Cache-Control" content="no-store">
+  <title>Interview invitation</title>
+  <style>
+    body { font-family: sans-serif; margin: 2rem; max-width: 40rem; }
+  </style>
+</head>
+<body>
+  <h1>Interview invitation</h1>
+  <p id="status">Preparing access</p>
+  <script>
+    (function () {
+      var params = new URLSearchParams(window.location.search);
+      var token = params.get("token") || "";
+      history.replaceState({}, "", "/candidate/access");
+      var status = document.getElementById("status");
+      if (!token) {
+        status.textContent = "Invitation is no longer available";
+        return;
+      }
+      fetch("/candidate/access/exchange", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: token })
+      }).then(function (response) {
+        if (!response.ok) {
+          status.textContent = "Invitation is no longer available";
+          return;
+        }
+        return fetch("/candidate/session", { credentials: "include" });
+      }).then(function (response) {
+        if (!response || !response.ok) {
+          return;
+        }
+        status.textContent = "Access ready";
+      }).catch(function () {
+        status.textContent = "Invitation is no longer available";
+      });
+    })();
+  </script>
+</body>
+</html>

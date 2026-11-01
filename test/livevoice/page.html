@@ -1,0 +1,55 @@
+<!doctype html><html lang="id"><meta charset="utf-8"><title>CORE-000 voice probe</title>
+<h1>GPT-Live feasibility probe</h1><p>Gunakan jawaban sintetis. Ini bukan interview produksi. Maksimal empat sesi, tiga menit per koneksi.</p>
+<button id="start">Start session</button><button id="stop">Close session</button><button id="finish">Finish probe</button>
+<p id="status">Idle</p><audio id="audio" autoplay controls></audio><pre id="events"></pre>
+<script>
+let pc, stream, generation = 0, busy = false;
+const status = document.querySelector('#status');
+async function release() {
+ generation++;
+ if (stream) stream.getTracks().forEach(t => t.stop());
+ if (pc) pc.close();
+ stream = null; pc = null;
+ document.querySelector('#audio').srcObject = null;
+ await fetch('/close',{method:'POST'});
+}
+document.querySelector('#start').onclick = async () => {
+ if (busy || pc) return;
+ busy = true;
+ const attempt = ++generation;
+ let connection, media;
+ try {
+  status.textContent = 'Microphone permission';
+  media = await navigator.mediaDevices.getUserMedia({audio:true});
+  if (attempt !== generation) {media.getTracks().forEach(t=>t.stop()); return;}
+  stream = media; connection = new RTCPeerConnection(); pc = connection;
+  media.getTracks().forEach(t=>connection.addTrack(t,media));
+  connection.ontrack = e => {if(attempt===generation) document.querySelector('#audio').srcObject=e.streams[0];};
+  connection.onconnectionstatechange = () => {if(attempt===generation) status.textContent='Browser transport: '+connection.connectionState;};
+  const channel = connection.createDataChannel('oai-events');
+  channel.onmessage = e => {
+   if(attempt!==generation) return;
+   try {const event=JSON.parse(e.data); if(event.type==='session.started') status.textContent='Provider session.started observed in browser';} catch {}
+  };
+  await connection.setLocalDescription(await connection.createOffer());
+  await new Promise((resolve,reject)=>{
+   const timer=setTimeout(()=>{connection.removeEventListener('icegatheringstatechange',check);reject(new Error('ICE timeout'));},15000);
+   function check(){if(connection.iceGatheringState==='complete'){clearTimeout(timer);connection.removeEventListener('icegatheringstatechange',check);resolve();}}
+   connection.addEventListener('icegatheringstatechange',check); check();
+  });
+  if(attempt!==generation) return;
+  status.textContent='Creating session and attaching backend';
+  const response=await fetch('/setup',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sdp:connection.localDescription.sdp})});
+  if(!response.ok) throw new Error(await response.text());
+  const answer=await response.json();
+  if(attempt!==generation) return;
+  await connection.setRemoteDescription({type:'answer',sdp:answer.sdp});
+ } catch(error) {
+  if(attempt===generation){await release();status.textContent=error.message;}
+ } finally {busy=false;}
+};
+document.querySelector('#stop').onclick=async()=>{await release();status.textContent='Closed locally; provider closure not confirmed';};
+document.querySelector('#finish').onclick=async()=>{clearInterval(poll);await release();await fetch('/finish',{method:'POST'});status.textContent='Probe finished';};
+const poll=setInterval(async()=>{try{const r=await fetch('/observations');document.querySelector('#events').textContent=JSON.stringify(await r.json(),null,2);}catch{}},1000);
+window.addEventListener('pagehide',()=>{if(stream)stream.getTracks().forEach(t=>t.stop());navigator.sendBeacon('/close','');});
+</script></html>

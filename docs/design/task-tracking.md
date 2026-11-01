@@ -4,7 +4,7 @@ Ticket: unassigned; no authoritative issue ID was supplied. Requirements: [requi
 
 ## Scope and accepted selections
 
-Task tracking only; interview, voice and transcript features remain outside scope. HTTP, PostgreSQL/GORM and an internal queue are required. AutoMigrate remains the selected schema policy; changing to explicit migration up/down files is pending the owner's answer. Redis and RabbitMQ are optional local Compose profiles; Task does not connect to them. No runtime memory fallback, authentication, RPC or bootstrap is selected.
+Task tracking only; interview, voice and transcript features remain outside scope. HTTP, PostgreSQL/GORM and an internal queue are required. Manual versioned SQL migrations supersede the original AutoMigrate selection under identity-access D8. T16–T17 capture baseline and tooling; T18 replaces startup/test AutoMigrate with explicit SQL preparation and a read-only clean-version-2 guard. See [migration operations](database-migrations.md). Redis and RabbitMQ are optional local Compose profiles; Task does not connect to them. No runtime memory fallback, authentication, RPC or bootstrap is selected.
 
 The [OpenAPI specification](../api/openapi.yaml), [API changelog](../api/CHANGELOG.md) and [business rules](../services/amer-prototype/business/README.md) own transport and business details. English/Indonesian errors use authoritative embedded TOML catalogs under `translations/`; stable codes live in `pkg/errs`.
 
@@ -33,7 +33,7 @@ Time is injected through an application port. Trusted operation/observation inst
 
 ## Runtime ownership and lifecycle
 
-Resource setup, feature assembly, HTTP setup, shutdown policy and coordinator have separate files under `infrastructure/runtime`. `cmd/app` loads configuration, initializes masked JSON logging, handles signals and enforces terminal process policy. A ten-second startup context covers connectivity, AutoMigrate and listener binding. Every acquired pool has cleanup on later failure/cancellation. The feature graph has no optional dependencies or fallback branches.
+Resource setup, feature assembly, HTTP setup, shutdown policy and coordinator have separate files under `infrastructure/runtime`. `cmd/app` loads configuration, initializes masked JSON logging, handles signals and enforces terminal process policy. A ten-second startup context covers connectivity, read-only migration compatibility and listener binding. Every acquired pool has cleanup on later failure/cancellation. The feature graph has no optional dependencies or fallback branches.
 
 The database pool uses pgx stdlib's AfterConnect hook to track physical connection cleanup channels. `databaseResources.close` closes the SQL pool and waits for driver CleanupDone; this matters because pgx can close cancelled-query connections asynchronously. A cleanup deadline is reported as failure; supported socket closure is attempted without claiming that driver goroutines have terminated. The executable watchdog provides the final process limit.
 
@@ -72,7 +72,7 @@ Missing records and dependency errors are covered at application/HTTP boundaries
 | Subscriber could not return normal failure | Added contextual subscriber/error callback; log-and-continue/no-retry and forced-cancel tests. |
 | DB.Close did not imply asynchronous driver cleanup | Physical cleanup tracking added; cancelled migration and active database request tests inspect closed sessions. |
 | Missing contracts/catalog/tooling/business docs | OpenAPI validated; embedded EN/ID catalog tests; Make targets; lint config; architecture checks; allocated rules. |
-| No SQL migration files | Retained with explicit AutoMigrate requirement; owner migration-policy choice remains pending. |
+| No SQL migration files | Historical selection preserved; D8 now approves manual SQL migrations via T16–T20. |
 | Deployment previously excluded | Local Docker assets added under owner amendment; optional services stay outside Task's runtime graph. |
 
 ## Verification commands and observed results

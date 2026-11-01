@@ -6,14 +6,14 @@ Mode C alignment of the additive capability in the existing Go modular monolith.
 
 Use the approved T1 contracts in technical-design §6 for field validators, persistent payloads, and HTTP behavior. Install the five configuration tables as SQL version 3, ahead of the unpublished candidate and assignment-access files, then prove atomic publication through PostgreSQL. Mount configuration routes only by reusing `accessauthority.Authority`, the administrative cookie, and the existing CSRF verifier. Do not build a second session system and do not register AutoMigrate.
 
-The final platform still needs a non-developer UI and assignment/execution binding evidence. This backend slice cannot by itself claim all P-01–P-05 criteria passed. A live voice feasibility spike is not a blocker for deterministic configuration/version mechanics; no provider integration belongs in this slice.
+The final platform still needs a non-developer UI. Assignment/execution pin evidence is T11. This backend slice cannot by itself claim all P-01–P-05 criteria passed. A live voice feasibility spike is not a blocker for deterministic configuration/version mechanics; no provider integration belongs in this slice.
 
 T1 (`CORE-ACP-001`) is Done: the user approved sections A–E on 2026-11-01.
 [Technical-design §6](technical-design.md#6-request--response) contains the
 accepted schemas/examples, limits, normalization, informational warnings,
 subject-scoped publication identity/fingerprint, and public error precedence.
 [Approval evidence](t1-contract-proposal.md) and decision-log D5 resolve Q1/Q3.
-T4/T5 meet their contract prerequisites. T4 also confirms that migration versions 3–4 are still unpublished before it reallocates them. Q4/Q5 remain open. T1 and this alignment change documents only, so no SQL/interface mocks or behavioral RED/GREEN checkpoint is claimed. For later implementation use sqlmock for SQL mocks and Mockery-generated interface mocks; neither replaces the PostgreSQL proof required by T7/T9.
+T4/T5 meet their contract prerequisites. T4 also confirms that migration versions 3–4 are still unpublished before it reallocates them. Q4 is resolved by T10. Q5 is resolved by T11 pin consumers. T1 and this alignment change documents only, so no SQL/interface mocks or behavioral RED/GREEN checkpoint is claimed. For later implementation use sqlmock for SQL mocks and Mockery-generated interface mocks; neither replaces the PostgreSQL proof required by T7/T9.
 
 T5 must implement severity/error eligibility and the approved HR capacity and
 Document subset rules. T6/T8 must preserve write-only compensation references,
@@ -146,3 +146,4 @@ None of these runtime commands was executed to generate this tripack. Documentat
 | v1.3 | 2026-11-01 | Link Identity and Access administrative evidence handoff to ACP Q2; candidate integration remains independent |
 | v1.4 | 2026-11-01 | Align schema installation with manual SQL version 3 and treat the existing authority adapter as the access prerequisite |
 | v1.5 | 2026-11-01 | Record T9 real HTTP/PostgreSQL acceptance; UI and T11 binding proof remain outside this slice |
+| v1.6 | 2026-11-01 | Record T11 assignment/execution pin consumers; UI remains outside this slice |

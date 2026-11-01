@@ -18,34 +18,72 @@ type Executions struct {
 	DB *gorm.DB
 }
 
-// Insert is an inert RED stub; GREEN writes interview_assignments.
+// AssignmentModel maps interview_assignments independently of domain and API types.
+type AssignmentModel struct {
+	ID          string `gorm:"type:uuid;primaryKey"`
+	CandidateID string `gorm:"column:candidate_id;type:uuid;not null"`
+	InstanceID  string `gorm:"column:instance_id;type:uuid;not null"`
+	RevisionID  string `gorm:"column:published_revision_id;type:uuid;not null"`
+}
+
+// TableName fixes the Interview assignment pin table used by GORM.
+func (AssignmentModel) TableName() string { return "interview_assignments" }
+
+// ExecutionModel maps interview_executions independently of domain and API types.
+type ExecutionModel struct {
+	ID           string `gorm:"type:uuid;primaryKey"`
+	AssignmentID string `gorm:"column:assignment_id;type:uuid;not null"`
+	InstanceID   string `gorm:"column:instance_id;type:uuid;not null"`
+	RevisionID   string `gorm:"column:published_revision_id;type:uuid;not null"`
+}
+
+// TableName fixes the Interview execution pin table used by GORM.
+func (ExecutionModel) TableName() string { return "interview_executions" }
+
+// Insert writes one assignment pin to an already-published revision.
 func (s Assignments) Insert(ctx context.Context, binding agentbindingport.AssignmentBinding) error {
-	_ = ctx
-	_ = binding
-	_ = s.DB
-	return errors.New("assignment binding insert is not implemented")
+	return s.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		return tx.Create(&AssignmentModel{
+			ID: binding.AssignmentID, CandidateID: binding.CandidateID, InstanceID: binding.InstanceID, RevisionID: binding.RevisionID,
+		}).Error
+	})
 }
 
-// Find is an inert RED stub; GREEN restores one assignment pin.
+// Find restores one assignment pin or returns ErrNotFound.
 func (s Assignments) Find(ctx context.Context, assignmentID string) (agentbindingport.AssignmentBinding, error) {
-	_ = ctx
-	_ = assignmentID
-	_ = s.DB
-	return agentbindingport.AssignmentBinding{}, errors.New("assignment binding find is not implemented")
+	var model AssignmentModel
+	if err := s.DB.WithContext(ctx).Where("id = ?", assignmentID).Take(&model).Error; err != nil {
+		return agentbindingport.AssignmentBinding{}, notFoundOrError(err)
+	}
+	return agentbindingport.AssignmentBinding{
+		AssignmentID: model.ID, CandidateID: model.CandidateID, InstanceID: model.InstanceID, RevisionID: model.RevisionID,
+	}, nil
 }
 
-// Insert is an inert RED stub; GREEN writes interview_executions.
+// Insert writes one execution pin copied from its assignment at start.
 func (s Executions) Insert(ctx context.Context, binding agentbindingport.ExecutionBinding) error {
-	_ = ctx
-	_ = binding
-	_ = s.DB
-	return errors.New("execution binding insert is not implemented")
+	return s.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		return tx.Create(&ExecutionModel{
+			ID: binding.ExecutionID, AssignmentID: binding.AssignmentID, InstanceID: binding.InstanceID, RevisionID: binding.RevisionID,
+		}).Error
+	})
 }
 
-// Find is an inert RED stub; GREEN restores one execution pin.
+// Find restores one execution pin or returns ErrNotFound.
 func (s Executions) Find(ctx context.Context, executionID string) (agentbindingport.ExecutionBinding, error) {
-	_ = ctx
-	_ = executionID
-	_ = s.DB
-	return agentbindingport.ExecutionBinding{}, errors.New("execution binding find is not implemented")
+	var model ExecutionModel
+	if err := s.DB.WithContext(ctx).Where("id = ?", executionID).Take(&model).Error; err != nil {
+		return agentbindingport.ExecutionBinding{}, notFoundOrError(err)
+	}
+	return agentbindingport.ExecutionBinding{
+		ExecutionID: model.ID, AssignmentID: model.AssignmentID, InstanceID: model.InstanceID, RevisionID: model.RevisionID,
+	}, nil
+}
+
+// notFoundOrError translates GORM absence into ErrNotFound while preserving other storage failures.
+func notFoundOrError(err error) error {
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return agentbindingport.ErrNotFound
+	}
+	return err
 }

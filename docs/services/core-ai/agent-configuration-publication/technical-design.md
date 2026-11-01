@@ -2,7 +2,7 @@
 
 ## 1. Overview
 
-Date: 2026-11-01. Mode C — align this plan with the implemented Identity and Access administrative adapter and the owner-approved service-wide SQL migrations (Identity and Access D8/D9). Status: T1–T3 remain Done. The administrative access prerequisite for Q2 is satisfied; Q4 and Q5 remain open. Configuration schema, validators, operations, PostgreSQL proof, and HTTP exposure are not implemented. This revision changes documents only.
+Date: 2026-11-01. Mode C — align this plan with the implemented Identity and Access administrative adapter and the owner-approved service-wide SQL migrations (Identity and Access D8/D9). Status: T1–T11 are Done. Q4 and Q5 are resolved. Admin UI remains outside this slice.
 
 T1 (`CORE-ACP-001`) is Done. The user approved sections A–E on 2026-11-01:
 “approve. - Setujui bagian A–E sebagai kontrak T1”. Section 6 now contains
@@ -437,7 +437,7 @@ Design constraints below were verified at T9 closure. Assignment/execution consu
 - [x] Explicit SQL migration to the new clean configuration version; startup performs no DDL, keeps the existing startup and shutdown budgets, and still refuses a dirty or unexpected version. Existing Task and administrative data survive the upgrade.
 - [x] OpenAPI, endpoint document, changelog, public codes, and translations synchronized during implementation.
 
-T9 (`CORE-ACP-009`) records `TestAgentConfigurationHTTPAcceptance` and the repository checks named in the task plan. BR-CORE-013 local immutable read is covered. T10 resolves Q4; Q5 stays open.
+T9 (`CORE-ACP-009`) records `TestAgentConfigurationHTTPAcceptance` and the repository checks named in the task plan. BR-CORE-013 local immutable read is covered. T10 resolves Q4. T11 resolves Q5 with pin consumers; UI remains open.
 
 ## 9. Risks & Open Questions
 
@@ -447,7 +447,7 @@ T9 (`CORE-ACP-009`) records `TestAgentConfigurationHTTPAcceptance` and the repos
 | Q2 | **Access prerequisite satisfied 2026-11-01:** `accessauthority.Authority` resolves `administrative_accounts.id`, allows current HR, denies ADMIN, and rejects candidate, expired, revoked, and disabled sessions. Evidence: [q2-access-evidence.md](q2-access-evidence.md) and CORE-IAM-009. T9 proved the same outcomes on the configuration routes | T8/T9 secured configuration exposure with that adapter. T2–T7 do not wait on another access decision | Configuration-route proof is `TestAgentConfigurationHTTPAcceptance`. No permissive stub. ACP error codes stay §6.5 |
 | Q3 | **Resolved 2026-11-01:** informational warnings without acknowledgment; only v1 warning is `CURRENCY_NOT_REQUIRED`; §6.2 | T1 Done; implement/prove in T5–T9 | Approval recorded in decision-log; warnings retained and errors block publication |
 | Q4 | **Resolved 2026-11-01 (T10):** retain-and-restrict deployment; `SupportedRestoration`/`RequireAgentConfigurationDeploymentCompatible`; restoration without current assessor reinterpretation — §6.6 | T10 Done; multi-version rollout gate | Policy and fixtures approved in [t10-contract.md](t10-contract.md); first-version publication work proceeded independently |
-| Q5 | Future assignment/execution capability owners: end-to-end pinned binding proof needs absent consumers. Identity and Access D9 does not supply those consumers | T11 external integration evidence | Real consumers bind immutable revision IDs and pass publication-during-run/assignment tests |
+| Q5 | **Resolved 2026-11-01 (T11):** thin assignment/execution consumers pin `published_revision_id` and restore immutable requirements; Identity and Access D9 still does not own Interview product tables | T11 Done | Assignment pin before later publication, execution start before later publication, and new assignment after publication are proven |
 
 No live database was inspected and no runtime tests were run for this planning task. Exact SQL constraints must be exercised on the project's selected versions, not assumed from a generic ORM recipe. Sensitive HR configuration also needs response-filtering tests even for authorized views; confidentiality is not satisfied by route protection alone.
 
@@ -463,5 +463,6 @@ No live database was inspected and no runtime tests were run for this planning t
 | v1.4 | 2026-11-01 | Link companion access capability/tripack and CORE-IAM-009 evidence handoff | Resolve planning ownership for Q2 while preserving its implementation gate |
 | v1.5 | 2026-11-01 | Consume the existing HR authority adapter; replace AutoMigrate with SQL version 3 ahead of unpublished candidate/assignment versions; keep Q4/Q5 open | Identity and Access D8/D9 and the version-2 startup contract; configuration routes still unproven |
 | v1.6 | 2026-11-01 | Record T9 backend acceptance and check §8; keep UI, Q4, and Q5 open | Configuration-route proof now exists without an MVP-complete claim |
+| v1.7 | 2026-11-01 | Record T11 assignment/execution pin consumers and resolve Q5 | BR-CORE-013 external consumer proof; UI remains open |
 
 Business-driven consequences are recorded in [decision-log.md](decision-log.md). Execution order and verification are in [tactical-strategy.md](tactical-strategy.md) and [task-plan.md](task-plan.md).

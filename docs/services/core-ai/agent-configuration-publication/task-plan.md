@@ -1,6 +1,6 @@
 # Task Plan: Agent Configuration and Publication
 
-Planning baseline: 2026-11-01, Mode C. T1–T10 are implemented. T11 remains Todo.
+Planning baseline: 2026-11-01, Mode C. T1–T11 are implemented.
 
 ## Ticket Identity
 
@@ -106,11 +106,10 @@ T4 and T5 may proceed independently once their shared prerequisites are complete
   - Evidence: domain `RestorationSupported`, sqlmock `TestRequireAgentConfigurationDeploymentCompatible`, adapter historical/sparse restoration and unsupported-behavior rejection; architecture contract test; RED `9e6762c` then GREEN. See [t10-deployment.md](t10-deployment.md) and [t10-contract.md](t10-contract.md).
   - DoD: supported historical revisions restore without current-creation-policy reinterpretation; unsupported deployments are prevented or rejected explicitly under approved policy; rollback rehearsal preserves readable data. Must pass before multi-version rollout; not a blocker for isolated first-version development.
 
-- [ ] **T11. Prove binding preservation with actual assignment/execution consumers** — Cross-capability integration — M
+- [x] **T11. Prove binding preservation with actual assignment/execution consumers** — Cross-capability integration — M
   - Ticket ID: `CORE-ACP-011`
   - depends: T9 — ref: design §3 BR-CORE-013, §5, §9 Q5.
-  - blocked by: absent assignment/execution consumers owned by their separate capability work. Identity and Access D9 does not create those consumers.
-  - ready when: those consumers exist with immutable published revision bindings; if multiple behavior versions are involved, T10 must also pass.
+  - Evidence: Mockery `PinAssignment`/`StartExecution`/`LoadRequirements` tests, sqlmock `TestBindingPersistenceSQL`, architecture contract, and PostgreSQL `TestAgentConfigurationBindingConsumers`. RED `3e64890` then GREEN. Q5 consumers are thin Interview-shaped pin adapters, not the full execution capability.
   - DoD: assignment pinned before new publication keeps its original revision at start; execution started before publication retains its original requirements; intentional new binding selects the appropriate active revision. Record real integration evidence. Do not implement the entire execution capability inside this task or count a fake consumer as full acceptance.
 
 ## Dependency Graph
@@ -146,3 +145,4 @@ T9 + Q5 consumers [and T10 for multiple behavior versions] → T11
 | v1.8 | 2026-11-01 | Mark T5 Done for versioned catalogs, typed drafts, deterministic validators, and exact reference resolution |
 | v1.9 | 2026-11-01 | Mark T6 Done for authorized configuration commands, detached queries, and Mockery-generated application tests |
 | v1.11 | 2026-11-01 | Mark T10 Done; resolve Q4 with retain-and-restrict deployment and restoration fixtures |
+| v1.12 | 2026-11-01 | Mark T11 Done; resolve Q5 with assignment/execution revision-pin consumers |

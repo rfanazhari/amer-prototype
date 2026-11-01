@@ -2,7 +2,7 @@
 
 These entries explain technical consequences of the approved capability and platform decisions. They do not claim implementation or new owner approval of unresolved details. Technical library and package choices remain in [technical-design.md](technical-design.md).
 
-T1 (`CORE-ACP-001`) A–E approval is recorded in D5 below. Q1/Q3 are resolved. The administrative access prerequisite is satisfied by Identity and Access D1/D6/D7 and CORE-IAM-009; configuration-route proof remains ACP T8/T9. Schema installation follows Identity and Access D8, recorded here as D7. T10 (`CORE-ACP-010`) records historical deployment compatibility in D8 and resolves Q4. Q5 remains open.
+T1 (`CORE-ACP-001`) A–E approval is recorded in D5 below. Q1/Q3 are resolved. The administrative access prerequisite is satisfied by Identity and Access D1/D6/D7 and CORE-IAM-009; configuration-route proof remains ACP T8/T9. Schema installation follows Identity and Access D8, recorded here as D7. T10 (`CORE-ACP-010`) records historical deployment compatibility in D8 and resolves Q4. T11 (`CORE-ACP-011`) records assignment/execution pin consumers in D9 and resolves Q5.
 
 ## D1: Published settings remain reliable while users prepare changes
 
@@ -91,6 +91,17 @@ T1 (`CORE-ACP-001`) A–E approval is recorded in D5 below. Q1/Q3 are resolved. 
 - **Product consequences:** Operators must deploy a binary whose restoration catalog covers every stored template/behavior tuple before serving configuration traffic. Rolling back a binary without restoration support for persisted behavior versions is refused at startup rather than corrupting reads. Historical revisions restore without current-creation-policy reinterpretation; current assessors are not rerun on restore.
 - **Alternatives considered:** silently revalidating stored rows against today's publication rules would make historical revisions unreadable; unrestricted startup would allow partial interpretation of unsupported behavior tokens.
 - **Trade-offs accepted:** Each new behavior version requires an explicit restoration registration and coordinated rollout; sparse historical fixtures remain valid stored shapes even when current assessors would block new publication.
-- **Closure:** Q4 resolved as executable deployment policy; representative fixtures and sqlmock/adapter tests recorded in [t10-deployment.md](t10-deployment.md). T11 external consumer proof remains open.
+- **Closure:** Q4 resolved as executable deployment policy; representative fixtures and sqlmock/adapter tests recorded in [t10-deployment.md](t10-deployment.md). T11 consumer proof is recorded in D9.
 - **Revisit when:** product retires a behavior version while stored rows or bindings still reference it; approve retirement/migration before removing restoration support.
+- **Status:** active.
+
+## D9: Assignment and execution consumers pin immutable published revisions
+
+- **Ticket:** `CORE-ACP-011` / T11.
+- **Confirming actor/date:** user in this conversation, 2026-11-01; exclusive T11 execution.
+- **Business driver:** BR-CORE-013 requires existing assignments and executions to keep the revision they bound, while new bindings may select the later active revision.
+- **Technical decision:** Thin Interview-shaped consumers persist `published_revision_id` on assignment and execution rows and restore requirements through `FindRevision`. They do not implement consent, voice, provider admission, or production Interview migrations.
+- **What this means for the product:** An assignment pinned before a later publication, and an execution started against that assignment, continue to use the original required fields. A new assignment after publication selects the new active revision.
+- **Alternatives considered:** An in-memory fake consumer would not prove SQL pins. Implementing the entire execution capability exceeds T11.
+- **Closure:** Q5 resolved as executable consumer proof with Mockery, sqlmock, and PostgreSQL evidence. Admin UI remains outside this slice.
 - **Status:** active.

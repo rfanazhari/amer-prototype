@@ -20,7 +20,7 @@ type Publish struct {
 }
 
 // Execute authorizes publication, checks replay before current-draft eligibility, and withholds results until commit.
-func (u Publish) Execute(ctx context.Context, in PublishInput) (*dto.AgentRevision, error) {
+func (u Publish) Execute(ctx context.Context, in PublishInput) (*PublishResult, error) {
 	principal, err := authorize(ctx, u.Authority, service.AgentConfigurationPublish, in.InstanceID)
 	if err != nil {
 		return nil, err
@@ -61,9 +61,17 @@ func (u Publish) Execute(ctx context.Context, in PublishInput) (*dto.AgentRevisi
 		return nil, err
 	}
 	if replayed {
-		return u.loadRevision(ctx, in.InstanceID, result.RevisionID)
+		revision, err := u.loadRevision(ctx, in.InstanceID, result.RevisionID)
+		if err != nil {
+			return nil, err
+		}
+		return &PublishResult{Revision: revision, Replayed: true}, nil
 	}
-	return dto.FromStoredRevision(created)
+	revision, err := dto.FromStoredRevision(created)
+	if err != nil {
+		return nil, err
+	}
+	return &PublishResult{Revision: revision}, nil
 }
 
 // publishNew verifies the locked draft and commits revision, active pointer and command together.
@@ -102,7 +110,7 @@ func (u Publish) publishNew(ctx context.Context, tx agentconfigport.InstanceTx, 
 }
 
 // reconcile reads the original command identity after unique conflict or uncertain commit.
-func (u Publish) reconcile(ctx context.Context, principal service.AdminPrincipal, identity agentconfigport.CommandIdentity, fingerprint, instanceID string, original error) (*dto.AgentRevision, error) {
+func (u Publish) reconcile(ctx context.Context, principal service.AdminPrincipal, identity agentconfigport.CommandIdentity, fingerprint, instanceID string, original error) (*PublishResult, error) {
 	cmd, found, err := u.Replay.FindCommand(ctx, identity)
 	if err != nil || !found {
 		return nil, original
@@ -113,7 +121,11 @@ func (u Publish) reconcile(ctx context.Context, principal service.AdminPrincipal
 	if err := u.Authority.Authorize(ctx, principal, service.AgentConfigurationReplay, instanceID); err != nil {
 		return nil, err
 	}
-	return u.loadRevision(ctx, instanceID, cmd.RevisionID)
+	revision, err := u.loadRevision(ctx, instanceID, cmd.RevisionID)
+	if err != nil {
+		return nil, err
+	}
+	return &PublishResult{Revision: revision, Replayed: true}, nil
 }
 
 // loadRevision discloses an authorized detached revision after commit or successful replay.

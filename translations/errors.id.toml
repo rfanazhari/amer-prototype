@@ -40,6 +40,30 @@ other = "terlalu banyak percobaan autentikasi"
 [IA_DEPENDENCY_UNAVAILABLE]
 other = "ketergantungan akses tidak tersedia"
 
+[ACP_UNAUTHENTICATED]
+other = "sesi administratif hilang atau tidak lagi valid"
+
+[ACP_FORBIDDEN]
+other = "konfigurasi agen dilarang"
+
+[ACP_IDEMPOTENCY_CONFLICT]
+other = "identitas permintaan publikasi sudah digunakan dengan maksud berbeda"
+
+[ACP_DRAFT_CONFLICT]
+other = "versi draf tidak cocok dengan draf saat ini"
+
+[ACP_VALIDATION_CONFLICT]
+other = "validasi tidak cocok dengan draf saat ini"
+
+[ACP_PUBLICATION_BLOCKED]
+other = "publikasi diblokir; periksa hasil validasi yang diotorisasi"
+
+[ACP_DEPENDENCY_UNAVAILABLE]
+other = "ketergantungan konfigurasi yang diperlukan tidak tersedia"
+
+[ACP_PUBLICATION_UNCERTAIN]
+other = "hasil publikasi tidak pasti; coba lagi dengan kunci yang sama"
+
 [REQUIRED_VALUE]
 other = "nilai publikasi yang wajib belum diisi"
 

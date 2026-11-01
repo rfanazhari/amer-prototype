@@ -43,7 +43,7 @@ func TestMapsACPErrorsAndSessionBoundaries(t *testing.T) {
 		{name: "invalid csrf", method: http.MethodPost, path: "/admin/agent-instances", body: createHRBody, csrf: "wrong", cookie: adminCookie(false, sessionTok), wantStatus: http.StatusForbidden, wantCode: errs.ACPForbidden},
 		{name: "not found", method: http.MethodGet, path: instancePath, cookie: adminCookie(false, sessionTok), cause: agentconfigport.ErrNotFound, wantStatus: http.StatusNotFound, wantCode: errs.NotFound},
 		{name: "idempotency conflict", method: http.MethodPost, path: instancePath + "/publications", body: `{"expectedDraftVersion":3,"validationId":"` + validationID + `"}`, csrf: csrfTok, cookie: adminCookie(false, sessionTok), cause: service.ErrIdempotencyConflict, wantStatus: http.StatusConflict, wantCode: errs.ACPIdempotencyConflict},
-		{name: "draft conflict", method: http.MethodPut, path: instancePath + "/draft", body: `{"expectedDraftVersion":1,"configuration":{}}`, csrf: csrfTok, cookie: adminCookie(false, sessionTok), cause: service.ErrDraftConflict, wantStatus: http.StatusConflict, wantCode: errs.ACPDraftConflict},
+		{name: "draft conflict", method: http.MethodPut, path: instancePath + "/draft", body: `{"expectedDraftVersion":1,"configuration":{"jobDescriptionRef":null,"mandatoryQuestions":[],"competencyTopics":[],"stageSeconds":null,"compensationPolicy":null}}`, csrf: csrfTok, cookie: adminCookie(false, sessionTok), cause: service.ErrDraftConflict, wantStatus: http.StatusConflict, wantCode: errs.ACPDraftConflict},
 		{name: "validation conflict", method: http.MethodPost, path: instancePath + "/publications", body: `{"expectedDraftVersion":3,"validationId":"` + validationID + `"}`, csrf: csrfTok, cookie: adminCookie(false, sessionTok), cause: service.ErrValidationConflict, wantStatus: http.StatusConflict, wantCode: errs.ACPValidationConflict},
 		{name: "publication blocked", method: http.MethodPost, path: instancePath + "/publications", body: `{"expectedDraftVersion":3,"validationId":"` + validationID + `"}`, csrf: csrfTok, cookie: adminCookie(false, sessionTok), cause: service.ErrPublicationBlocked, wantStatus: http.StatusUnprocessableEntity, wantCode: errs.ACPPublicationBlocked},
 		{name: "dependency unavailable", method: http.MethodPost, path: instancePath + "/validations", body: `{"expectedDraftVersion":1}`, csrf: csrfTok, cookie: adminCookie(false, sessionTok), cause: service.ErrDependencyUnavailable, wantStatus: http.StatusServiceUnavailable, wantCode: errs.ACPDependencyUnavailable},
@@ -56,13 +56,9 @@ func TestMapsACPErrorsAndSessionBoundaries(t *testing.T) {
 			logged := false
 			handler, catalogOp, create, instance, replace, validate, publish, _, csrf, sessions := newHandler(t, httpOrigin, false)
 			handler.LogError = func(err error) { logged = true; require.ErrorIs(t, err, tt.cause) }
-			if tt.cookie != nil && tt.cookie.Name == "ia-admin" {
+			if tt.cookie != nil && tt.cookie.Name == "ia-admin" && tt.method != http.MethodGet {
 				session := testdata.AdministrativeSessionRecord(t)
-				if errors.Is(tt.cause, service.ErrSessionUnbound) && tt.method == http.MethodGet {
-					catalogOp.On("Execute", mock.Anything).Return(nil, tt.cause).Once()
-				} else {
-					sessions.On("Resolve", mock.Anything).Return(session, testdata.AdministrativeAccountRecord(t), nil)
-				}
+				sessions.On("Resolve", mock.Anything).Return(session, testdata.AdministrativeAccountRecord(t), nil)
 			}
 			if tt.csrf == csrfTok {
 				csrf.On("Verify", service.CredentialAdministrative, testdata.SessionID, tt.csrf).Return(nil)
@@ -71,7 +67,7 @@ func TestMapsACPErrorsAndSessionBoundaries(t *testing.T) {
 				csrf.On("Verify", service.CredentialAdministrative, testdata.SessionID, tt.csrf).Return(service.ErrCSRFMismatch)
 			}
 			switch {
-			case tt.path == "/admin/agent-templates" && tt.cause != nil && !errors.Is(tt.cause, service.ErrSessionUnbound):
+			case tt.path == "/admin/agent-templates" && tt.cause != nil:
 				catalogOp.On("Execute", mock.Anything).Return(nil, tt.cause).Once()
 			case tt.path == instancePath && tt.method == http.MethodGet && tt.cause != nil:
 				instance.On("Execute", mock.Anything, instanceID).Return(nil, tt.cause).Once()

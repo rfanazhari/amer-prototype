@@ -84,7 +84,7 @@ T4 and T5 may proceed independently once their shared prerequisites are complete
 
 ### Sequential exposure after persistence
 
-- [ ] **T8. Add secured HTTP endpoints and synchronized API documentation** — Delivery/runtime/contracts — L
+- [x] **T8. Add secured HTTP endpoints and synchronized API documentation** — Delivery/runtime/contracts — L
   - Ticket ID: `CORE-ACP-008`
   - depends: T1, T2, T5, T6, T7 — ref: design §2, §4, §6–7.
   - DoD: all seven endpoint directions implemented using operation interfaces and the existing `accessauthority.Authority`. Dispatch `/admin/agent-templates` and `/admin/agent-instances` before the access `/admin/` catch-all. Reuse the administrative cookie and CSRF verifier, and map failures to §6.5 ACP codes. Strict input, confidentiality, safe EN/ID errors, correct new/replayed response statuses, and exact precedence are tested. Update OpenAPI, endpoint documentation, and changelog together. Candidate, ADMIN, expired, and revoked sessions fail as specified. Existing access, Task, and voice routes and lifecycle budgets stay intact. No permissive authorizer.

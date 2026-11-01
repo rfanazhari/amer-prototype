@@ -15,6 +15,7 @@ func TestEveryErrorCodeHasBothTranslations(t *testing.T) {
 	for _, code := range []string{
 		errs.InvalidInput, errs.NotFound, errs.MethodNotAllowed, errs.InvalidTransition, errs.EventUnavailable, errs.InternalError, errs.ShuttingDown, errs.SessionUnavailable,
 		errs.IAUnauthenticated, errs.IAForbidden, errs.IAAccountConflict, errs.IAInvitationUnavailable, errs.IARateLimited, errs.IADependencyUnavailable,
+		errs.ACPUnauthenticated, errs.ACPForbidden, errs.ACPIdempotencyConflict, errs.ACPDraftConflict, errs.ACPValidationConflict, errs.ACPPublicationBlocked, errs.ACPDependencyUnavailable, errs.ACPPublicationUncertain,
 	} {
 		t.Run(code, func(t *testing.T) {
 			en := translations.Message("en", code)

@@ -32,7 +32,7 @@ func TestValidateRecordsExactVersionAndRejectsEditRaces(t *testing.T) {
 	tests := []validateCase{
 		{name: "hr allow eligible", locked: 3, wantInsert: true},
 		{name: "edit race rejects insert", locked: 4, wantErr: service.ErrDraftConflict},
-		{name: "reference failure records no assessment", refErr: unavailable, wantErr: unavailable},
+		{name: "reference failure records no assessment", refErr: unavailable, wantErr: service.ErrDependencyUnavailable},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

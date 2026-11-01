@@ -1,5 +1,9 @@
 # API changelog
 
+## 0.5.0 — agent configuration and publication
+
+Added `GET /admin/agent-templates`, `POST /admin/agent-instances`, `GET /admin/agent-instances/{id}`, `PUT /admin/agent-instances/{id}/draft`, `POST /admin/agent-instances/{id}/validations`, `POST /admin/agent-instances/{id}/publications`, and `GET /admin/agent-instances/{id}/revisions/{revision_id}`. Routes reuse administrative cookies and CSRF, require HR authority, and map failures to `ACP_*` codes. Publication replay is `200`; new publication is `201`. See [agent-configuration.md](agent-configuration.md) and [openapi.yaml](openapi.yaml).
+
 ## 0.4.0 — candidate identity, invitation landing and session access
 
 Added `POST /admin/candidates`, `GET /admin/candidates/{id}`, `POST /admin/interview-assignments/{id}/invitations`, `GET /candidate/access`, `POST /candidate/access/exchange`, and `GET /candidate/session`. Invitation landing removes the token from history before exchange; GET/prefetch cannot exchange. Candidate cookies, origin, CSRF, and `IA_INVITATION_UNAVAILABLE` are documented in [identity-access.md](identity-access.md). See [openapi.yaml](openapi.yaml).

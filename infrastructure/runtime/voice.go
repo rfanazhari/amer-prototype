@@ -27,6 +27,11 @@ type Router struct {
 	Configuration http.Handler
 }
 
+// isAgentConfigurationPath reports the configuration collections that must precede the access catch-all.
+func isAgentConfigurationPath(path string) bool {
+	return path == "/admin/agent-templates" || path == "/admin/agent-instances" || strings.HasPrefix(path, "/admin/agent-instances/")
+}
+
 // firstNonEmpty returns value when it is set and fallback otherwise.
 func firstNonEmpty(value, fallback string) string {
 	if value != "" {
@@ -64,6 +69,10 @@ func (h Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	default:
 		if h.Landing != nil && r.URL.Path == "/candidate/access" {
 			h.Landing.ServeHTTP(w, r)
+			return
+		}
+		if h.Configuration != nil && isAgentConfigurationPath(r.URL.Path) {
+			h.Configuration.ServeHTTP(w, r)
 			return
 		}
 		if h.Access != nil && (strings.HasPrefix(r.URL.Path, "/admin/") || strings.HasPrefix(r.URL.Path, "/candidate/")) {

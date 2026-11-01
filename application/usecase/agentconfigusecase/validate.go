@@ -2,12 +2,15 @@ package agentconfigusecase
 
 import (
 	"context"
+	"errors"
 
 	"github.com/google/uuid"
 	"github.com/rfanazhari/amer-prototype/application/dto"
 	"github.com/rfanazhari/amer-prototype/application/repository/agentconfigport"
 	"github.com/rfanazhari/amer-prototype/application/service"
+	catalog "github.com/rfanazhari/amer-prototype/domain/agentconfig"
 	aggregate "github.com/rfanazhari/amer-prototype/domain/aggregate/agentconfig"
+	"github.com/rfanazhari/amer-prototype/domain/valueobject"
 )
 
 // Validate records a deterministic assessment against an exact current draft version.
@@ -30,7 +33,10 @@ func (u Validate) Execute(ctx context.Context, in ValidateInput) (*dto.AgentVali
 	}
 	result, err := assessStored(ctx, u.Assessment, current)
 	if err != nil {
-		return nil, err
+		if errors.Is(err, catalog.ErrUnknownTemplate) || errors.Is(err, service.ErrReferenceIdentity) || errors.Is(err, aggregate.ErrInvalid) || errors.Is(err, valueobject.ErrInvalidConfiguration) {
+			return nil, err
+		}
+		return nil, service.ErrDependencyUnavailable
 	}
 	var recorded aggregate.Validation
 	err = u.Instances.WithinInstance(ctx, in.InstanceID, func(tx agentconfigport.InstanceTx) error {

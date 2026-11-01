@@ -103,19 +103,21 @@ func TestPublishReplaysBeforeEligibilityAndWithholdsResultsUntilCommit(t *testin
 			}
 			require.NoError(t, err)
 			require.NotNil(t, got)
-			assert.Equal(t, instanceID, got.InstanceID)
-			assert.Equal(t, validationID, got.ValidationID)
-			assert.Equal(t, testdata.Now(), got.PublishedAt)
-			require.NotNil(t, got.Configuration.HR)
-			require.NotNil(t, got.Configuration.HR.CompensationPolicy)
-			assert.True(t, got.Configuration.HR.CompensationPolicy.SalaryCeilingConfigured)
-			assert.NotContains(t, got.Configuration.HR.CompensationPolicy.DiscussionMode, salaryCeilingID)
+			require.NotNil(t, got.Revision)
+			assert.Equal(t, tt.wantFindRevision, got.Replayed)
+			assert.Equal(t, instanceID, got.Revision.InstanceID)
+			assert.Equal(t, validationID, got.Revision.ValidationID)
+			assert.Equal(t, testdata.Now(), got.Revision.PublishedAt)
+			require.NotNil(t, got.Revision.Configuration.HR)
+			require.NotNil(t, got.Revision.Configuration.HR.CompensationPolicy)
+			assert.True(t, got.Revision.Configuration.HR.CompensationPolicy.SalaryCeilingConfigured)
+			assert.NotContains(t, got.Revision.Configuration.HR.CompensationPolicy.DiscussionMode, salaryCeilingID)
 			if tt.wantFindRevision {
-				assert.Equal(t, revisionID, got.RevisionID)
-				assert.Equal(t, uint64(1), got.RevisionNumber)
+				assert.Equal(t, revisionID, got.Revision.RevisionID)
+				assert.Equal(t, uint64(1), got.Revision.RevisionNumber)
 			}
 			if tt.name == "old command replay after later publication" {
-				assert.NotEqual(t, laterActive.ID, got.RevisionID)
+				assert.NotEqual(t, laterActive.ID, got.Revision.RevisionID)
 			}
 		})
 	}

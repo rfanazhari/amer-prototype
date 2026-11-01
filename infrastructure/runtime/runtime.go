@@ -112,7 +112,7 @@ func Run(ctx context.Context, cfg Config, logs *logmanager.Application) (result 
 	logmanager.InfoWithContext(startupLogCtx, "administrative bootstrap complete", map[string]string{"service": logs.Service()})
 	taskHandler, queue := assembleTask(db, logs, cfg.TaskCompleted)
 	page, setup := assembleVoice(cfg, logs)
-	handler := Router{Page: page, Setup: setup, Task: taskHandler, Access: assembleAccess(db, cfg, logs), Landing: candidatelanding.Handler{}}
+	handler := Router{Page: page, Setup: setup, Task: taskHandler, Access: assembleAccess(db, cfg, logs), Landing: candidatelanding.Handler{}, Configuration: assembleAgentConfiguration(db, cfg, logs)}
 	transport := HTTPServer(handler, logs)
 	defer transport.cancel()
 	queue.Start()

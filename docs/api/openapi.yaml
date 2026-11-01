@@ -2,8 +2,8 @@
   "openapi": "3.0.3",
   "info": {
     "title": "amer-prototype Task API",
-    "version": "0.4.0",
-    "description": "Task reference feature, voice session setup, and identity/access. All active responses use the standard JSON envelope. Unknown routes return 404; unsupported methods return 405. Task, voice, and health remain unauthenticated. Request bodies are limited to 1 MiB. System-owned timestamps, IDs and status are rejected as request fields. Completion events are volatile and process-local. POST /voice-sessions exchanges one WebRTC offer for a provider SDP answer. Administrative and candidate routes use origin, cookies, and CSRF as documented in identity-access.md."
+    "version": "0.5.0",
+    "description": "Task reference feature, voice session setup, identity/access, and HR agent configuration. All active responses use the standard JSON envelope. Unknown routes return 404; unsupported methods return 405. Task, voice, and health remain unauthenticated. Request bodies are limited to 1 MiB. System-owned timestamps, IDs and status are rejected as request fields. Completion events are volatile and process-local. POST /voice-sessions exchanges one WebRTC offer for a provider SDP answer. Administrative, candidate, and configuration routes use origin, cookies, and CSRF as documented in identity-access.md and agent-configuration.md."
   },
   "servers": [
     {
@@ -517,6 +517,157 @@
               }
             }
           }
+        }
+      }
+    },
+    "/admin/agent-templates": {
+      "get": {
+        "operationId": "listAgentTemplates",
+        "summary": "List supported HR Interviewer and Document Analyzer template versions.",
+        "parameters": [
+          { "name": "Origin", "in": "header", "required": true, "schema": { "type": "string" } },
+          { "name": "Accept-Language", "in": "header", "required": false, "schema": { "type": "string", "example": "id" } }
+        ],
+        "responses": {
+          "200": { "description": "Catalog of supported templates.", "headers": { "Cache-Control": { "schema": { "type": "string", "example": "no-store" } } }, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AgentCatalogEnvelope" } } } },
+          "400": { "description": "INVALID_INPUT.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
+          "401": { "description": "ACP_UNAUTHENTICATED.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
+          "403": { "description": "ACP_FORBIDDEN.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
+          "405": { "description": "METHOD_NOT_ALLOWED.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } }
+        }
+      }
+    },
+    "/admin/agent-instances": {
+      "post": {
+        "operationId": "createAgentInstance",
+        "summary": "Create an unpublished instance for a specific template version.",
+        "parameters": [
+          { "name": "Origin", "in": "header", "required": true, "schema": { "type": "string" } },
+          { "name": "X-CSRF-Token", "in": "header", "required": true, "schema": { "type": "string" } },
+          { "name": "Accept-Language", "in": "header", "required": false, "schema": { "type": "string" } }
+        ],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CreateAgentInstance" } } } },
+        "responses": {
+          "201": { "description": "Created instance with draft version 1.", "headers": { "Cache-Control": { "schema": { "type": "string", "example": "no-store" } } }, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AgentInstanceEnvelope" } } } },
+          "400": { "description": "INVALID_INPUT.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
+          "401": { "description": "ACP_UNAUTHENTICATED.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
+          "403": { "description": "ACP_FORBIDDEN.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
+          "405": { "description": "METHOD_NOT_ALLOWED.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } }
+        }
+      }
+    },
+    "/admin/agent-instances/{id}": {
+      "parameters": [
+        { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+      ],
+      "get": {
+        "operationId": "getAgentInstance",
+        "summary": "Read an authorized draft and nullable active revision identity.",
+        "parameters": [
+          { "name": "Origin", "in": "header", "required": true, "schema": { "type": "string" } },
+          { "name": "Accept-Language", "in": "header", "required": false, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Detached instance view.", "headers": { "Cache-Control": { "schema": { "type": "string", "example": "no-store" } } }, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AgentInstanceEnvelope" } } } },
+          "400": { "description": "INVALID_INPUT.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
+          "401": { "description": "ACP_UNAUTHENTICATED.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
+          "403": { "description": "ACP_FORBIDDEN.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
+          "404": { "description": "NOT_FOUND.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } }
+        }
+      }
+    },
+    "/admin/agent-instances/{id}/draft": {
+      "parameters": [
+        { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+      ],
+      "put": {
+        "operationId": "replaceAgentDraft",
+        "summary": "Replace the current draft using the expected version.",
+        "parameters": [
+          { "name": "Origin", "in": "header", "required": true, "schema": { "type": "string" } },
+          { "name": "X-CSRF-Token", "in": "header", "required": true, "schema": { "type": "string" } },
+          { "name": "Accept-Language", "in": "header", "required": false, "schema": { "type": "string" } }
+        ],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ReplaceAgentDraft" } } } },
+        "responses": {
+          "200": { "description": "Replaced draft.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AgentInstanceEnvelope" } } } },
+          "400": { "description": "INVALID_INPUT.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
+          "401": { "description": "ACP_UNAUTHENTICATED.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
+          "403": { "description": "ACP_FORBIDDEN.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
+          "404": { "description": "NOT_FOUND.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
+          "409": { "description": "ACP_DRAFT_CONFLICT.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } }
+        }
+      }
+    },
+    "/admin/agent-instances/{id}/validations": {
+      "parameters": [
+        { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+      ],
+      "post": {
+        "operationId": "validateAgentDraft",
+        "summary": "Validate an exact draft version and persist findings.",
+        "parameters": [
+          { "name": "Origin", "in": "header", "required": true, "schema": { "type": "string" } },
+          { "name": "X-CSRF-Token", "in": "header", "required": true, "schema": { "type": "string" } },
+          { "name": "Accept-Language", "in": "header", "required": false, "schema": { "type": "string" } }
+        ],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ValidateAgentDraft" } } } },
+        "responses": {
+          "201": { "description": "Persisted assessment, including blocking findings.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AgentValidationEnvelope" } } } },
+          "400": { "description": "INVALID_INPUT.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
+          "401": { "description": "ACP_UNAUTHENTICATED.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
+          "403": { "description": "ACP_FORBIDDEN.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
+          "404": { "description": "NOT_FOUND.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
+          "409": { "description": "ACP_DRAFT_CONFLICT.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
+          "503": { "description": "ACP_DEPENDENCY_UNAVAILABLE.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } }
+        }
+      }
+    },
+    "/admin/agent-instances/{id}/publications": {
+      "parameters": [
+        { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+      ],
+      "post": {
+        "operationId": "publishAgentDraft",
+        "summary": "Publish an exact draft and validation, or replay the original result.",
+        "parameters": [
+          { "name": "Origin", "in": "header", "required": true, "schema": { "type": "string" } },
+          { "name": "X-CSRF-Token", "in": "header", "required": true, "schema": { "type": "string" } },
+          { "name": "Idempotency-Key", "in": "header", "required": true, "schema": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$" } },
+          { "name": "Accept-Language", "in": "header", "required": false, "schema": { "type": "string" } }
+        ],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PublishAgentDraft" } } } },
+        "responses": {
+          "200": { "description": "Same-intent replay of the original revision.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AgentRevisionEnvelope" } } } },
+          "201": { "description": "New published revision.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AgentRevisionEnvelope" } } } },
+          "400": { "description": "INVALID_INPUT.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
+          "401": { "description": "ACP_UNAUTHENTICATED.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
+          "403": { "description": "ACP_FORBIDDEN.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
+          "404": { "description": "NOT_FOUND.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
+          "409": { "description": "ACP_IDEMPOTENCY_CONFLICT or ACP_DRAFT_CONFLICT or ACP_VALIDATION_CONFLICT.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
+          "422": { "description": "ACP_PUBLICATION_BLOCKED.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
+          "503": { "description": "ACP_PUBLICATION_UNCERTAIN or ACP_DEPENDENCY_UNAVAILABLE.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } }
+        }
+      }
+    },
+    "/admin/agent-instances/{id}/revisions/{revision_id}": {
+      "parameters": [
+        { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } },
+        { "name": "revision_id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+      ],
+      "get": {
+        "operationId": "getAgentRevision",
+        "summary": "Read one immutable published revision in authorized scope.",
+        "parameters": [
+          { "name": "Origin", "in": "header", "required": true, "schema": { "type": "string" } },
+          { "name": "Accept-Language", "in": "header", "required": false, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Detached revision view.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AgentRevisionEnvelope" } } } },
+          "400": { "description": "INVALID_INPUT.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
+          "401": { "description": "ACP_UNAUTHENTICATED.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
+          "403": { "description": "ACP_FORBIDDEN.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
+          "404": { "description": "NOT_FOUND.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } }
         }
       }
     },
@@ -1238,7 +1389,15 @@
                   "IA_ACCOUNT_CONFLICT",
                   "IA_INVITATION_UNAVAILABLE",
                   "IA_RATE_LIMITED",
-                  "IA_DEPENDENCY_UNAVAILABLE"
+                  "IA_DEPENDENCY_UNAVAILABLE",
+                  "ACP_UNAUTHENTICATED",
+                  "ACP_FORBIDDEN",
+                  "ACP_IDEMPOTENCY_CONFLICT",
+                  "ACP_DRAFT_CONFLICT",
+                  "ACP_VALIDATION_CONFLICT",
+                  "ACP_PUBLICATION_BLOCKED",
+                  "ACP_DEPENDENCY_UNAVAILABLE",
+                  "ACP_PUBLICATION_UNCERTAIN"
                 ]
               },
               "message": {
@@ -1525,6 +1684,157 @@
         "properties": {
           "status": { "type": "string", "enum": ["success"] },
           "data": { "type": "object", "additionalProperties": false, "maxProperties": 0 }
+        }
+      },
+      "CreateAgentInstance": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["templateId", "templateVersion", "name", "configuration"],
+        "properties": {
+          "templateId": { "type": "string", "enum": ["hr-interviewer", "document-analyzer"] },
+          "templateVersion": { "type": "string" },
+          "name": { "type": "string" },
+          "configuration": { "type": "object" }
+        }
+      },
+      "ReplaceAgentDraft": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["expectedDraftVersion", "configuration"],
+        "properties": {
+          "expectedDraftVersion": { "type": "integer", "minimum": 1 },
+          "configuration": { "type": "object" }
+        }
+      },
+      "ValidateAgentDraft": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["expectedDraftVersion"],
+        "properties": { "expectedDraftVersion": { "type": "integer", "minimum": 1 } }
+      },
+      "PublishAgentDraft": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["expectedDraftVersion", "validationId"],
+        "properties": {
+          "expectedDraftVersion": { "type": "integer", "minimum": 1 },
+          "validationId": { "type": "string", "format": "uuid" }
+        }
+      },
+      "AgentTemplate": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["templateId", "templateVersion", "behaviorVersion", "displayName", "configurationSchema", "warningPolicy"],
+        "properties": {
+          "templateId": { "type": "string" },
+          "templateVersion": { "type": "string" },
+          "behaviorVersion": { "type": "string" },
+          "displayName": { "type": "string" },
+          "configurationSchema": { "type": "object" },
+          "warningPolicy": { "type": "string", "enum": ["informational"] }
+        }
+      },
+      "AgentCatalogData": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["templates"],
+        "properties": { "templates": { "type": "array", "items": { "$ref": "#/components/schemas/AgentTemplate" } } }
+      },
+      "AgentCatalogEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["status", "data"],
+        "properties": {
+          "status": { "type": "string", "enum": ["success"] },
+          "data": { "$ref": "#/components/schemas/AgentCatalogData" }
+        }
+      },
+      "AgentInstance": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "name", "templateId", "templateVersion", "behaviorVersion", "draftVersion", "configuration", "activeRevisionId", "createdAt", "updatedAt"],
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "name": { "type": "string" },
+          "templateId": { "type": "string" },
+          "templateVersion": { "type": "string" },
+          "behaviorVersion": { "type": "string" },
+          "draftVersion": { "type": "integer" },
+          "configuration": { "type": "object" },
+          "activeRevisionId": { "type": "string", "format": "uuid", "nullable": true },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "updatedAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "AgentInstanceEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["status", "data"],
+        "properties": {
+          "status": { "type": "string", "enum": ["success"] },
+          "data": { "$ref": "#/components/schemas/AgentInstance" }
+        }
+      },
+      "AgentFinding": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["severity", "code", "path", "message"],
+        "properties": {
+          "severity": { "type": "string", "enum": ["error", "warning"] },
+          "code": { "type": "string" },
+          "path": { "type": "string" },
+          "message": { "type": "string" }
+        }
+      },
+      "AgentValidation": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["validationId", "instanceId", "draftVersion", "templateId", "templateVersion", "behaviorVersion", "eligible", "findings", "createdAt"],
+        "properties": {
+          "validationId": { "type": "string", "format": "uuid" },
+          "instanceId": { "type": "string", "format": "uuid" },
+          "draftVersion": { "type": "integer" },
+          "templateId": { "type": "string" },
+          "templateVersion": { "type": "string" },
+          "behaviorVersion": { "type": "string" },
+          "eligible": { "type": "boolean" },
+          "findings": { "type": "array", "items": { "$ref": "#/components/schemas/AgentFinding" } },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "AgentValidationEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["status", "data"],
+        "properties": {
+          "status": { "type": "string", "enum": ["success"] },
+          "data": { "$ref": "#/components/schemas/AgentValidation" }
+        }
+      },
+      "AgentRevision": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["revisionId", "instanceId", "revisionNumber", "sourceDraftVersion", "validationId", "templateId", "templateVersion", "behaviorVersion", "configuration", "publishedAt"],
+        "properties": {
+          "revisionId": { "type": "string", "format": "uuid" },
+          "instanceId": { "type": "string", "format": "uuid" },
+          "revisionNumber": { "type": "integer" },
+          "sourceDraftVersion": { "type": "integer" },
+          "validationId": { "type": "string", "format": "uuid" },
+          "templateId": { "type": "string" },
+          "templateVersion": { "type": "string" },
+          "behaviorVersion": { "type": "string" },
+          "configuration": { "type": "object" },
+          "publishedAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "AgentRevisionEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["status", "data"],
+        "properties": {
+          "status": { "type": "string", "enum": ["success"] },
+          "data": { "$ref": "#/components/schemas/AgentRevision" }
         }
       }
     }

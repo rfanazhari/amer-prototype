@@ -2,6 +2,7 @@ package executionusecase
 
 import (
 	"context"
+	"time"
 
 	"github.com/rfanazhari/amer-prototype/application/dto"
 )
@@ -48,6 +49,8 @@ type ActivateInput struct {
 	OperationKey string
 	// Generation is the attempt authority generation for fencing.
 	Generation int64
+	// Deadline, when set, is the instant at or after which the attempt is too late.
+	Deadline *time.Time
 }
 
 // RecordAttemptInput carries the caller-supplied fields for recording a new attempt.
@@ -82,6 +85,8 @@ type CommitProgressInput struct {
 	Generation int64
 	// ProgressRef is the opaque token identifying the committed progress in the sibling store.
 	ProgressRef string
+	// Deadline, when set, is the instant at or after which the attempt is too late.
+	Deadline *time.Time
 }
 
 // CompleteInput carries the caller-supplied fields for completing an execution.
@@ -100,6 +105,8 @@ type CompleteInput struct {
 	Generation int64
 	// ProgressRef is the opaque token identifying the committed progress in the sibling store.
 	ProgressRef string
+	// Deadline, when set, is the instant at or after which the attempt is too late.
+	Deadline *time.Time
 }
 
 // FailInput carries the caller-supplied fields for failing an execution.
@@ -118,6 +125,8 @@ type FailInput struct {
 	Generation int64
 	// Reason is the opaque reason token stored on the terminal row.
 	Reason string
+	// Deadline, when set, is the instant at or after which the attempt is too late.
+	Deadline *time.Time
 }
 
 // CancelInput carries the caller-supplied fields for cancelling an execution.

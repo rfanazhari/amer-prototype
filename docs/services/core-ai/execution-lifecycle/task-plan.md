@@ -58,7 +58,7 @@ T1 and T2 may proceed in parallel. They are not a request to run two agents.
 
 ### Application behavior
 
-- [ ] **T5. Implement interview start, shared admit, and reads** — Application — L
+- [x] **T5. Implement interview start, shared admit, and reads** — Application — L
   - Ticket: `CORE-EXL-005` — depends: T1, T2 — ref: design §5 interview start, §6, §7; decision-log D1, D2, D5.
   - DoD: mocked tests show one `CREATED` execution, no provider call, revision copied from the assignment rather than the active pointer, same key returns the same id, a different fingerprint returns `EXL_IDEMPOTENCY_CONFLICT` without a second row, a second key for the same assignment returns the original, a revoked assignment inserts nothing, a missing assignment is `EXL_NOT_FOUND`, and a malformed key is `INVALID_INPUT` before the lock. `Find` and `FindByAssignment` do not insert. `Admit` commits `CREATED` without an assignment port. Ambiguous commit returns `EXL_UNCERTAIN_COMMIT` and no new id. Error codes and both translation files contain the catalog from design §6. `make test` passes. Mocks are not cited as SQL proof.
 

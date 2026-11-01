@@ -18,6 +18,7 @@ type Store struct{ DB *gorm.DB }
 
 var (
 	_ executionport.AssignmentLock = Store{}
+	_ executionport.Transactor     = Store{}
 	_ executionport.ExecutionStore = Store{}
 )
 
@@ -197,4 +198,12 @@ func mapRead(model ExecutionModel, err error) (execution.Snapshot, error) {
 		return execution.Snapshot{}, err
 	}
 	return toSnapshot(model)
+}
+
+// WithTransaction runs fn in one transaction that store calls made with the handed context join.
+// It joins the transaction already carried by ctx instead of opening a nested one.
+func (s Store) WithTransaction(ctx context.Context, fn func(ctx context.Context) error) error {
+	return s.inTx(ctx, func(tx *gorm.DB) error {
+		return fn(context.WithValue(ctx, txKey{}, tx))
+	})
 }

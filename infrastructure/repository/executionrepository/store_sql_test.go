@@ -465,3 +465,43 @@ func TestExecutionStoreFind(t *testing.T) {
 		})
 	}
 }
+
+// TestExecutionStoreWithTransaction covers the shared admit transaction: joined writes, commit and rollback.
+func TestExecutionStoreWithTransaction(t *testing.T) {
+	tests := []storeCase{
+		{
+			name: "writes made with the handed context share one transaction",
+			run: func(t *testing.T, store executionrepository.Store, mock sqlmock.Sqlmock) {
+				snap, fact := newCreated(t)
+				mock.ExpectBegin()
+				expectCreatedInserts(mock, snap)
+				mock.ExpectCommit()
+				err := store.WithTransaction(context.Background(), func(ctx context.Context) error {
+					return store.Insert(ctx, snap, fact)
+				})
+				require.NoError(t, err)
+			},
+		},
+		{
+			name: "callback failure rolls back and returns the callback error",
+			run: func(t *testing.T, store executionrepository.Store, mock sqlmock.Sqlmock) {
+				snap, fact := newCreated(t)
+				boom := errors.New("command conflict")
+				mock.ExpectBegin()
+				expectCreatedInserts(mock, snap)
+				mock.ExpectRollback()
+				err := store.WithTransaction(context.Background(), func(ctx context.Context) error {
+					require.NoError(t, store.Insert(ctx, snap, fact))
+					return boom
+				})
+				require.ErrorIs(t, err, boom)
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			store, mock := sqlStore(t)
+			tt.run(t, store, mock)
+		})
+	}
+}

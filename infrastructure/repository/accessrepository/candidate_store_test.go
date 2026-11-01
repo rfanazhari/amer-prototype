@@ -38,6 +38,30 @@ func TestCandidatePersistenceSQL(t *testing.T) {
 			},
 		},
 		{
+			name: "candidate list filters by creator and orders newest identity first",
+			run: func(t *testing.T, store accessrepository.Store, mock sqlmock.Sqlmock) {
+				older := candidate
+				older.ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1"
+				older.CreatedAt = candidate.CreatedAt
+				newer := candidate
+				newer.ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa2"
+				newer.CreatedAt = candidate.CreatedAt.Add(time.Second)
+				newer.UpdatedAt = newer.CreatedAt
+				rows := sqlmock.NewRows([]string{"id", "name", "email", "created_by", "created_at", "updated_at"}).
+					AddRow(newer.ID, newer.Name, newer.Email, newer.CreatedBy, newer.CreatedAt, newer.UpdatedAt).
+					AddRow(older.ID, older.Name, older.Email, older.CreatedBy, older.CreatedAt, older.UpdatedAt)
+				mock.ExpectQuery(`(?i)SELECT .* FROM ["']?candidates["']? WHERE created_by = .+ ORDER BY created_at DESC, id DESC`).
+					WithArgs(candidate.CreatedBy).WillReturnRows(rows)
+				got, err := store.ListCandidatesByCreator(context.Background(), candidate.CreatedBy)
+				require.NoError(t, err)
+				require.Len(t, got, 2)
+				require.Equal(t, newer.ID, got[0].ID)
+				require.Equal(t, older.ID, got[1].ID)
+				require.Equal(t, candidate.CreatedBy, got[0].CreatedBy)
+				require.Equal(t, candidate.CreatedBy, got[1].CreatedBy)
+			},
+		},
+		{
 			name: "candidate find restores identity by id",
 			run: func(t *testing.T, store accessrepository.Store, mock sqlmock.Sqlmock) {
 				rows := sqlmock.NewRows([]string{"id", "name", "email", "created_by", "created_at", "updated_at"}).

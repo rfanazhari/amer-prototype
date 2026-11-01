@@ -45,6 +45,7 @@ func newCandidateAccessHTTP(t *testing.T) accessHTTP {
 			Instances: agentconfigrepository.Store{DB: graph.db}, Assignments: agentbindingrepository.Assignments{DB: graph.db},
 		},
 		Candidate:        accessquery.Candidate{Candidates: candidates, Current: sessions, Clock: graph.clock},
+		ListCandidates:   accessquery.ListCandidates{Candidates: candidates, Current: sessions, Clock: graph.clock},
 		IssueInvitation:  accessusecase.IssueInvitation{Assignments: store, Current: sessions, Tokens: tokens, Clock: graph.clock},
 		Exchange:         accessusecase.ExchangeInvitation{Invitations: invitations, Candidates: candidates, Assignments: store, Tokens: tokens, Clock: graph.clock},
 		CandidateSession: accessquery.CandidateSession{Current: candidateSessions, Candidates: candidates, Assignments: store, CSRF: csrf, Clock: graph.clock},

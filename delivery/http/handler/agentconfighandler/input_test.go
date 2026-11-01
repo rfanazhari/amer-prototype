@@ -42,7 +42,7 @@ func TestRejectsMalformedConfigurationInput(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			handler, _, _, _, _, _, _, _, csrf, sessions := newHandler(t, httpOrigin, false)
+			handler, _, _, _, _, _, _, _, _, csrf, sessions := newHandler(t, httpOrigin, false)
 			if tt.method != http.MethodGet && tt.name != "missing origin" && tt.name != "origin mismatch" && tt.name != "wrong content type" {
 				authorizeMutation(t, sessions, csrf)
 			}
@@ -70,7 +70,7 @@ func TestRejectsMalformedConfigurationInput(t *testing.T) {
 
 // TestRejectsOversizedBodies limits configuration requests to one mebibyte.
 func TestRejectsOversizedBodies(t *testing.T) {
-	handler, _, _, _, _, _, _, _, csrf, sessions := newHandler(t, httpOrigin, false)
+	handler, _, _, _, _, _, _, _, _, csrf, sessions := newHandler(t, httpOrigin, false)
 	authorizeMutation(t, sessions, csrf)
 	body := `{"templateId":"hr-interviewer","templateVersion":"1","name":"Invoice reviewer","configuration":{"pad":"` + strings.Repeat("a", 1048576) + `"}}`
 	rec := httptest.NewRecorder()

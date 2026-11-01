@@ -129,6 +129,16 @@ func encodeCatalog(templates []dto.AgentTemplate) catalogBody {
 	return catalogBody{Templates: out}
 }
 
+// encodeInstances copies detached instance views and keeps an empty collection a JSON array.
+func encodeInstances(instances []dto.AgentInstance) []instanceBody {
+	out := make([]instanceBody, 0, len(instances))
+	for i := range instances {
+		item := instances[i]
+		out = append(out, encodeInstance(&item))
+	}
+	return out
+}
+
 // encodeInstance copies a detached instance, using null for an absent active revision.
 func encodeInstance(instance *dto.AgentInstance) instanceBody {
 	return instanceBody{

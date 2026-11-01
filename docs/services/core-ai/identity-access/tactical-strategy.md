@@ -86,7 +86,7 @@ Cases below are acceptance requirements; existing administrative suites and T9 h
 
 - BR-020..023: bootstrap/provision paths, ADMIN-only HR creation, HR-only configuration, valid ADMIN login followed by configuration denial, HR cross-creator scope, unknown operation deny, no caller role accepted.
 - BR-024..029: session creation and exact `now == expires_at` refusal; no sliding renewal; current-session logout; revoked/disabled denial; stable SubjectID across sessions; current HR authorization before any replay read; candidate cookies cannot resolve admin principals.
-- BR-030..033: one candidate referenced repeatedly; no implicit email merge; invitation/session binding and copied snapshots; wrong assignment/invitation ownership, expiry and revocation; no success before commit.
+- BR-030..033: one candidate referenced repeatedly; no implicit email merge; invitation/session binding and copied snapshots; wrong assignment/invitation ownership, expiry and revocation; no success before commit. GET `/admin/candidates` (T21 / `CORE-IAM-021`) returns only the logged-in HR creator's rows, newest first, with `[]` when empty; ADMIN is forbidden before the read; email search and lifecycle mutation stay out.
 - BR-034..039: exchange/reload has no execution/consent/provider write; expired session cannot authorize; reissue does not invalidate otherwise-live session; assignment revocation invalidates access; access does not reopen terminal execution.
 - Restore corrupt roles, missing identities, inconsistent references, malformed digests/hashes and time order as technical failure. Do not reapply latest new-input policy during read or mutate deadlines.
 - Credential adapter: independent random secrets, unique digests, password verify mismatch/unknown-account dummy path, bounded malformed-hash costs, constant-time secret checks, context/rate/concurrency limits, no secret leakage. Password acceptance follows T1 §6.1.
@@ -102,6 +102,7 @@ Cases below are acceptance requirements; existing administrative suites and T9 h
 - Administrative failures: concurrent bootstrap, duplicate canonical email provisioning, known and uncertain commit errors, wrong password/disabled account, unavailable database, corrupted restoration, absent session, forged token and valid ADMIN denied configuration. Confirm no cookie is issued on failed session commit.
 - Cross-feature proof: current-session role lookup and stable subject with ACP's real authority contract; later ACP T8/T9 prove actual secured endpoints, filtering and publication replay. Access acceptance does not claim those unimplemented consumers passed.
 - Candidate happy path with real assignments: one candidate → assignments A/B → two invitations → sessions with separate assignment authority → refresh without another execution. Source invitation expiration alone does not shorten an already-issued session.
+- Creator list: the logged-in HR receives only candidates they created, ordered `created_at DESC, id DESC`; another HR's rows are absent; GET by id still returns a known candidate to any current HR; empty `data` is `[]`. sqlmock covers the creator predicate and order. Real PostgreSQL proof extends the existing candidate HTTP suite and is skipped when `TEST_DATABASE_URL` is absent.
 - Candidate failures: concurrent reissue, reissue vs exchange, rollback retaining old invitation, cross-assignment composite FK violations, unique-token collision handling, assignment revocation vs exchange/admission, exact expiry, session revocation and persisted state across restart.
 - Resolve Q3 before repeated exchange/lost-response/device tests. Test accepted reuse/replacement policy without inventing a consumed column. Real Interview integration must prove active cancellation and completed-assignment no-restart (BR-038/039), not a fake store returning a boolean.
 - GORM tests explicitly exercise null/zero writes, bounded joins, same-assignment FK and partial uniqueness, no association side effects or physical soft-delete assumptions. Test against project-selected versions; mocks cannot establish these guarantees.
@@ -137,6 +138,7 @@ T17/T18 add the proposed `make migrate.status`, `make migrate.up MIGRATION_VERSI
 | v1 | 2026-11-01 | Original Mode A strategy; administrative implementation preceded candidate integration |
 | v1.1 | 2026-11-01 | Mode C: align T1–T9 baseline, add shared manual-migration artifacts, legacy adoption, runner/runtime reconciliation, verification and recovery; owner policy D8 |
 | v1.2 | 2026-11-01 | Record T10 candidate/exchange/assignment contracts; T12 unblocked; T11 still waits T20 and Interview assignment migration |
+| v1.3 | 2026-11-02 | D10 / T21: GET `/admin/candidates` lists the logged-in HR creator's candidates; email search and lifecycle mutation stay forbidden |
 
 ## T18–T20 execution handoff
 

@@ -37,6 +37,7 @@ func HTTPServer(handler http.Handler, logs *logmanager.Application) *httpRuntime
 		defer transport.active.Done()
 		txn := logs.StartHttp("", r.Method+" "+r.URL.Path)
 		defer txn.End()
+		w = txn.SetWebResponseHttp(w)
 		handler.ServeHTTP(w, r.WithContext(txn.ToContext(r.Context())))
 	}), ReadHeaderTimeout: 5 * time.Second}
 	return transport

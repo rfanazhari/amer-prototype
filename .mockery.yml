@@ -109,6 +109,7 @@ packages:
       CatalogOperation:
       InstanceOperation:
       RevisionOperation:
+      ListInstancesOperation:
   github.com/rfanazhari/amer-prototype/application/usecase/voicesession:
     config:
       dir: test/mocks
@@ -127,6 +128,7 @@ packages:
       ReplayReader:
       Mutation:
       Transaction:
+      InstanceLister:
   github.com/rfanazhari/amer-prototype/application/repository/agentbindingport:
     config:
       dir: test/mocks

@@ -99,6 +99,7 @@ func assembleAccess(db *gorm.DB, cfg Config, logs *logmanager.Application) acces
 			Current: sessions, Clock: timer, Candidates: candidates, Instances: configStore, Assignments: assignmentPins,
 		},
 		Candidate:        accessquery.Candidate{Candidates: candidates, Current: sessions, Clock: timer},
+		ListCandidates:   accessquery.ListCandidates{Candidates: candidates, Current: sessions, Clock: timer},
 		IssueInvitation:  accessusecase.IssueInvitation{Assignments: store, Current: sessions, Tokens: tokens, Clock: timer},
 		Exchange:         accessusecase.ExchangeInvitation{Invitations: invitations, Candidates: candidates, Assignments: store, Tokens: tokens, Clock: timer},
 		CandidateSession: accessquery.CandidateSession{Current: candidateSessions, Candidates: candidates, Assignments: store, CSRF: csrf, Clock: timer},

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/rfanazhari/amer-prototype/translations"
@@ -188,12 +189,29 @@ func readJSON(r *http.Request, dst any, emptyAllowed bool) error {
 	return nil
 }
 
-// requireOrigin rejects requests whose Origin is missing or not the configured access origin.
+// requireOrigin rejects requests whose Origin is not the configured access origin.
+// Same-origin GET and HEAD omit Origin in browsers; those are accepted when Host matches that origin.
 func requireOrigin(r *http.Request, origin string) error {
-	if origin == "" || r.Header.Get("Origin") != origin {
+	if origin == "" {
 		return errInput
 	}
-	return nil
+	got := r.Header.Get("Origin")
+	if got == origin {
+		return nil
+	}
+	if got == "" && (r.Method == http.MethodGet || r.Method == http.MethodHead) && r.Host == originHost(origin) {
+		return nil
+	}
+	return errInput
+}
+
+// originHost returns the host:port of a configured absolute origin.
+func originHost(origin string) string {
+	parsed, err := url.Parse(origin)
+	if err != nil {
+		return ""
+	}
+	return parsed.Host
 }
 
 // requireJSONContentType rejects bodies that are not application/json.

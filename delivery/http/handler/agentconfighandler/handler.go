@@ -12,21 +12,22 @@ import (
 
 // Handler translates configuration HTTP requests through injected application operation interfaces.
 type Handler struct {
-	Catalog      agentconfigquery.CatalogOperation
-	Create       agentconfigusecase.CreateOperation
-	Instance     agentconfigquery.InstanceOperation
-	Replace      agentconfigusecase.ReplaceOperation
-	Validate     agentconfigusecase.ValidateOperation
-	Publish      agentconfigusecase.PublishOperation
-	Revision     agentconfigquery.RevisionOperation
-	CSRF         service.CSRFTokens
-	Sessions     service.CurrentAdministrativeSession
-	Origin       string
-	SecureCookie bool
-	LogError     func(error)
+	Catalog       agentconfigquery.CatalogOperation
+	Create        agentconfigusecase.CreateOperation
+	Instance      agentconfigquery.InstanceOperation
+	Replace       agentconfigusecase.ReplaceOperation
+	Validate      agentconfigusecase.ValidateOperation
+	Publish       agentconfigusecase.PublishOperation
+	Revision      agentconfigquery.RevisionOperation
+	ListInstances agentconfigquery.ListInstancesOperation
+	CSRF          service.CSRFTokens
+	Sessions      service.CurrentAdministrativeSession
+	Origin        string
+	SecureCookie  bool
+	LogError      func(error)
 }
 
-// ServeHTTP dispatches the seven administrative configuration routes.
+// ServeHTTP dispatches administrative configuration routes.
 func (h Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
 	if len(parts) < 2 || parts[0] != "admin" {
@@ -37,7 +38,7 @@ func (h Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case len(parts) == 2 && parts[1] == "agent-templates":
 		h.catalog(w, r)
 	case len(parts) == 2 && parts[1] == "agent-instances":
-		h.create(w, r)
+		h.instances(w, r)
 	case len(parts) == 3 && parts[1] == "agent-instances":
 		h.readInstance(w, r, parts[2])
 	case len(parts) == 4 && parts[1] == "agent-instances" && parts[3] == "draft":
@@ -69,6 +70,32 @@ func (h Handler) catalog(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	respond(w, http.StatusOK, envelope{Status: "success", Data: encodeCatalog(templates)})
+}
+
+// instances dispatches collection read and creation on the exact instance path.
+func (h Handler) instances(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		h.listInstances(w, r)
+	case http.MethodPost:
+		h.create(w, r)
+	default:
+		fail(w, r, http.StatusMethodNotAllowed, errs.MethodNotAllowed)
+	}
+}
+
+// listInstances returns every authorized instance view, using an empty array when none exist.
+func (h Handler) listInstances(w http.ResponseWriter, r *http.Request) {
+	r, ok := h.prepareRead(w, r)
+	if !ok {
+		return
+	}
+	instances, err := h.ListInstances.Execute(r.Context())
+	if err != nil {
+		h.sendError(w, r, err)
+		return
+	}
+	respond(w, http.StatusOK, envelope{Status: "success", Data: encodeInstances(instances)})
 }
 
 // create inserts an unpublished instance for a catalog template version.

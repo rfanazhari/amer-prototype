@@ -72,7 +72,7 @@ func TestSevenEndpointsReturnDetachedEnvelopes(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			handler, catalogOp, create, instance, replace, validate, publish, revision, csrf, sessions := newHandler(t, tt.origin, tt.secure)
+			handler, catalogOp, create, instance, replace, validate, publish, revision, _, csrf, sessions := newHandler(t, tt.origin, tt.secure)
 			if tt.method != http.MethodGet {
 				authorizeMutation(t, sessions, csrf)
 			}

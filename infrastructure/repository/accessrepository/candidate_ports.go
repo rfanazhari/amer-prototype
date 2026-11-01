@@ -21,6 +21,11 @@ func (s CandidateIdentities) FindByID(ctx context.Context, id string) (accesspor
 	return s.Store.FindCandidateByID(ctx, id)
 }
 
+// ListByCreator returns candidates created by one account, newest identity first.
+func (s CandidateIdentities) ListByCreator(ctx context.Context, createdBy string) ([]accessport.CandidateRecord, error) {
+	return s.Store.ListCandidatesByCreator(ctx, createdBy)
+}
+
 // InvitationSecrets adapts Store onto the Invitations port without colliding with administrative session lookup.
 type InvitationSecrets struct {
 	Store Store

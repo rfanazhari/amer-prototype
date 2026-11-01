@@ -3,11 +3,13 @@ package integration_test
 import (
 	"context"
 	"net"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/SALT-Indonesia/salt-pkg/logmanager"
+	"github.com/rfanazhari/amer-prototype/infrastructure/database/schema"
 	appruntime "github.com/rfanazhari/amer-prototype/infrastructure/runtime"
 	"github.com/stretchr/testify/require"
 )
@@ -77,7 +79,7 @@ func TestStartupLogsReportReadinessWithoutSecrets(t *testing.T) {
 				if entry.Message == "http server ready" {
 					require.Equal(t, address.String(), entry.Data["address"])
 					require.Equal(t, "in_process", entry.Data["event_queue"])
-					require.Equal(t, "2", entry.Data["schema_version"])
+					require.Equal(t, strconv.Itoa(schema.ReleaseVersion), entry.Data["schema_version"])
 				}
 			}
 			require.Equal(t, tt.messages, messages)

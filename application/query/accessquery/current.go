@@ -22,6 +22,12 @@ type CandidateOperation interface {
 	Execute(ctx context.Context, id string) (*dto.Candidate, error)
 }
 
+// ListCandidatesOperation returns candidates created by the logged-in HR account.
+type ListCandidatesOperation interface {
+	// Execute returns that account's candidates after current HR authorization.
+	Execute(ctx context.Context) ([]dto.Candidate, error)
+}
+
 // CandidateSessionOperation returns the current candidate session after trusted assignment binding.
 type CandidateSessionOperation interface {
 	// Execute returns detached candidate, assignment and session material without creating execution.

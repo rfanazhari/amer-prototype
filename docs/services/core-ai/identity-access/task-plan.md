@@ -1,11 +1,11 @@
 # Task Plan: Identity and Access
 
-Mode C revision; planning date 2026-11-01. T1–T9 retain their recorded Done status (Q1 resolved); this review does not rerun their acceptance. Owner approved replacing AutoMigrate with manual, versioned SQL migrations across the service (D8 / Q6 resolved). T16–T20 plan that transition; no implementation or database change is performed here. Candidate runtime remains unimplemented.
+Mode C revision; planning date 2026-11-01. T1–T9 retain their recorded Done status (Q1 resolved); this review does not rerun their acceptance. Owner approved replacing AutoMigrate with manual, versioned SQL migrations across the service (D8 / Q6 resolved). T16–T20 plan that transition; no implementation or database change is performed here. T21 adds the creator-scoped candidate list. Published OpenAPI, endpoint, and changelog text for that route are still outstanding.
 
 ## Legend
 
-- IDs T1–T20 are stable; never renumber on revision.
-- Planning tickets use `CORE-IAM-001` through `CORE-IAM-020` mapped to T1–T20. These are local planning IDs, not externally created tickets; T16–T20 cover shared Task/access schema infrastructure.
+- IDs T1–T21 are stable; never renumber on revision.
+- Planning tickets use `CORE-IAM-001` through `CORE-IAM-021` mapped to T1–T21. These are local planning IDs, not externally created tickets; T16–T20 cover shared Task/access schema infrastructure.
 - Complexity: S (<2h) | M (2–4h) | L (>4h), rough estimates requiring engineer validation.
 - Status: `[ ]` Todo | `[~]` In Progress | `[x]` Done | `~~obsolete~~` superseded work.
 - `ref` means [technical-design.md](technical-design.md) section; every task has a verifiable DoD.
@@ -119,6 +119,10 @@ Execution T18–T20: Done on disposable PostgreSQL and the isolated packaged sta
   - Blocked by: Q5 retention/purge and schema-reference ordering — ready when product/data owner approves explicit policy and synchronized design.
   - DoD: reviewable retention and FK-safe deletion plan, restart-safe bounded cleanup, preserved required references and deletion evidence; no physical deletion before approval. If retention needs additional persisted facts, revise assessed design rather than silently changing the five-table contract.
 
+- [~] **T21. List candidates created by the logged-in HR** — Application/delivery/infrastructure — S
+  - Ticket: `CORE-IAM-021` — depends: T12, T13 — ref: design §2, §6.6–6.8; decision-log D10.
+  - DoD: GET `/admin/candidates` returns only rows whose `created_by` is the logged-in HR account, ordered `created_at DESC, id DESC`, as an array of `id`, `name`, `email`, `createdAt`, `updatedAt`. Empty is 200 with `[]`. ADMIN is 403 before the read. A missing or candidate-cookie session is 401. POST create and GET by id stay as they are, including GET by id for any current HR. Other methods on the exact path stay 405. No email search or pagination. Application, mocked HTTP, and sqlmock coverage pass. The existing candidate integration HTTP case covers creator scope when `TEST_DATABASE_URL` is set; a skip is not database proof. Publish the route in OpenAPI, `docs/api/identity-access.md`, and `docs/api/CHANGELOG.md` before treating the public contract as current.
+
 ## Dependency Graph
 
 ```text
@@ -142,6 +146,7 @@ T2 + T3 + T5 + T6 + T10 → T12 (candidate operations)
 T5 + T8 + T10 + T11 + T12 + UI/harness → T13
 T9 + T10 + T11 + T12 + T13 + actual Interview consumers → T14
 T10 + T11 + Q5 → T15
+T12 + T13 → T21 (creator-scoped GET `/admin/candidates`)
 ```
 
 ## Revision History
@@ -164,3 +169,4 @@ T10 + T11 + Q5 → T15
 | v1.13 | 2026-11-01 | Mark T11 Done for candidate/invitation/session GORM adapters, sqlmock coverage and proposed 000003/000004 SQL; runtime still does not AutoMigrate or apply them; real PostgreSQL FK proof and T20 remain outstanding |
 | v1.14 | 2026-11-01 | Mark T18–T20 Done for explicit startup/test migration ownership, PostgreSQL acceptance, populated backup/adoption/restore and compatible-image rollback rehearsal; publish runbook/checksums and bounded evidence |
 | v1.15 | 2026-11-01 | ACP T4 reallocated unpublished candidate/assignment SQL to 000004/000005 and inserted configuration version 3 |
+| v1.16 | 2026-11-02 | Add T21 / `CORE-IAM-021` for the logged-in HR candidate list; public OpenAPI and endpoint docs remain outstanding |

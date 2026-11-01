@@ -54,12 +54,13 @@ The existing `/admin` prefix means the administrative channel, not the ADMIN rol
 | DELETE `/admin/sessions/current` | Valid administrative session + CSRF | 200 standard envelope after persisted revocation, then clear cookie |
 | POST `/admin/hr-accounts` | Current ADMIN + CSRF | 201; create HR, with role fixed by operation, not caller input |
 | POST `/admin/candidates` | Current HR + CSRF | 201; record candidate identity |
+| GET `/admin/candidates` | Current HR; origin and administrative cookie; no CSRF | 200; array of candidates that account created, newest first; empty array when none |
 | GET `/admin/candidates/{id}` | Current HR | 200; detached candidate contact view for selection by known identity |
 | POST `/admin/interview-assignments/{id}/invitations` | Current HR + assignment eligibility + CSRF | 201; persist new invitation/revoke former invitation atomically; reveal link/token once |
 | POST `/candidate/access/exchange` | Valid invitation + pre-session origin protection | 201 after new session commit; scoped cookie and safe assignment identity; reusable invitation until expiry/revocation (§6.7) |
 | GET `/candidate/session` | Valid candidate session + accessible assignment | 200; safe candidate/assignment identity, expiry and CSRF material; no execution creation |
 
-Administrative account/session schemas and limits are approved in §6.1–6.5; candidate-specific accepted inputs are approved in §6.6–6.9. No collection listing/search or lifecycle mutation endpoints are silently added. The Interview capability owns `/candidate/interview`, consent, initiation, assignment creation/revocation and its full candidate UI. A known `candidate_id` enables reuse without introducing deduplication by email.
+Administrative account/session schemas and limits are approved in §6.1–6.5; candidate-specific accepted inputs are approved in §6.6–6.9. GET `/admin/candidates` lists only candidates whose `created_by` is the logged-in HR account, ordered by `created_at` descending then `id` descending. Email search and candidate lifecycle mutation stay forbidden. The Interview capability owns `/candidate/interview`, consent, initiation, assignment creation/revocation and its full candidate UI. A known `candidate_id` enables reuse without introducing deduplication by email.
 
 Implement one operation interface per delivery use case/query in `application/usecase/accessusecase/` and `application/query/accessquery/`, returning detached `application/dto` values. Purpose-specific repositories in `application/repository/accessport/` hide ORM handles. Ports in `application/service/` isolate password verification, secure token generation/digests, session resolution and assignment access facts.
 
@@ -357,13 +358,13 @@ Rejected cases: `Sinta@Example.com` provisioned twice → 409; env bootstrap on 
 
 ### 6.6 Candidate contact and matching (approved F)
 
-Candidate name and email reuse §6.1 canonicalization and limits. Email is contact only: never unique, never an upsert or matching key, and never a login identifier. POST `/admin/candidates` always allocates a new candidate ID. Reuse across interviews is only by supplying that known `candidate_id` on an Interview-owned assignment. Two rows may share the same canonical email and remain distinct people. HR selects an existing person through GET `/admin/candidates/{id}`, not through email search. The bearer link proves possession of the invitation secret, not independent personal identity. No additional verification, OTP or password is added. Contact changes after creation are out of scope; they must not rewrite Interview historical snapshots.
+Candidate name and email reuse §6.1 canonicalization and limits. Email is contact only: never unique, never an upsert or matching key, and never a login identifier. POST `/admin/candidates` always allocates a new candidate ID. Reuse across interviews is only by supplying that known `candidate_id` on an Interview-owned assignment. Two rows may share the same canonical email and remain distinct people. HR selects an existing person from GET `/admin/candidates`, which returns only rows that HR created, or through GET `/admin/candidates/{id}` when the identity is already known. GET by id still returns any known candidate to any current HR. Email search stays forbidden: query parameters are not filters, and there is no pagination. The bearer link proves possession of the invitation secret, not independent personal identity. No additional verification, OTP or password is added. Contact changes after creation are out of scope; they must not rewrite Interview historical snapshots.
 
 ### 6.7 Invitation exchange reuse and recovery (approved G)
 
 Keep the five-table properties: no consumed_at column and no extra device table. A recognized, unrevoked invitation before its 24-hour expiry may be exchanged repeatedly. Each successful exchange inserts a new two-hour candidate session bound to that assignment; concurrent devices may hold distinct current sessions. Reissue revokes only the former invitation credential; existing sessions remain governed by session lifetime and live assignment access (D6). GET `/candidate/session` never exchanges or starts an interview.
 
-Lost exchange response: the client may retry the same invitation. If the invitation is still valid, retry may commit another session; the server does not reconstruct a previous cookie from memory. Commit uncertainty returns 503 `IA_DEPENDENCY_UNAVAILABLE` with no Set-Cookie. Concurrent exchanges serialize on the assignment lock; both may succeed with distinct sessions. Exchange rate, before digest work: 5 attempts per invitation digest per 15 minutes and 20 per client IP per 15 minutes, returning 429 `IA_RATE_LIMITED`; the process hash-concurrency gate of 2 is reused. Uniform 410 `IA_INVITATION_UNAVAILABLE` covers missing, malformed, expired, revoked and assignment-inaccessible invitations without disclosing assignment identity.
+GET `/admin/candidates` does not exchange an invitation, extend a session, or start an interview. Lost exchange response: the client may retry the same invitation. If the invitation is still valid, retry may commit another session; the server does not reconstruct a previous cookie from memory. Commit uncertainty returns 503 `IA_DEPENDENCY_UNAVAILABLE` with no Set-Cookie. Concurrent exchanges serialize on the assignment lock; both may succeed with distinct sessions. Exchange rate, before digest work: 5 attempts per invitation digest per 15 minutes and 20 per client IP per 15 minutes, returning 429 `IA_RATE_LIMITED`; the process hash-concurrency gate of 2 is reused. Uniform 410 `IA_INVITATION_UNAVAILABLE` covers missing, malformed, expired, revoked and assignment-inaccessible invitations without disclosing assignment identity.
 
 ### 6.8 Candidate operation schemas (approved H)
 
@@ -372,6 +373,7 @@ Request bodies are limited to 1 MiB with the same strict JSON rules as §6.3. Ex
 | Operation | Exact request | Response `data` | Status |
 |---|---|---|---|
 | POST `/admin/candidates` | exactly `name`, `email`; current HR + CSRF | `id`, `name`, `email`, `createdAt`, `updatedAt` | 201 |
+| GET `/admin/candidates` | current HR; origin and administrative cookie; no CSRF and no body | array of the same identity fields for `created_by` equal to that account; `created_at DESC, id DESC`; `[]` when none, never JSON null | 200 |
 | GET `/admin/candidates/{id}` | current HR | same identity fields; 404 after authorization when unknown | 200 |
 | POST `/admin/interview-assignments/{id}/invitations` | empty object or absent body; current HR + CSRF | `id`, `assignmentId`, `expiresAt`, `token` once | 201 |
 | POST `/candidate/access/exchange` | exactly `token`; origin/content-type | `candidate` `{id,name}`, `assignment` `{id}`, `session` `{id,expiresAt}`; Set-Cookie after commit | 201 |
@@ -403,7 +405,9 @@ Exchange success `data` (cookie omitted):
 {"candidate":{"id":"cccccccc-cccc-4ccc-8ccc-cccccccccccc","name":"Andi Pratama"},"assignment":{"id":"dddddddd-dddd-4ddd-8ddd-dddddddddddd"},"session":{"id":"eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee","expiresAt":"2026-11-01T10:00:00.000Z"}}
 ```
 
-Rejected cases: two creates with `Andi@Example.com` → two candidate IDs; exchange with extra `assignmentId` → 400; expired or revoked invitation → 410 with no cookie; GET exchange → not an exchange operation.
+List success `data` is an array. An HR with no created candidates receives `[]`. ADMIN is 403 `IA_FORBIDDEN` before any candidate read. A missing session or a candidate cookie is 401 `IA_UNAUTHENTICATED`. Methods other than GET and POST on the exact collection path are 405.
+
+Rejected cases: two creates with `Andi@Example.com` → two candidate IDs; exchange with extra `assignmentId` → 400; expired or revoked invitation → 410 with no cookie; GET exchange → not an exchange operation; email query on GET `/admin/candidates` does not filter.
 
 ### 6.9 Assignment collaboration and locking (approved I)
 

@@ -74,6 +74,7 @@ The platform design already selects these endpoint directions. The accepted conf
 |---|---|---|
 | GET `/admin/agent-templates` | List supported template versions and configurable fields | 200 catalog, with HR Interviewer and Document Analyzer |
 | POST `/admin/agent-instances` | Create an instance for a specific template version | 201 instance with draft and nullable active revision |
+| GET `/admin/agent-instances` | List every instance visible to the current HR | 200 array of filtered instance views; empty `data` is `[]` |
 | GET `/admin/agent-instances/{id}` | Read authorized draft and active revision identity | 200 detached view |
 | PUT `/admin/agent-instances/{id}/draft` | Full replacement using expected version | 200 new draft version; stale replacement 409 |
 | POST `/admin/agent-instances/{id}/validations` | Validate exact draft version | Persisted validation findings; 201 result even when findings block publication |
@@ -81,6 +82,8 @@ The platform design already selects these endpoint directions. The accepted conf
 | GET `/admin/agent-instances/{id}/revisions/{revision_id}` | Read a specific immutable revision in authorized scope | 200 revision with confidentiality filtering |
 
 Use one narrow operation interface per command/query consumed by delivery, in `application/usecase/agentconfigusecase` and `application/query/agentconfigquery`. Implement with plain structs injecting repository, authorization, reference-readiness, and Clock ports. DTOs live under `application/dto`; never return live domain or ORM objects.
+
+`GET /admin/agent-instances` (`CORE-ACP-014`, decision D11) returns every instance to the current HR. The list does not introduce creator ownership and does not narrow BR-CORE-023. `agent_instances` gains no `created_by` column and the route adds no migration. Authorize once with `AgentConfigurationRead` and an empty resource, the same collection read the template catalog uses. Each item is the existing filtered instance view (`salaryCeilingConfigured`, never the salary reference) via `dto.FromStoredInstance`. Order is `created_at DESC, id DESC`. There is no search or pagination. ADMIN is 403 `ACP_FORBIDDEN`. An unauthenticated caller uses the existing ACP 401. POST create is unchanged. Other methods on the exact path stay 405. Empty success data is a JSON array, not null.
 
 At implementation, update `docs/api/openapi.yaml`, add `docs/api/agent-configuration.md`, and update `docs/api/CHANGELOG.md` together. Existing Task, voice, and access contracts remain compatible. Dispatch these paths before the current `/admin/` access catch-all. Candidate sessions cannot authorize these routes. Reuse `accessauthority.Authority`, the administrative cookie, and the existing CSRF verifier. Map configuration failures to the ACP catalog in §6.5, not to access error codes. Do not expose routes with a placeholder permissive authorizer.
 
@@ -469,6 +472,7 @@ No live database was inspected and no runtime tests were run for this planning t
 | v1.7 | 2026-11-01 | Record T11 assignment/execution pin consumers and resolve Q5 | BR-CORE-013 external consumer proof; UI remains open |
 | v1.8 | 2026-11-02 | Record the missing assignment write in §11; replace current-tense version 3 and `000005_assignment_access` claims with release version 7 | The invitation route already reads `interview_assignments`; nothing public inserts that row. Q6 stays open. No route or SQL change |
 | v1.9 | 2026-11-02 | Replace the §11 sketch with the approved create contract and resolve Q6 | T12 `CORE-ACP-012`. T13 may implement the route. No OpenAPI or SQL in T12 |
+| v1.10 | 2026-11-02 | Add `GET /admin/agent-instances` for every instance visible to current HR | T14 `CORE-ACP-014` / D11. No creator column, no migration, and no narrowing of BR-CORE-023 |
 
 Business-driven consequences are recorded in [decision-log.md](decision-log.md). Execution order and verification are in [tactical-strategy.md](tactical-strategy.md) and [task-plan.md](task-plan.md).
 

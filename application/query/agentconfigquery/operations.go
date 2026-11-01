@@ -23,3 +23,9 @@ type RevisionOperation interface {
 	// Execute authorizes read before disclosing a stored revision.
 	Execute(context.Context, string, string) (*dto.AgentRevision, error)
 }
+
+// ListInstancesOperation is the instance-collection query contract consumed by delivery.
+type ListInstancesOperation interface {
+	// Execute authorizes collection read and returns filtered instance views.
+	Execute(context.Context) ([]dto.AgentInstance, error)
+}

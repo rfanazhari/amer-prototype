@@ -2,7 +2,7 @@
 
 ## 1. Implementation Strategy
 
-Mode C alignment of the additive capability in the existing Go modular monolith. Implement the assessed [technical design](technical-design.md) for [BR-CORE-001–014](../business/capabilities/agent-configuration-publication.md). Keep existing Task, voice, and administrative access behavior compatible. T1–T12 are Done. Q6 is closed. T13 mounts `POST /admin/interview-assignments` on the existing pin. Startup accepts clean version 7. Sentences below that still say clean version 3 describe the 2026-11-01 installation step.
+Mode C alignment of the additive capability in the existing Go modular monolith. Implement the assessed [technical design](technical-design.md) for [BR-CORE-001–014](../business/capabilities/agent-configuration-publication.md). Keep existing Task, voice, and administrative access behavior compatible. T1–T13 are Done. Q6 is closed. T13 mounts `POST /admin/interview-assignments` on the existing pin. T14 (`CORE-ACP-014`) adds `GET /admin/agent-instances` for every instance visible to the current HR. The list does not introduce creator ownership and does not narrow BR-CORE-023. It adds no `created_by` column and no migration. Startup accepts clean version 7. Sentences below that still say clean version 3 describe the 2026-11-01 installation step.
 
 Use the approved T1 contracts in technical-design §6 for field validators, persistent payloads, and HTTP behavior. Install the five configuration tables as SQL version 3, ahead of the unpublished candidate and assignment-access files, then prove atomic publication through PostgreSQL. Mount configuration routes only by reusing `accessauthority.Authority`, the administrative cookie, and the existing CSRF verifier. Do not build a second session system and do not register AutoMigrate.
 
@@ -75,6 +75,8 @@ Planned names may be refined within design authority; domain classifications do 
 | Assignment create command | Application | `application/usecase/agentbindingusecase/` or the operation package T13 selects | Operation interface and implementation | Authorize current HR, mint the assignment id, call the existing pin. Blocked until T12 |
 | Assignment create route | Delivery | New handler, or the handler T12's contract names | HTTP adapter | Origin, HR cookie, CSRF, and the envelope. Not `issueInvitation` |
 | Assignment create composition | Infrastructure | `infrastructure/runtime/` | Composition and router arm | Construct `PinAssignment` with the configuration reader and `agentbindingrepository.Assignments` |
+| Instance collection query | Application | `application/query/agentconfigquery/` | `ListInstances` | Authorize once with `AgentConfigurationRead` and an empty resource, then map every row through `dto.FromStoredInstance` |
+| Instance lister | Application / infrastructure | `application/repository/agentconfigport/`, `infrastructure/repository/agentconfigrepository/` | Narrow `InstanceLister` on `Store` | Batched instance, current-draft, and active-revision reads. Do not widen generic `Reader`. One corrupt row fails the list. No creator predicate |
 
 Also modify the schema compatibility floor, checksum manifest, runtime grants, migration operations document, error catalogs, `.mockery.yml`, API specification/docs/changelog, and tests. T13 does not add an assignment, execution, consent, voice, or reporting table. It mounts a create command on the existing `interview_assignments` pin.
 
@@ -99,6 +101,7 @@ Keep each task's changes reviewable. Commit per task when the user authorizes im
 - Application: generated mocks for repository, authority, reference reads, Clock, and delivery operation interfaces. Denial has no storage side effect; replay authorizes before disclosure; exact replay avoids current-draft validation and active-pointer mutation; mismatched intent conflicts.
 - Publication fault paths: no successful DTO before commit; ambiguous commit reconciles with the same identity; reference unavailability is technical, distinct from a missing reference finding.
 - HTTP: mocked operations establish strict JSON and sub-fields, request size, nullable values, safe classifications, EN/ID messages, confidentiality filtering, and Q1 error precedence. These tests remain required despite the skill baseline's different default.
+- Instance collection: mocked application tests return every restored instance, strip salary contents, perform no read after authorization failure, and return an empty slice. HTTP tests cover HR `200` with `[]`, ADMIN `403`, unauthenticated `401`, unchanged POST create, and non-GET/POST `405`. sqlmock covers the all-instance query and `created_at DESC, id DESC`.
 
 ### Integration Tests
 
@@ -157,3 +160,4 @@ None of these runtime commands was executed to generate this tripack. Documentat
 | v1.6 | 2026-11-01 | Record T11 assignment/execution pin consumers; UI remains outside this slice |
 | v1.7 | 2026-11-02 | Point the remaining work at blocked T12–T13 and the existing assignment pin; current startup floor is version 7 |
 | v1.8 | 2026-11-02 | Record T12 approved create contract and unblock T13 |
+| v1.9 | 2026-11-02 | Record T14 `GET /admin/agent-instances` without creator ownership or a narrower BR-CORE-023 |

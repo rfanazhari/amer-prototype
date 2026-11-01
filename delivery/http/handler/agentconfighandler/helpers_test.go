@@ -41,7 +41,7 @@ type envelopeView struct {
 }
 
 // newHandler wires generated operation mocks for one configuration HTTP scenario.
-func newHandler(t *testing.T, origin string, secure bool) (agentconfighandler.Handler, *mocks.AgentConfigCatalogOperation, *mocks.AgentConfigCreateOperation, *mocks.AgentConfigInstanceOperation, *mocks.AgentConfigReplaceOperation, *mocks.AgentConfigValidateOperation, *mocks.AgentConfigPublishOperation, *mocks.AgentConfigRevisionOperation, *mocks.CSRFTokens, *mocks.CurrentAdministrativeSession) {
+func newHandler(t *testing.T, origin string, secure bool) (agentconfighandler.Handler, *mocks.AgentConfigCatalogOperation, *mocks.AgentConfigCreateOperation, *mocks.AgentConfigInstanceOperation, *mocks.AgentConfigReplaceOperation, *mocks.AgentConfigValidateOperation, *mocks.AgentConfigPublishOperation, *mocks.AgentConfigRevisionOperation, *mocks.AgentConfigListInstancesOperation, *mocks.CSRFTokens, *mocks.CurrentAdministrativeSession) {
 	t.Helper()
 	catalogOp := mocks.NewAgentConfigCatalogOperation(t)
 	create := mocks.NewAgentConfigCreateOperation(t)
@@ -50,13 +50,14 @@ func newHandler(t *testing.T, origin string, secure bool) (agentconfighandler.Ha
 	validate := mocks.NewAgentConfigValidateOperation(t)
 	publish := mocks.NewAgentConfigPublishOperation(t)
 	revision := mocks.NewAgentConfigRevisionOperation(t)
+	list := mocks.NewAgentConfigListInstancesOperation(t)
 	csrf := mocks.NewCSRFTokens(t)
 	sessions := mocks.NewCurrentAdministrativeSession(t)
 	return agentconfighandler.Handler{
 		Catalog: catalogOp, Create: create, Instance: instance, Replace: replace,
-		Validate: validate, Publish: publish, Revision: revision, CSRF: csrf, Sessions: sessions,
+		Validate: validate, Publish: publish, Revision: revision, ListInstances: list, CSRF: csrf, Sessions: sessions,
 		Origin: origin, SecureCookie: secure,
-	}, catalogOp, create, instance, replace, validate, publish, revision, csrf, sessions
+	}, catalogOp, create, instance, replace, validate, publish, revision, list, csrf, sessions
 }
 
 // request builds a configuration JSON request with origin, cookie, CSRF and optional extra headers.

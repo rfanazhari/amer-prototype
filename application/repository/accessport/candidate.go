@@ -43,6 +43,8 @@ type Candidates interface {
 	Insert(ctx context.Context, record CandidateRecord) error
 	// FindByID restores one candidate by stable identity or returns ErrNotFound.
 	FindByID(ctx context.Context, id string) (CandidateRecord, error)
+	// ListByCreator returns candidates created by one account, newest identity first.
+	ListByCreator(ctx context.Context, createdBy string) ([]CandidateRecord, error)
 }
 
 // Invitations reads invitation credentials outside the assignment lock for exchange lookup.

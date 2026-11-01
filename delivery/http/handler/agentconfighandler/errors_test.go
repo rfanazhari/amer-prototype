@@ -54,7 +54,7 @@ func TestMapsACPErrorsAndSessionBoundaries(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			logged := false
-			handler, catalogOp, create, instance, replace, validate, publish, _, csrf, sessions := newHandler(t, httpOrigin, false)
+			handler, catalogOp, create, instance, replace, validate, publish, _, _, csrf, sessions := newHandler(t, httpOrigin, false)
 			handler.LogError = func(err error) { logged = true; require.ErrorIs(t, err, tt.cause) }
 			if tt.cookie != nil && tt.cookie.Name == "ia-admin" && tt.method != http.MethodGet {
 				session := testdata.AdministrativeSessionRecord(t)

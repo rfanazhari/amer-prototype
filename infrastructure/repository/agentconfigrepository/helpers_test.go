@@ -28,6 +28,7 @@ const (
 	instanceName     = "Invoice reviewer"
 	emptyHRJSON      = `{"jobDescriptionRef":null,"mandatoryQuestions":[],"competencyTopics":[],"stageSeconds":null,"compensationPolicy":null}`
 	emptyFindings    = `[]`
+	listedSalaryJSON = `{"jobDescriptionRef":{"id":"11111111-1111-4111-8111-111111111111","version":"1"},"mandatoryQuestions":[{"id":"background","stage":"background","text":"Describe your backend experience."},{"id":"screening","stage":"screening","text":"How do you protect a concurrent update?"},{"id":"compensation","stage":"compensation","text":"What are your compensation expectations?"}],"competencyTopics":["concurrency"],"stageSeconds":{"background":60,"screening":240,"compensation":90,"closing":30},"compensationPolicy":{"discussionMode":"expectations_only","salaryCeilingRef":{"id":"22222222-2222-4222-8222-222222222222","version":"1"}}}`
 )
 
 // sqlStore opens a GORM adapter over sqlmock with ping disabled so tests own SQL expectations.

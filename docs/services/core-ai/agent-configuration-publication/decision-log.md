@@ -2,7 +2,7 @@
 
 These entries explain technical consequences of the approved capability and platform decisions. They do not claim implementation or new owner approval of unresolved details. Technical library and package choices remain in [technical-design.md](technical-design.md).
 
-T1 (`CORE-ACP-001`) A–E approval is recorded in D5 below. Q1/Q3 are resolved. The administrative access prerequisite is satisfied by Identity and Access D1/D6/D7 and CORE-IAM-009; configuration-route proof remains ACP T8/T9. Schema installation follows Identity and Access D8, recorded here as D7. T10 (`CORE-ACP-010`) records historical deployment compatibility in D8 and resolves Q4. T11 (`CORE-ACP-011`) records assignment/execution pin consumers in D9 and resolves Q5. D10 adopts the T12 assignment-create contract. T13 mounts the route.
+T1 (`CORE-ACP-001`) A–E approval is recorded in D5 below. Q1/Q3 are resolved. The administrative access prerequisite is satisfied by Identity and Access D1/D6/D7 and CORE-IAM-009; configuration-route proof remains ACP T8/T9. Schema installation follows Identity and Access D8, recorded here as D7. T10 (`CORE-ACP-010`) records historical deployment compatibility in D8 and resolves Q4. T11 (`CORE-ACP-011`) records assignment/execution pin consumers in D9 and resolves Q5. D10 adopts the T12 assignment-create contract. T13 mounts the route. D11 adopts the HR instance collection without creator ownership.
 
 ## D1: Published settings remain reliable while users prepare changes
 
@@ -118,3 +118,14 @@ T1 (`CORE-ACP-001`) A–E approval is recorded in D5 below. Q1/Q3 are resolved. 
 - **Trade-offs accepted:** Duplicate assignments after a lost response. No GET/revoke/report in this step. Document Analyzer remains a later initiation binding.
 - **Closure:** Q6 resolved as the §11 contract. T12 edits documents only. T13 implements the route without new SQL.
 - **Status:** active for the create contract.
+
+## D11: HR lists every agent instance without creator ownership
+
+- **Ticket:** `CORE-ACP-014` / T14.
+- **Confirming actor/date:** approved HR list plan, 2026-11-02.
+- **Business driver:** Current HR needs the company instance collection. BR-CORE-023 says another HR's authorship does not exclude an otherwise permitted configuration operation.
+- **Technical decision:** `GET /admin/agent-instances` returns every instance. The list does not introduce creator ownership and does not narrow BR-CORE-023. There is no `created_by` column and no migration. Authorize once with `AgentConfigurationRead` and an empty resource. Each item is the existing filtered instance view. Empty `data` is `[]`. Order is `created_at DESC, id DESC`. There is no search or pagination.
+- **What this means for the product:** Any current HR sees every instance, including one created by a colleague. ADMIN stays forbidden. Salary reference contents stay off the response.
+- **Alternatives considered:** A creator column would make the collection personal and would narrow BR-CORE-023. Search and pagination are outside this slice.
+- **Closure:** T14 implements the route on the existing store and filtered instance view. Public OpenAPI, the endpoint document, and the API changelog stay with the contract update.
+- **Status:** active for the collection read.

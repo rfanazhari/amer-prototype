@@ -33,17 +33,18 @@ func assembleAgentConfiguration(db *gorm.DB, cfg Config, logs *logmanager.Applic
 		txn.End()
 	}
 	return agentconfighandler.Handler{
-		Catalog:      agentconfigquery.Catalog{Authority: authority},
-		Create:       agentconfigusecase.Create{Authority: authority, Instances: store, Clock: timer},
-		Instance:     agentconfigquery.Instance{Authority: authority, Reader: store},
-		Replace:      agentconfigusecase.Replace{Authority: authority, Instances: store, Clock: timer},
-		Validate:     agentconfigusecase.Validate{Authority: authority, Reader: store, Instances: store, Assessment: assessment, Clock: timer},
-		Publish:      agentconfigusecase.Publish{Authority: authority, Instances: store, Reader: store, Replay: store, Clock: timer},
-		Revision:     agentconfigquery.Revision{Authority: authority, Reader: store},
-		CSRF:         csrf,
-		Sessions:     sessions,
-		Origin:       cfg.AccessHTTPOrigin,
-		SecureCookie: strings.HasPrefix(cfg.AccessHTTPOrigin, "https://"),
-		LogError:     logErr,
+		Catalog:       agentconfigquery.Catalog{Authority: authority},
+		Create:        agentconfigusecase.Create{Authority: authority, Instances: store, Clock: timer},
+		Instance:      agentconfigquery.Instance{Authority: authority, Reader: store},
+		ListInstances: agentconfigquery.ListInstances{Authority: authority, Lister: store},
+		Replace:       agentconfigusecase.Replace{Authority: authority, Instances: store, Clock: timer},
+		Validate:      agentconfigusecase.Validate{Authority: authority, Reader: store, Instances: store, Assessment: assessment, Clock: timer},
+		Publish:       agentconfigusecase.Publish{Authority: authority, Instances: store, Reader: store, Replay: store, Clock: timer},
+		Revision:      agentconfigquery.Revision{Authority: authority, Reader: store},
+		CSRF:          csrf,
+		Sessions:      sessions,
+		Origin:        cfg.AccessHTTPOrigin,
+		SecureCookie:  strings.HasPrefix(cfg.AccessHTTPOrigin, "https://"),
+		LogError:      logErr,
 	}
 }

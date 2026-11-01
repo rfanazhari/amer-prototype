@@ -14,6 +14,8 @@ GET `/admin/agent-templates` returns `200` with `templates`: `templateId`, `temp
 
 POST `/admin/agent-instances` requires CSRF and accepts exactly `templateId`, `templateVersion`, `name`, and `configuration`. It returns `201` with the instance view. Creation is not idempotent. Compensation references are write-only; responses expose `salaryCeilingConfigured` and never the ceiling identity or value.
 
+GET `/admin/agent-instances` uses the same read authentication as GET `/admin/agent-templates`: `Origin` and the administrative cookie, with no CSRF header, request body, or query parameters. Current HR receives every instance, newest first (`createdAt` descending, then `id` descending). It returns `200` with an array of the same instance fields as GET by id. Compensation stays filtered: `salaryCeilingConfigured`, never the ceiling reference or value. An empty result is an empty array, not JSON null. ADMIN is `403` `ACP_FORBIDDEN`. A missing or candidate session is `401` `ACP_UNAUTHENTICATED`. POST create on this path is unchanged.
+
 GET `/admin/agent-instances/{id}` returns `200` with `id`, `name`, `templateId`, `templateVersion`, `behaviorVersion`, `draftVersion`, filtered `configuration`, nullable `activeRevisionId`, `createdAt`, and `updatedAt`.
 
 PUT `/admin/agent-instances/{id}/draft` requires CSRF and a complete `configuration` plus `expectedDraftVersion`. It returns `200` with the incremented draft. Stale versions are `409` `ACP_DRAFT_CONFLICT`.

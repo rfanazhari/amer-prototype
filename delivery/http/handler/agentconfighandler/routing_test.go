@@ -23,13 +23,13 @@ func TestConfigurationRoutingEnvelope(t *testing.T) {
 	tests := []routingHTTPCase{
 		{name: "unknown configuration collection", method: http.MethodGet, path: "/admin/agent-unknown", wantStatus: http.StatusNotFound, wantCode: errs.NotFound},
 		{name: "wrong catalog method", method: http.MethodPost, path: "/admin/agent-templates", wantStatus: http.StatusMethodNotAllowed, wantCode: errs.MethodNotAllowed},
-		{name: "wrong instance collection method", method: http.MethodGet, path: "/admin/agent-instances", wantStatus: http.StatusMethodNotAllowed, wantCode: errs.MethodNotAllowed},
+		{name: "wrong instance collection method", method: http.MethodDelete, path: "/admin/agent-instances", wantStatus: http.StatusMethodNotAllowed, wantCode: errs.MethodNotAllowed},
 		{name: "wrong draft method", method: http.MethodPost, path: "/admin/agent-instances/" + instanceID + "/draft", wantStatus: http.StatusMethodNotAllowed, wantCode: errs.MethodNotAllowed},
 		{name: "access path is not configuration", method: http.MethodPost, path: "/admin/sessions", wantStatus: http.StatusNotFound, wantCode: errs.NotFound},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			handler, _, _, _, _, _, _, _, _, _ := newHandler(t, httpOrigin, false)
+			handler, _, _, _, _, _, _, _, _, _, _ := newHandler(t, httpOrigin, false)
 			rec := httptest.NewRecorder()
 			handler.ServeHTTP(rec, request(tt.method, tt.path, httpOrigin, "{}", "", adminCookie(false, sessionTok), nil))
 			require.Equal(t, tt.wantStatus, rec.Code)

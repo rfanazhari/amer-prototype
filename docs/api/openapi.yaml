@@ -17,8 +17,12 @@
       "description": "Task tracking reference routes."
     },
     {
-      "name": "admin",
-      "description": "Administrative identity, candidate, invitation, and agent configuration routes."
+      "name": "admin-only",
+      "description": "ADMIN-only account management. Shared login, current session, and logout also appear here."
+    },
+    {
+      "name": "admin-hr",
+      "description": "HR agent configuration, candidates, interview assignments, and invitations. Shared login, current session, and logout also appear here."
     },
     {
       "name": "candidate",
@@ -641,11 +645,98 @@
           }
         },
         "tags": [
-          "admin"
+          "admin-hr"
         ]
       }
     },
     "/admin/agent-instances": {
+      "get": {
+        "operationId": "listAgentInstances",
+        "summary": "List every agent instance for the current HR, newest first. An empty result is an empty array.",
+        "description": "Current HR receives every instance, ordered by createdAt descending then id descending. data is an empty array when none exist. configuration exposes salaryCeilingConfigured and never the salary reference. No request body, CSRF header, or query parameters.",
+        "parameters": [
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "example": "id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Every instance visible to the current HR, newest first. data is an empty array when none exist. Salary stays filtered.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentInstanceListEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "INVALID_INPUT.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "ACP_UNAUTHENTICATED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ACP_FORBIDDEN.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "METHOD_NOT_ALLOWED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "admin-hr"
+        ]
+      },
       "post": {
         "operationId": "createAgentInstance",
         "summary": "Create an unpublished instance for a specific template version.",
@@ -746,7 +837,7 @@
           }
         },
         "tags": [
-          "admin"
+          "admin-hr"
         ]
       }
     },
@@ -844,7 +935,7 @@
           }
         },
         "tags": [
-          "admin"
+          "admin-hr"
         ]
       }
     },
@@ -962,7 +1053,7 @@
           }
         },
         "tags": [
-          "admin"
+          "admin-hr"
         ]
       }
     },
@@ -1090,7 +1181,7 @@
           }
         },
         "tags": [
-          "admin"
+          "admin-hr"
         ]
       }
     },
@@ -1247,7 +1338,7 @@
           }
         },
         "tags": [
-          "admin"
+          "admin-hr"
         ]
       }
     },
@@ -1346,7 +1437,7 @@
           }
         },
         "tags": [
-          "admin"
+          "admin-hr"
         ]
       }
     },
@@ -1467,7 +1558,8 @@
           }
         },
         "tags": [
-          "admin"
+          "admin-only",
+          "admin-hr"
         ]
       }
     },
@@ -1550,7 +1642,8 @@
           }
         },
         "tags": [
-          "admin"
+          "admin-only",
+          "admin-hr"
         ]
       }
     },
@@ -1646,7 +1739,8 @@
           }
         },
         "tags": [
-          "admin"
+          "admin-only",
+          "admin-hr"
         ]
       }
     },
@@ -1757,11 +1851,83 @@
           }
         },
         "tags": [
-          "admin"
+          "admin-only"
         ]
       }
     },
     "/admin/candidates": {
+      "get": {
+        "operationId": "listCandidates",
+        "summary": "List candidates created by the logged-in HR, newest first. An empty result is an empty array.",
+        "description": "Returns only candidates whose creator is the logged-in HR account, ordered by createdAt descending then id descending. data is an empty array when that account has created none. No request body, CSRF header, or query parameters.",
+        "security": [
+          {
+            "AdminCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "example": "id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Candidates created by the logged-in HR, newest first. data is an empty array when none exist.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CandidateListEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "IA_UNAUTHENTICATED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "IA_FORBIDDEN.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "admin-hr"
+        ]
+      },
       "post": {
         "operationId": "createCandidate",
         "summary": "Record a reusable candidate identity. Email is contact only and is never unique.",
@@ -1858,7 +2024,7 @@
           }
         },
         "tags": [
-          "admin"
+          "admin-hr"
         ]
       }
     },
@@ -1949,7 +2115,7 @@
           }
         },
         "tags": [
-          "admin"
+          "admin-hr"
         ]
       }
     },
@@ -2070,7 +2236,7 @@
           }
         },
         "tags": [
-          "admin"
+          "admin-hr"
         ]
       }
     },
@@ -2189,7 +2355,7 @@
           }
         },
         "tags": [
-          "admin"
+          "admin-hr"
         ]
       }
     },
@@ -2373,7 +2539,8 @@
           {
             "name": "Origin",
             "in": "header",
-            "required": true,
+            "required": false,
+            "description": "Must equal ACCESS_HTTP_ORIGIN when present. Same-origin GET may omit it; Host must then match ACCESS_HTTP_ORIGIN.",
             "schema": {
               "type": "string"
             }
@@ -2667,7 +2834,7 @@
         "properties": {
           "title": {
             "type": "string",
-            "description": "Unicode whitespace is trimmed. The trimmed title must contain 1–100 Unicode code points."
+            "description": "Unicode whitespace is trimmed. The trimmed title must contain 1\u2013100 Unicode code points."
           },
           "dueDate": {
             "type": "string",
@@ -3197,6 +3364,28 @@
           }
         }
       },
+      "CandidateListEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "status",
+          "data"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "success"
+            ]
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Candidate"
+            }
+          }
+        }
+      },
       "IssuedInvitation": {
         "type": "object",
         "additionalProperties": false,
@@ -3614,6 +3803,28 @@
           },
           "data": {
             "$ref": "#/components/schemas/AgentInstance"
+          }
+        }
+      },
+      "AgentInstanceListEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "status",
+          "data"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "success"
+            ]
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AgentInstance"
+            }
           }
         }
       },

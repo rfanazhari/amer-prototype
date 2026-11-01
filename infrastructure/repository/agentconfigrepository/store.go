@@ -18,6 +18,7 @@ var (
 	_ agentconfigport.Store          = Store{}
 	_ agentconfigport.InstanceReader = Store{}
 	_ agentconfigport.ReplayReader   = Store{}
+	_ agentconfigport.InstanceLister = Store{}
 )
 
 // deferConstraints postpones same-instance draft and revision foreign keys until commit.

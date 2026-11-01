@@ -3,6 +3,7 @@ package agentconfigrepository_test
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -275,4 +276,76 @@ func expectLockedInstance(mock sqlmock.Sqlmock, id string, version int64, withAc
 	mock.ExpectExec(`(?i)SET CONSTRAINTS ALL DEFERRED`).WillReturnResult(sqlmock.NewResult(0, 0))
 	mock.ExpectQuery(`(?i)SELECT .* FROM ["']?agent_instances["']? .*FOR UPDATE`).WillReturnRows(instanceRows)
 	mock.ExpectQuery(`(?i)SELECT .* FROM ["']?agent_drafts["']?`).WillReturnRows(draftRows)
+}
+
+// TestListInstancesSQL loads every instance in stable order and fails the list on one corrupt row.
+func TestListInstancesSQL(t *testing.T) {
+	ctx := context.Background()
+	newerAt := testdata.Now()
+	olderAt := testdata.Now().Add(-time.Hour)
+	tests := []persistCase{
+		{
+			name: "all instances keep created_at then id order and restore salary contents",
+			run: func(t *testing.T, store agentconfigrepository.Store, mock sqlmock.Sqlmock) {
+				instances := sqlmock.NewRows([]string{"id", "name", "template_id", "template_version", "behavior_version", "current_draft_version", "active_revision_id", "created_at", "updated_at"}).
+					AddRow(otherInstanceID, "Newer reviewer", catalogTemplateHR(), catalogVersion(), catalogBehavior(), 1, revisionID, newerAt, newerAt).
+					AddRow(instanceID, instanceName, catalogTemplateHR(), catalogVersion(), catalogBehavior(), 1, nil, olderAt, olderAt)
+				drafts := sqlmock.NewRows([]string{"instance_id", "version", "configuration", "created_at", "updated_at"}).
+					AddRow(otherInstanceID, 1, []byte(listedSalaryJSON), newerAt, newerAt).
+					AddRow(instanceID, 1, []byte(emptyHRJSON), olderAt, olderAt)
+				revisions := sqlmock.NewRows([]string{"id", "instance_id", "revision_number", "source_draft_version", "validation_id", "template_id", "template_version", "behavior_version", "configuration", "created_at"}).
+					AddRow(revisionID, otherInstanceID, 1, 1, validationID, catalogTemplateHR(), catalogVersion(), catalogBehavior(), []byte(listedSalaryJSON), newerAt)
+				mock.ExpectQuery(`(?i)SELECT .* FROM ["']?agent_instances["']? ORDER BY created_at DESC, id DESC`).WillReturnRows(instances)
+				mock.ExpectQuery(`(?i)SELECT .*agent_drafts.*JOIN agent_instances.*current_draft_version.*`).
+					WithArgs(otherInstanceID, instanceID).
+					WillReturnRows(drafts)
+				mock.ExpectQuery(`(?i)SELECT .* FROM ["']?agent_revisions["']?`).
+					WithArgs(revisionID, otherInstanceID, instanceID).
+					WillReturnRows(revisions)
+				got, err := store.ListInstances(ctx)
+				require.NoError(t, err)
+				require.Len(t, got, 2)
+				require.Equal(t, otherInstanceID, got[0].HR.Snapshot().ID)
+				require.Equal(t, instanceID, got[1].HR.Snapshot().ID)
+				require.Equal(t, revisionID, got[0].HR.Snapshot().Active.ID)
+				require.Nil(t, got[1].HR.Snapshot().Active)
+				ceiling := got[0].HR.Snapshot().Configuration.CompensationPolicy().SalaryCeilingRef()
+				require.NotNil(t, ceiling)
+				require.Equal(t, salaryCeilingID, ceiling.ID())
+			},
+		},
+		{
+			name: "empty collection issues no draft or revision query",
+			run: func(t *testing.T, store agentconfigrepository.Store, mock sqlmock.Sqlmock) {
+				mock.ExpectQuery(`(?i)SELECT .* FROM ["']?agent_instances["']? ORDER BY created_at DESC, id DESC`).
+					WillReturnRows(sqlmock.NewRows([]string{"id", "name", "template_id", "template_version", "behavior_version", "current_draft_version", "active_revision_id", "created_at", "updated_at"}))
+				got, err := store.ListInstances(ctx)
+				require.NoError(t, err)
+				require.NotNil(t, got)
+				require.Empty(t, got)
+			},
+		},
+		{
+			name: "one corrupt row fails the list",
+			run: func(t *testing.T, store agentconfigrepository.Store, mock sqlmock.Sqlmock) {
+				instances := sqlmock.NewRows([]string{"id", "name", "template_id", "template_version", "behavior_version", "current_draft_version", "active_revision_id", "created_at", "updated_at"}).
+					AddRow(instanceID, instanceName, "unknown-template", catalogVersion(), catalogBehavior(), 1, nil, testdata.Now(), testdata.Now())
+				drafts := sqlmock.NewRows([]string{"instance_id", "version", "configuration", "created_at", "updated_at"}).
+					AddRow(instanceID, 1, []byte(emptyHRJSON), testdata.Now(), testdata.Now())
+				mock.ExpectQuery(`(?i)SELECT .* FROM ["']?agent_instances["']? ORDER BY created_at DESC, id DESC`).WillReturnRows(instances)
+				mock.ExpectQuery(`(?i)SELECT .*agent_drafts.*JOIN agent_instances.*current_draft_version.*`).
+					WithArgs(instanceID).
+					WillReturnRows(drafts)
+				_, err := store.ListInstances(ctx)
+				var technical errs.Technical
+				require.ErrorAs(t, err, &technical)
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			store, mock := sqlStore(t)
+			tt.run(t, store, mock)
+		})
+	}
 }

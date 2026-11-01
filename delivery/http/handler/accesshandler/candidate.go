@@ -22,7 +22,7 @@ const (
 func (h Handler) dispatchCandidateRoutes(w http.ResponseWriter, r *http.Request) bool {
 	switch {
 	case r.URL.Path == candidatesPath:
-		h.createCandidate(w, r)
+		h.dispatchCandidates(w, r)
 		return true
 	case strings.HasPrefix(r.URL.Path, candidatesPath+"/"):
 		h.readCandidate(w, r)
@@ -42,6 +42,48 @@ func (h Handler) dispatchCandidateRoutes(w http.ResponseWriter, r *http.Request)
 	default:
 		return false
 	}
+}
+
+// dispatchCandidates serves the exact candidate collection: GET lists and POST creates.
+func (h Handler) dispatchCandidates(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		h.listCandidates(w, r)
+	case http.MethodPost:
+		h.createCandidate(w, r)
+	default:
+		fail(w, r, http.StatusMethodNotAllowed, errs.MethodNotAllowed)
+	}
+}
+
+// listCandidates returns candidates created by the logged-in HR account.
+func (h Handler) listCandidates(w http.ResponseWriter, r *http.Request) {
+	if err := requireOrigin(r, h.Origin); err != nil {
+		h.sendError(w, r, err)
+		return
+	}
+	r, ok := h.authenticate(w, r)
+	if !ok {
+		return
+	}
+	result, err := h.ListCandidates.Execute(r.Context())
+	if err != nil {
+		h.sendError(w, r, err)
+		return
+	}
+	respond(w, http.StatusOK, envelope{Status: "success", Data: candidateListBody(result)})
+}
+
+// candidateListBody copies candidate views into a JSON array that stays empty rather than null.
+func candidateListBody(result []dto.Candidate) []candidateBody {
+	body := make([]candidateBody, 0, len(result))
+	for _, item := range result {
+		body = append(body, candidateBody{
+			ID: item.ID, Name: item.Name, Email: item.Email,
+			CreatedAt: formatted(item.CreatedAt), UpdatedAt: formatted(item.UpdatedAt),
+		})
+	}
+	return body
 }
 
 // createCandidate records a reusable candidate identity under current HR authority.

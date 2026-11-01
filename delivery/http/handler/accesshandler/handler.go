@@ -21,6 +21,7 @@ type Handler struct {
 	CreateCandidate  accessusecase.CreateCandidateOperation
 	CreateAssignment agentbindingusecase.CreateAssignmentOperation
 	Candidate        accessquery.CandidateOperation
+	ListCandidates   accessquery.ListCandidatesOperation
 	IssueInvitation  accessusecase.IssueInvitationOperation
 	Exchange         accessusecase.ExchangeInvitationOperation
 	CandidateSession accessquery.CandidateSessionOperation

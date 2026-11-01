@@ -1,16 +1,16 @@
 # Task Plan: Agent Configuration and Publication
 
-Planning baseline: 2026-11-02, Mode C. T1–T13 are implemented. Q6 is closed. Startup accepts clean version 7. No new SQL was added for assignment create.
+Planning baseline: 2026-11-02, Mode C. T1–T14 are implemented. Q6 is closed. Startup accepts clean version 7. No new SQL was added for assignment create or the instance collection.
 
 ## Ticket Identity
 
 Capability group: **ACP — Agent Configuration and Publication**. Ticket prefix: `CORE-ACP` (`CORE` identifies the service group). These are repository planning IDs; no external tracker tickets have been created.
 
-Each task has a stable ticket ID in the form `CORE-ACP-NNN`, mapped to its existing local task ID: `T1` → `CORE-ACP-001`, through `T11` → `CORE-ACP-011`. T12 is `CORE-ACP-012` and T13 is `CORE-ACP-013`. Keep both identities on revisions, including obsolete tasks; allocate new numbers without reusing earlier IDs. Other capability groups use their own distinct prefix under `CORE`.
+Each task has a stable ticket ID in the form `CORE-ACP-NNN`, mapped to its existing local task ID: `T1` → `CORE-ACP-001`, through `T11` → `CORE-ACP-011`. T12 is `CORE-ACP-012`, T13 is `CORE-ACP-013`, and T14 is `CORE-ACP-014`. Keep both identities on revisions, including obsolete tasks; allocate new numbers without reusing earlier IDs. Other capability groups use their own distinct prefix under `CORE`.
 
 ## Legend
 
-- IDs T1–T13 are stable; never renumber them on revision.
+- IDs T1–T14 are stable; never renumber them on revision.
 - Complexity: S (<2h), M (2–4h), L (>4h); rough estimates requiring engineer validation.
 - Status: `[ ]` Todo, `[~]` In Progress, `[x]` Done, `~~obsolete~~` superseded work.
 - `ref` identifies sections of [technical-design.md](technical-design.md); DoD is required observable evidence.
@@ -126,6 +126,14 @@ T4 and T5 may proceed independently once their shared prerequisites are complete
   - Evidence: Mockery application and HTTP tests, sqlmock `TestCreateAssignmentPersistenceSQL`, architecture contract, PostgreSQL `TestInterviewAssignmentCreateHTTP`. RED `4127338` then GREEN.
   - DoD: `POST /admin/interview-assignments` follows that contract, the standard envelope, Origin, the HR cookie, and CSRF. The server mints the assignment id. The implementation reads the current active revision through the existing pin path unless T12 explicitly allows a caller-selected revision. `data.id` is the id required by `POST /admin/interview-assignments/{id}/invitations`. ADMIN and a candidate cookie are denied before insert. An unpublished instance is rejected with the code T12 selected. A later publication leaves `published_revision_id` unchanged. The command does not start consent, execution, a provider session, voice binding, or a Document Analyzer job. No migration is added, and `schema.ReleaseVersion` stays 7. Update OpenAPI, the endpoint document, and `docs/api/CHANGELOG.md` together. Prove the HTTP mapping with a mocked operation, the pin selection with mocked ports, and the foreign keys plus the retained pin with PostgreSQL. Run `make test`, `make test.contract`, `make test.architecture`, and `make lint`. Existing invitation, configuration, Task, and voice routes stay intact.
 
+### Instance collection
+
+- [x] **T14. List every agent instance for the current HR** — Application/delivery/infrastructure — S
+  - Ticket ID: `CORE-ACP-014`
+  - depends: T8 — ref: design §2; [decision D11](decision-log.md#d11-hr-lists-every-agent-instance-without-creator-ownership).
+  - Evidence: application `TestListInstancesReturnsEveryFilteredInstance`, HTTP `TestListAgentInstancesHTTP`, and sqlmock `TestListInstancesSQL`. The list does not introduce creator ownership and does not narrow BR-CORE-023. No phase commit: the implementation request forbade commits. OpenAPI, `docs/api/agent-configuration.md`, and `docs/api/CHANGELOG.md` stay with the contract update.
+  - DoD: `GET /admin/agent-instances` returns every instance for the current HR. Authorize once with `AgentConfigurationRead` and an empty resource. Each item is the existing filtered view, including `salaryCeilingConfigured` and never the salary reference. Empty `data` is `[]`. Order is `created_at DESC, id DESC`. No search, pagination, `created_by` column, or migration. ADMIN is 403 `ACP_FORBIDDEN`. Unauthenticated uses the existing ACP 401. POST create is unchanged. Other methods on the exact path stay 405.
+
 ## Dependency Graph
 
 ```text
@@ -142,6 +150,7 @@ T1 + T3 + T4 + T5 + Q4 → T10 (multi-version deployment gate)
 T9 + Q5 consumers [and T10 for multiple behavior versions] → T11 (Done)
 T11 + Q6 → T12 (approved create contract; documents only)
 T12 → T13 (HTTP create on the existing pin; no new SQL)
+T8 → T14 (instance collection; no new SQL; does not narrow BR-CORE-023)
 ```
 
 ## Revision History
@@ -152,9 +161,7 @@ T12 → T13 (HTTP create on the existing pin; no new SQL)
 | v1.1 | 2026-11-01 | Add capability-group ticket prefix CORE-ACP and stable ticket IDs for T1–T11; task statuses and dependencies unchanged |
 | v1.2 | 2026-11-01 | T1 In Progress: link reviewable Q1/Q3 contract candidate; no owner acceptance or dependent-task readiness claimed |
 | v1.3 | 2026-11-01 | Record user approval of A–E, resolve Q1/Q3 and mark T1 Done; remaining tasks retain their statuses/dependencies |
-
 | v1.4 | 2026-11-01 | Mode C: preserve T1/T2/T3 Done; require HR allow/ADMIN deny and shared company scope in T6/T8/T9; Q2 remains an implementation gate |
-
 | v1.5 | 2026-11-01 | Link CORE-IAM-009 administrative evidence to Q2/T8/T9 without changing stable task IDs or status |
 | v1.6 | 2026-11-01 | Replace T4 AutoMigrate with SQL version 3 and remove the absent-session block from T8; T4–T11 stay Todo |
 | v1.7 | 2026-11-01 | Mark T4 Done for configuration SQL version 3, unpublished candidate/assignment reallocation, and clean-version-3 startup |
@@ -162,5 +169,6 @@ T12 → T13 (HTTP create on the existing pin; no new SQL)
 | v1.9 | 2026-11-01 | Mark T6 Done for authorized configuration commands, detached queries, and Mockery-generated application tests |
 | v1.11 | 2026-11-01 | Mark T10 Done; resolve Q4 with retain-and-restrict deployment and restoration fixtures |
 | v1.12 | 2026-11-01 | Mark T11 Done; resolve Q5 with assignment/execution revision-pin consumers |
-| v1.13 | 2026-11-02 | Add decision-blocked T12 and dependent T13 for the public assignment create; record release version 7 | Design §11 and D10. Q6 stays open, so T13 is not executable |
-| v1.14 | 2026-11-02 | Mark T12 and T13 Done; Q6 closed with the approved create contract and mounted route | No new SQL; startup floor remains version 7 |
+| v1.13 | 2026-11-02 | Add decision-blocked T12 and dependent T13 for the public assignment create; record release version 7. Design §11 and D10. Q6 stays open, so T13 is not executable |
+| v1.14 | 2026-11-02 | Mark T12 and T13 Done; Q6 closed with the approved create contract and mounted route. No new SQL; startup floor remains version 7 |
+| v1.15 | 2026-11-02 | Add T14 `CORE-ACP-014` for `GET /admin/agent-instances`. No creator column and no narrowing of BR-CORE-023 |

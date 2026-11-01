@@ -168,6 +168,7 @@ func newConfigHTTP(t *testing.T) configHTTP {
 		CreateCandidate:  accessusecase.CreateCandidate{Candidates: candidates, Current: sessions, Clock: clock},
 		CreateAssignment: agentbindingusecase.CreateAssignment{Current: sessions, Clock: clock, Candidates: candidates, Instances: configStore, Assignments: agentbindingrepository.Assignments{DB: db}},
 		Candidate:        accessquery.Candidate{Candidates: candidates, Current: sessions, Clock: clock},
+		ListCandidates:   accessquery.ListCandidates{Candidates: candidates, Current: sessions, Clock: clock},
 		IssueInvitation:  accessusecase.IssueInvitation{Assignments: accessStore, Current: sessions, Tokens: tokens, Clock: clock},
 		Exchange:         accessusecase.ExchangeInvitation{Invitations: invitations, Candidates: candidates, Assignments: accessStore, Tokens: tokens, Clock: clock},
 		CandidateSession: accessquery.CandidateSession{Current: candidateSessions, Candidates: candidates, Assignments: accessStore, CSRF: csrf, Clock: clock},
@@ -178,16 +179,17 @@ func newConfigHTTP(t *testing.T) configHTTP {
 		ExchangeLimiter:  &accesshandler.LoginLimiter{},
 	}
 	configHandler := agentconfighandler.Handler{
-		Catalog:  agentconfigquery.Catalog{Authority: authority},
-		Create:   agentconfigusecase.Create{Authority: authority, Instances: configStore, Clock: clock},
-		Instance: agentconfigquery.Instance{Authority: authority, Reader: configStore},
-		Replace:  agentconfigusecase.Replace{Authority: authority, Instances: configStore, Clock: clock},
-		Validate: agentconfigusecase.Validate{Authority: authority, Reader: configStore, Instances: configStore, Assessment: service.DraftAssessment{References: agentreference.Local{}}, Clock: clock},
-		Publish:  agentconfigusecase.Publish{Authority: authority, Instances: configStore, Reader: configStore, Replay: configStore, Clock: clock},
-		Revision: agentconfigquery.Revision{Authority: authority, Reader: configStore},
-		CSRF:     csrf,
-		Sessions: sessions,
-		Origin:   accessOrigin,
+		Catalog:       agentconfigquery.Catalog{Authority: authority},
+		Create:        agentconfigusecase.Create{Authority: authority, Instances: configStore, Clock: clock},
+		Instance:      agentconfigquery.Instance{Authority: authority, Reader: configStore},
+		ListInstances: agentconfigquery.ListInstances{Authority: authority, Lister: configStore},
+		Replace:       agentconfigusecase.Replace{Authority: authority, Instances: configStore, Clock: clock},
+		Validate:      agentconfigusecase.Validate{Authority: authority, Reader: configStore, Instances: configStore, Assessment: service.DraftAssessment{References: agentreference.Local{}}, Clock: clock},
+		Publish:       agentconfigusecase.Publish{Authority: authority, Instances: configStore, Reader: configStore, Replay: configStore, Clock: clock},
+		Revision:      agentconfigquery.Revision{Authority: authority, Reader: configStore},
+		CSRF:          csrf,
+		Sessions:      sessions,
+		Origin:        accessOrigin,
 	}
 	return configHTTP{
 		db: db, clock: clock,
@@ -326,6 +328,9 @@ func proveCrossHRRead(t *testing.T, graph configHTTP) {
 	require.Equal(t, created.ID, shared.ID)
 	require.Contains(t, string(shared.Configuration), `"salaryCeilingConfigured":true`)
 	require.NotContains(t, string(shared.Configuration), acpSalaryCeilingID)
+	listed := listedInstance(t, listInstances(t, graph, other), created.ID)
+	require.Contains(t, string(listed.Configuration), `"salaryCeilingConfigured":true`)
+	require.Equal(t, created.ID, listedInstance(t, listInstances(t, graph, owner), created.ID).ID)
 	require.Equal(t, published.RevisionID, readRevision(t, graph, other, created.ID, published.RevisionID).RevisionID)
 	admin := loginAdminSession(t, graph)
 	hidden := doACP(t, graph.router, http.MethodGet, instancePath(created.ID), "", "", "", admin.cookie)
@@ -343,6 +348,8 @@ func proveAdminDenied(t *testing.T, graph configHTTP) {
 	require.Equal(t, "ADMIN", admin.role)
 	catalog := doACP(t, graph.router, http.MethodGet, "/admin/agent-templates", "", "", "", admin.cookie)
 	requireCode(t, catalog, http.StatusForbidden, errs.ACPForbidden)
+	listed := doACP(t, graph.router, http.MethodGet, "/admin/agent-instances", "", "", "", admin.cookie)
+	requireCode(t, listed, http.StatusForbidden, errs.ACPForbidden)
 	name := uniqueLabel("Denied ")
 	created := doACP(t, graph.router, http.MethodPost, "/admin/agent-instances", createBody("hr-interviewer", name, `{}`), admin.csrf, "", admin.cookie)
 	requireCode(t, created, http.StatusForbidden, errs.ACPForbidden)
@@ -355,6 +362,8 @@ func proveCandidateCookie(t *testing.T, graph configHTTP) {
 	cookie := &http.Cookie{Name: "ia-candidate", Value: "candidate-token"}
 	catalog := doACP(t, graph.router, http.MethodGet, "/admin/agent-templates", "", "", "", cookie)
 	requireCode(t, catalog, http.StatusUnauthorized, errs.ACPUnauthenticated)
+	listed := doACP(t, graph.router, http.MethodGet, "/admin/agent-instances", "", "", "", cookie)
+	requireCode(t, listed, http.StatusUnauthorized, errs.ACPUnauthenticated)
 	name := uniqueLabel("Candidate ")
 	created := doACP(t, graph.router, http.MethodPost, "/admin/agent-instances", createBody("document-analyzer", name, `{"requiredFields":[]}`), "not-a-csrf-token", "", cookie)
 	requireCode(t, created, http.StatusUnauthorized, errs.ACPUnauthenticated)
@@ -524,6 +533,27 @@ func publishInstance(t *testing.T, graph configHTTP, session staffSession, id st
 	require.NotContains(t, rec.Body.String(), acpSalaryCeilingID)
 	require.NotContains(t, string(view.Configuration), "salaryCeilingRef")
 	return view
+}
+
+// listInstances reads every instance through GET /admin/agent-instances.
+func listInstances(t *testing.T, graph configHTTP, session staffSession) []acpInstanceView {
+	t.Helper()
+	rec := doACP(t, graph.router, http.MethodGet, "/admin/agent-instances", "", "", "", session.cookie)
+	listed := acpData[[]acpInstanceView](t, rec, http.StatusOK)
+	require.NotNil(t, listed)
+	return listed
+}
+
+// listedInstance returns the collection item with id.
+func listedInstance(t *testing.T, listed []acpInstanceView, id string) acpInstanceView {
+	t.Helper()
+	for _, item := range listed {
+		if item.ID == id {
+			return item
+		}
+	}
+	t.Fatalf("instance %s missing from collection", id)
+	return acpInstanceView{}
 }
 
 // readInstance reads one instance through GET /admin/agent-instances/{id}.

@@ -36,6 +36,7 @@ func fixtureRunning(t *testing.T) *execution.Execution {
 
 // TestNewExecution covers creation validation and the initial CREATED state.
 func TestNewExecution(t *testing.T) {
+	// newCase is one row in the NewExecution table-driven test.
 	type newCase struct {
 		name    string
 		id      string
@@ -109,6 +110,7 @@ func TestRestoreExecution(t *testing.T) {
 	terminalAt := now.Add(2 * time.Second)
 	progress := execution.ProgressRef("prog-1")
 
+	// restoreCase is one row in the RestoreExecution table-driven test.
 	type restoreCase struct {
 		name    string
 		snap    execution.Snapshot
@@ -226,6 +228,7 @@ func TestRestoreExecution(t *testing.T) {
 func TestActivate(t *testing.T) {
 	now := fixtureNow()
 
+	// activateCase is one row in the Activate table-driven test.
 	type activateCase struct {
 		name      string
 		state     execution.State
@@ -344,6 +347,7 @@ func TestAttemptFencing(t *testing.T) {
 	future := now.Add(time.Hour)
 	exactNow := now
 
+	// fenceCase is one row in the attempt fencing table-driven test.
 	type fenceCase struct {
 		name      string
 		gen       int64

@@ -88,59 +88,208 @@ type Execution struct {
 	state Snapshot
 }
 
+// valid reports whether s is a recognized execution state.
+func (s State) valid() bool {
+	switch s {
+	case StateCreated, StateRunning, StateCompleted, StateFailed, StateCancelled:
+		return true
+	}
+	return false
+}
+
+// terminal reports whether the state is a terminal outcome that cannot be reopened.
+func (s State) terminal() bool {
+	return s == StateCompleted || s == StateFailed || s == StateCancelled
+}
+
+// consistent reports whether the state, version, time, and progress combination is coherent.
+func (s Snapshot) consistent() bool {
+	if s.ID == "" || !s.Binding.valid() || !s.State.valid() || s.StateVersion < 1 || s.CreatedAt.IsZero() || s.UpdatedAt.IsZero() {
+		return false
+	}
+	switch s.State {
+	case StateCreated:
+		return s.ActivatedAt == nil && s.TerminalAt == nil && s.ProgressRef == nil && s.TerminalReason == ""
+	case StateRunning:
+		return s.ActivatedAt != nil && !s.ActivatedAt.Before(s.CreatedAt) && s.TerminalAt == nil && s.TerminalReason == ""
+	case StateCompleted:
+		return s.ActivatedAt != nil && s.TerminalAt != nil && !s.TerminalAt.Before(*s.ActivatedAt) &&
+			s.ProgressRef != nil && *s.ProgressRef != "" && s.TerminalReason == ""
+	case StateFailed, StateCancelled:
+		return s.TerminalAt != nil && !s.TerminalAt.Before(s.CreatedAt) &&
+			(s.ActivatedAt == nil || !s.TerminalAt.Before(*s.ActivatedAt)) && s.TerminalReason != ""
+	}
+	return false
+}
+
 // NewExecution creates a CREATED execution and returns its snapshot and initial transition fact.
 // It rejects an empty id, an invalid binding, or a zero trusted instant.
 func NewExecution(id string, binding Binding, now time.Time) (*Execution, Snapshot, TransitionFact, error) {
-	return nil, Snapshot{}, TransitionFact{}, ErrInvalidExecution
+	if id == "" || !binding.valid() || now.IsZero() {
+		return nil, Snapshot{}, TransitionFact{}, ErrInvalidExecution
+	}
+	s := Snapshot{
+		ID: id, Binding: binding, State: StateCreated,
+		StateVersion: 1, CreatedAt: now, UpdatedAt: now,
+	}
+	fact := TransitionFact{ToState: StateCreated, StateVersion: 1, OccurredAt: now}
+	e := &Execution{state: s.detach()}
+	return e, s.detach(), fact, nil
 }
 
 // RestoreExecution rebuilds the aggregate from a previously committed consistent snapshot.
-// It rejects any unknown state, a version below 1, an inconsistent time or progress combination,
-// and the states WAITING_INPUT, ACTIVATING, and RECOVERING.
+// It rejects unknown states (WAITING_INPUT, ACTIVATING, RECOVERING, and any other non-five state),
+// a version below 1, and any inconsistent time or progress combination.
 func RestoreExecution(s Snapshot) (*Execution, error) {
-	return nil, ErrInvalidExecution
+	if !s.consistent() {
+		return nil, ErrInvalidExecution
+	}
+	return &Execution{state: s.detach()}, nil
 }
 
 // Snapshot returns a detached copy of the current execution state.
 // Time pointer fields are copied so callers cannot mutate the aggregate through them.
-func (e *Execution) Snapshot() Snapshot {
-	return e.state.detach()
+func (e *Execution) Snapshot() Snapshot { return e.state.detach() }
+
+// fenceAttempt rejects a lower generation or a deadline that is not strictly ahead of trusted now.
+func (e *Execution) fenceAttempt(gen int64, deadline *time.Time, now time.Time) error {
+	if gen < e.state.CurrentGeneration {
+		return ErrStaleAttempt
+	}
+	if deadline != nil && !now.Before(*deadline) {
+		return ErrStaleAttempt
+	}
+	return nil
 }
 
 // Activate moves the execution from CREATED to RUNNING.
 // It rejects any non-CREATED source state, a stale expected version, and stale fencing.
 func (e *Execution) Activate(expectedVersion int64, actorRef, operationKey string, gen int64, deadline *time.Time, now time.Time) (Snapshot, TransitionFact, error) {
-	return Snapshot{}, TransitionFact{}, ErrInvalidTransition
+	if e.state.State.terminal() || e.state.State != StateCreated {
+		return Snapshot{}, TransitionFact{}, ErrInvalidTransition
+	}
+	if e.state.StateVersion != expectedVersion {
+		return Snapshot{}, TransitionFact{}, ErrStaleVersion
+	}
+	if err := e.fenceAttempt(gen, deadline, now); err != nil {
+		return Snapshot{}, TransitionFact{}, err
+	}
+	from := e.state.State
+	e.state.State = StateRunning
+	e.state.StateVersion++
+	e.state.CurrentGeneration = gen
+	at := now
+	e.state.ActivatedAt = &at
+	e.state.UpdatedAt = now
+	fact := TransitionFact{FromState: &from, ToState: StateRunning, StateVersion: e.state.StateVersion, ActorRef: actorRef, OperationKey: operationKey, OccurredAt: now}
+	return e.state.detach(), fact, nil
 }
 
-// RejectActivation records a failed activation attempt, leaving the execution CREATED.
+// RejectActivation records a failed activation attempt without changing the execution state.
 // It rejects any non-CREATED source state, a stale expected version, and stale fencing.
 func (e *Execution) RejectActivation(expectedVersion int64, actorRef, operationKey, reason string, gen int64, deadline *time.Time, now time.Time) error {
-	return ErrInvalidTransition
+	if e.state.State != StateCreated {
+		return ErrInvalidTransition
+	}
+	if e.state.StateVersion != expectedVersion {
+		return ErrStaleVersion
+	}
+	return e.fenceAttempt(gen, deadline, now)
 }
 
 // CommitProgress records an opaque progress reference while the execution is RUNNING.
-// It rejects any non-RUNNING source state, a stale version, and stale fencing.
+// It rejects any non-RUNNING source state, a stale expected version, and stale fencing.
 func (e *Execution) CommitProgress(ref ProgressRef, expectedVersion int64, gen int64, deadline *time.Time, now time.Time) (Snapshot, error) {
-	return Snapshot{}, ErrInvalidTransition
+	if e.state.State.terminal() || e.state.State != StateRunning {
+		return Snapshot{}, ErrInvalidTransition
+	}
+	if e.state.StateVersion != expectedVersion {
+		return Snapshot{}, ErrStaleVersion
+	}
+	if err := e.fenceAttempt(gen, deadline, now); err != nil {
+		return Snapshot{}, err
+	}
+	e.state.ProgressRef = &ref
+	e.state.UpdatedAt = now
+	return e.state.detach(), nil
 }
 
 // Complete moves the execution from RUNNING to COMPLETED using the supplied progress reference.
-// It rejects an empty reference, any non-RUNNING source state, a stale version, and stale fencing.
+// It rejects an empty reference, any non-RUNNING source state, a stale expected version, and stale fencing.
 func (e *Execution) Complete(ref ProgressRef, expectedVersion int64, gen int64, deadline *time.Time, actorRef, operationKey string, now time.Time) (Snapshot, TransitionFact, error) {
-	return Snapshot{}, TransitionFact{}, ErrInvalidTransition
+	if ref == "" {
+		return Snapshot{}, TransitionFact{}, ErrProgressRequired
+	}
+	if e.state.State.terminal() || e.state.State != StateRunning {
+		return Snapshot{}, TransitionFact{}, ErrInvalidTransition
+	}
+	if e.state.StateVersion != expectedVersion {
+		return Snapshot{}, TransitionFact{}, ErrStaleVersion
+	}
+	if err := e.fenceAttempt(gen, deadline, now); err != nil {
+		return Snapshot{}, TransitionFact{}, err
+	}
+	from := e.state.State
+	e.state.ProgressRef = &ref
+	e.state.State = StateCompleted
+	e.state.StateVersion++
+	at := now
+	e.state.TerminalAt = &at
+	e.state.UpdatedAt = now
+	fact := TransitionFact{FromState: &from, ToState: StateCompleted, StateVersion: e.state.StateVersion, ActorRef: actorRef, OperationKey: operationKey, OccurredAt: now}
+	return e.state.detach(), fact, nil
 }
 
 // Fail moves the execution from CREATED or RUNNING to FAILED.
-// It rejects any terminal source state, a stale version, and stale fencing.
+// It rejects any terminal source state, an empty reason, a stale expected version, and stale fencing.
 func (e *Execution) Fail(reason string, expectedVersion int64, gen int64, deadline *time.Time, actorRef, operationKey string, now time.Time) (Snapshot, TransitionFact, error) {
-	return Snapshot{}, TransitionFact{}, ErrInvalidTransition
+	if e.state.State.terminal() {
+		return Snapshot{}, TransitionFact{}, ErrInvalidTransition
+	}
+	if e.state.State != StateCreated && e.state.State != StateRunning {
+		return Snapshot{}, TransitionFact{}, ErrInvalidTransition
+	}
+	if reason == "" {
+		return Snapshot{}, TransitionFact{}, ErrInvalidExecution
+	}
+	if e.state.StateVersion != expectedVersion {
+		return Snapshot{}, TransitionFact{}, ErrStaleVersion
+	}
+	if err := e.fenceAttempt(gen, deadline, now); err != nil {
+		return Snapshot{}, TransitionFact{}, err
+	}
+	from := e.state.State
+	e.state.State = StateFailed
+	e.state.StateVersion++
+	at := now
+	e.state.TerminalAt = &at
+	e.state.TerminalReason = reason
+	e.state.UpdatedAt = now
+	fact := TransitionFact{FromState: &from, ToState: StateFailed, StateVersion: e.state.StateVersion, ActorRef: actorRef, OperationKey: operationKey, Reason: reason, OccurredAt: now}
+	return e.state.detach(), fact, nil
 }
 
 // Cancel moves the execution from CREATED or RUNNING to CANCELLED.
-// It rejects any terminal source state.
+// It rejects any terminal source state and an empty reason.
 func (e *Execution) Cancel(reason string, actorRef string, now time.Time) (Snapshot, TransitionFact, error) {
-	return Snapshot{}, TransitionFact{}, ErrInvalidTransition
+	if e.state.State.terminal() {
+		return Snapshot{}, TransitionFact{}, ErrInvalidTransition
+	}
+	if e.state.State != StateCreated && e.state.State != StateRunning {
+		return Snapshot{}, TransitionFact{}, ErrInvalidTransition
+	}
+	if reason == "" {
+		return Snapshot{}, TransitionFact{}, ErrInvalidExecution
+	}
+	from := e.state.State
+	e.state.State = StateCancelled
+	e.state.StateVersion++
+	at := now
+	e.state.TerminalAt = &at
+	e.state.TerminalReason = reason
+	e.state.UpdatedAt = now
+	fact := TransitionFact{FromState: &from, ToState: StateCancelled, StateVersion: e.state.StateVersion, ActorRef: actorRef, Reason: reason, OccurredAt: now}
+	return e.state.detach(), fact, nil
 }
 
 // detach copies time pointers to ensure callers cannot mutate the aggregate's internal state.

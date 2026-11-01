@@ -417,22 +417,24 @@ Implement the approved §6.5 codes and EN/ID messages in the dependent tasks; T1
 
 ## 8. Constraints Checklist
 
-Design constraints below remain implementation verification gates:
+Design constraints below were verified at T9 closure. Assignment/execution consumers remain T11, and no admin UI is included, so this is not a platform MVP-complete claim.
 
-- [ ] BR-CORE-001–014 covered at the ownership paths above; partial external-consumer evidence clearly labeled.
-- [ ] Four root layers and allowed imports preserved; all authored declarations documented; gofmt and generated mocks used.
-- [ ] Deterministic validation; no model call, execution creation, broker dispatch, or volatile Task queue use.
-- [ ] Atomic publication, same-intent replay, conflict detection, and stable detached revisions proven against PostgreSQL.
-- [ ] Admin authentication/authorization and safe responses precede HTTP exposure.
-- [ ] Explicit SQL migration to the new clean configuration version; startup performs no DDL, keeps the existing startup and shutdown budgets, and still refuses a dirty or unexpected version. Existing Task and administrative data survive the upgrade.
-- [ ] OpenAPI, endpoint document, changelog, public codes, and translations synchronized during implementation.
+- [x] BR-CORE-001–014 covered at the ownership paths above; partial external-consumer evidence clearly labeled.
+- [x] Four root layers and allowed imports preserved; all authored declarations documented; gofmt and generated mocks used.
+- [x] Deterministic validation; no model call, execution creation, broker dispatch, or volatile Task queue use.
+- [x] Atomic publication, same-intent replay, conflict detection, and stable detached revisions proven against PostgreSQL.
+- [x] Admin authentication/authorization and safe responses precede HTTP exposure.
+- [x] Explicit SQL migration to the new clean configuration version; startup performs no DDL, keeps the existing startup and shutdown budgets, and still refuses a dirty or unexpected version. Existing Task and administrative data survive the upgrade.
+- [x] OpenAPI, endpoint document, changelog, public codes, and translations synchronized during implementation.
+
+T9 (`CORE-ACP-009`) records `TestAgentConfigurationHTTPAcceptance` and the repository checks named in the task plan. BR-CORE-013 local immutable read is covered. Q4 and Q5 stay open.
 
 ## 9. Risks & Open Questions
 
 | ID | Decision / risk and owner | Affected work | Ready when |
 |---|---|---|---|
 | Q1 | **Resolved 2026-11-01:** user approved A–E for T1; exact schemas, defaults, normalization, validation/publication statuses, intent and error precedence are in §6 | T1 Done; contract prerequisite met for T4–T9 | Approval recorded in decision-log; implementation and other dependencies remain pending |
-| Q2 | **Access prerequisite satisfied 2026-11-01:** `accessauthority.Authority` resolves `administrative_accounts.id`, allows current HR, denies ADMIN, and rejects candidate, expired, revoked, and disabled sessions. Evidence: [q2-access-evidence.md](q2-access-evidence.md) and CORE-IAM-009. Configuration routes are still absent | T8/T9 prove secured configuration exposure with that adapter. T2–T7 do not wait on another access decision | Ready for T8 once T4–T7 are done. No permissive stub. ACP error codes stay §6.5 |
+| Q2 | **Access prerequisite satisfied 2026-11-01:** `accessauthority.Authority` resolves `administrative_accounts.id`, allows current HR, denies ADMIN, and rejects candidate, expired, revoked, and disabled sessions. Evidence: [q2-access-evidence.md](q2-access-evidence.md) and CORE-IAM-009. T9 proved the same outcomes on the configuration routes | T8/T9 secured configuration exposure with that adapter. T2–T7 do not wait on another access decision | Configuration-route proof is `TestAgentConfigurationHTTPAcceptance`. No permissive stub. ACP error codes stay §6.5 |
 | Q3 | **Resolved 2026-11-01:** informational warnings without acknowledgment; only v1 warning is `CURRENCY_NOT_REQUIRED`; §6.2 | T1 Done; implement/prove in T5–T9 | Approval recorded in decision-log; warnings retained and errors block publication |
 | Q4 | Platform/template owners: supported historical behavior versions and deployment compatibility | T10 multi-version deployment gate | Version support/restriction policy and restoration fixtures approved; first-version publication work may proceed independently |
 | Q5 | Future assignment/execution capability owners: end-to-end pinned binding proof needs absent consumers. Identity and Access D9 does not supply those consumers | T11 external integration evidence | Real consumers bind immutable revision IDs and pass publication-during-run/assignment tests |
@@ -450,5 +452,6 @@ No live database was inspected and no runtime tests were run for this planning t
 
 | v1.4 | 2026-11-01 | Link companion access capability/tripack and CORE-IAM-009 evidence handoff | Resolve planning ownership for Q2 while preserving its implementation gate |
 | v1.5 | 2026-11-01 | Consume the existing HR authority adapter; replace AutoMigrate with SQL version 3 ahead of unpublished candidate/assignment versions; keep Q4/Q5 open | Identity and Access D8/D9 and the version-2 startup contract; configuration routes still unproven |
+| v1.6 | 2026-11-01 | Record T9 backend acceptance and check §8; keep UI, Q4, and Q5 open | Configuration-route proof now exists without an MVP-complete claim |
 
 Business-driven consequences are recorded in [decision-log.md](decision-log.md). Execution order and verification are in [tactical-strategy.md](tactical-strategy.md) and [task-plan.md](task-plan.md).

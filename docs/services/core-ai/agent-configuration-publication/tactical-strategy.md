@@ -145,3 +145,4 @@ None of these runtime commands was executed to generate this tripack. Documentat
 
 | v1.3 | 2026-11-01 | Link Identity and Access administrative evidence handoff to ACP Q2; candidate integration remains independent |
 | v1.4 | 2026-11-01 | Align schema installation with manual SQL version 3 and treat the existing authority adapter as the access prerequisite |
+| v1.5 | 2026-11-01 | Record T9 real HTTP/PostgreSQL acceptance; UI and T11 binding proof remain outside this slice |

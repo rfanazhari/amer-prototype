@@ -69,7 +69,7 @@ T1 (`CORE-ACP-001`) A–E approval is recorded in D5 below. Q1/Q3 are resolved. 
 - **Alternatives considered:** A superuser ADMIN would contradict the selected responsibilities; creator-only configuration would obstruct the selected shared company scope; organization/workspace management is unnecessary for the current single-company target.
 - **Trade-offs accepted:** Account management and business operation require separate identities/roles under the approved single-role account model. Candidate and administrative sessions have separate authority checks. No role-management tables are introduced.
 - **Revisit when:** The owner requests combined roles, delegated configuration ownership, or multiple companies.
-- **Companion plan:** [Identity and Access D1–D7](../identity-access/decision-log.md). CORE-IAM-009 and [q2-access-evidence.md](q2-access-evidence.md) prove the administrative adapter. Configuration routes remain ACP T8/T9 work. D9 does not change this authority split.
+- **Companion plan:** [Identity and Access D1–D7](../identity-access/decision-log.md). CORE-IAM-009 and [q2-access-evidence.md](q2-access-evidence.md) prove the administrative adapter. ACP T9 records the same HR allow, ADMIN deny, and candidate/expired/revoked denial on the configuration routes. D9 does not change this authority split.
 - **Status:** active; supersedes D4's combined-role scope while preserving candidate exclusion. D5's payload, confidentiality, fingerprint and error contracts remain active.
 
 ## D7: Configuration tables are installed by an explicit database migration

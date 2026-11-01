@@ -1,6 +1,6 @@
 # Task Plan: Agent Configuration and Publication
 
-Planning baseline: 2026-11-01, Mode C. T1–T7 are implemented. T8–T11 remain Todo.
+Planning baseline: 2026-11-01, Mode C. T1–T9 are implemented. T10–T11 remain Todo.
 
 ## Ticket Identity
 
@@ -89,11 +89,13 @@ T4 and T5 may proceed independently once their shared prerequisites are complete
   - depends: T1, T2, T5, T6, T7 — ref: design §2, §4, §6–7.
   - DoD: all seven endpoint directions implemented using operation interfaces and the existing `accessauthority.Authority`. Dispatch `/admin/agent-templates` and `/admin/agent-instances` before the access `/admin/` catch-all. Reuse the administrative cookie and CSRF verifier, and map failures to §6.5 ACP codes. Strict input, confidentiality, safe EN/ID errors, correct new/replayed response statuses, and exact precedence are tested. Update OpenAPI, endpoint documentation, and changelog together. Candidate, ADMIN, expired, and revoked sessions fail as specified. Existing access, Task, and voice routes and lifecycle budgets stay intact. No permissive authorizer.
 
-- [ ] **T9. Verify the complete backend configuration flow and regressions** — Integration/verification — L
+- [x] **T9. Verify the complete backend configuration flow and regressions** — Integration/verification — L
   - Ticket ID: `CORE-ACP-009`
   - depends: T4, T5, T6, T7, T8 — ref: design §3 proof matrix, §8–9.
   - Q1/Q3 are resolved. Configuration-route proof comes from T8; no separate access decision remains.
-  - ready when: both template implementations and the secured configuration composition are available.
+  - Evidence: `TestAgentConfigurationHTTPAcceptance` creates every fixture through ordinary HTTP create/replace/validate/publish/read. RED does not apply: T4–T8 already implement the flow, and the suite passed on first execution against isolated PostgreSQL. sqlmock and new Mockery mocks do not apply; this task adds no SQL and no interface. Per-rule evidence is below. UI and T11 remain open; this is not a platform MVP-complete claim.
+  - Commands, from the repository root: focused `go test ./test/integration -count=1 -run TestAgentConfigurationHTTPAcceptance -v` passed on isolated Postgres (13 subtests). `make test` passed. `make test.all` passed; integration and smoke database cases skipped because `TEST_DATABASE_URL` was unset. `make test.contract` passed. `make test.architecture` passed. `make lint` passed. `make test.security` passed with 0 called vulnerabilities and 1 uncalled required-module finding. `make test.docker` passed, included the new suite, and reported no skips. Existing Task, voice, and access suites in that run passed.
+  - Rule evidence: BR-CORE-001 both templates plus unknown version `400`; BR-CORE-002 incomplete document findings and a valid field subset; BR-CORE-003 HR allow, cross-HR read, ADMIN `403` with no insert, candidate/expired/revoked `401`, missing CSRF `403`; BR-CORE-004 stale expected draft `409` (concurrent writers remain the passing T7 repository cases); BR-CORE-005 later edit keeps the active revision and published content; BR-CORE-006 exact eligible and ineligible assessments; BR-CORE-007 blocking publication `422` and `CURRENCY_NOT_REQUIRED` still publishes; BR-CORE-008 stale validation `409`, foreign validation `404`; BR-CORE-009 stored revision text stays unchanged; BR-CORE-010 fault points remain the passing T7 repository cases rerun by `make test.docker`; BR-CORE-011 same key returns the original revision after a newer publication and the active pointer stays on the newest; BR-CORE-012 different intent `409`, and command `scope` equals the account UUID; BR-CORE-013 old revision remains readable, while assignment/execution consumers stay T11; BR-CORE-014 publication uses the local reference resolver and creates no execution.
   - DoD: each template completes create/replace/validate/publish/read through real HTTP/PostgreSQL; stale publication and replay-after-new-publication negative paths pass; HR, ADMIN, and candidate-cookie cases pass; fixture seeding uses ordinary operations. Run `make test`, `make test.all`, `make test.contract`, `make test.architecture`, `make lint`, `make test.security`, and `make test.docker` with the new suites included. Record failures/skips, command outputs and per-rule evidence. Existing Task, voice, and access tests remain passing. Clearly retain UI and T11 acceptance limitations; no unqualified platform MVP-complete claim.
 
 ### Blocked / deferred
@@ -144,3 +146,4 @@ T9 + Q5 consumers [and T10 for multiple behavior versions] → T11
 | v1.7 | 2026-11-01 | Mark T4 Done for configuration SQL version 3, unpublished candidate/assignment reallocation, and clean-version-3 startup |
 | v1.8 | 2026-11-01 | Mark T5 Done for versioned catalogs, typed drafts, deterministic validators, and exact reference resolution |
 | v1.9 | 2026-11-01 | Mark T6 Done for authorized configuration commands, detached queries, and Mockery-generated application tests |
+| v1.10 | 2026-11-01 | Mark T9 Done for real HTTP/PostgreSQL configuration acceptance; UI and T11 remain open |

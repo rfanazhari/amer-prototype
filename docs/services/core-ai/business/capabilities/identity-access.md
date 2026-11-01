@@ -245,6 +245,8 @@ Not yet implemented — verify against code after implementation.
 ## Related
 
 - Sibling capabilities: [Agent Configuration and Publication](./agent-configuration-publication.md), especially `BR-CORE-003`.
+- Sibling capability: [Candidate Interview](./candidate-interview.md), `BR-CORE-040`..`BR-CORE-047` — consent and the candidate screen after a session exists.
+- Sibling capability: [Execution Lifecycle](./execution-lifecycle.md), `BR-CORE-050`..`BR-CORE-059` — the execution that access must not start or restart.
 - Source document: [Identity and Access technical design](../../identity-access/technical-design.md).
 - Source document: [Platform design, sections 9–10 and TD-21](../../../../design/core-ai/technical-design.md).
 - Existing flow reference: `application/service/agentconfiguration.go` — authority integration port already present; no real authentication adapter is supplied.

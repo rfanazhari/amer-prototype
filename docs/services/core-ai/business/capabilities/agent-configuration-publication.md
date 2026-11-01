@@ -202,6 +202,7 @@ Consent, execution start, a provider session, voice binding, Document Analyzer j
 - Source document: [Shared AI Agent Execution Platform — Architecture Design v0.1](../../../../design/core-ai/shared_ai_agent_platform_architecture_design_v0.1.md) — shared terminology and configuration lifecycle; later explicit decisions take precedence where amended.
 - Source document: [Consolidated Architecture & MVP Scope Freeze v0.1](../../../../design/core-ai/shared_ai_agent_platform_consolidated_architecture_mvp_scope_freeze_v0.1.md) — sections 4.1 and 7.1 establish publication semantics and P-01–P-05 acceptance targets.
 - Source document: [Technical Design v0.1](../../../../design/core-ai/technical-design.md) — sections 3–5 refine draft versions, validation, publication identity, configuration binding, and transactional consistency; sections 9–10 define administrative access direction.
-- Sibling capabilities: None documented yet for `core-ai`. Execution admission/lifecycle, HR access/interview/reporting, and invoice analysis remain separate documentation candidates.
+- Sibling capability: [Execution Lifecycle](./execution-lifecycle.md), `BR-CORE-050`..`BR-CORE-059` — shared execution identity and terminal outcomes.
+- Sibling capability: [Candidate Interview](./candidate-interview.md), [Interview Runtime](./interview-runtime.md), and [Interview Reporting](./interview-reporting.md) — the interview that follows publication. Invoice analysis remains a separate documentation candidate.
 
 The approved numbering block is `BR-CORE-001..BR-CORE-014`, covering configuration and publication. These rules describe intended behavior; the source designs and acceptance targets do not establish implementation evidence.

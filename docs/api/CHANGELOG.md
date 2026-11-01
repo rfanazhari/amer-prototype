@@ -1,5 +1,9 @@
 # API changelog
 
+## Candidate page — T10 (2026-11-02)
+
+The existing HTML route now presents API-offered start/takeover/cancel actions, confirmed cancellation, and distinct completed/failed/cancelled outcomes. The tab controller and retryable start intent stay in sessionStorage. Live interview reads poll every two seconds and stop at terminal/access loss; refresh never starts an execution. No JSON route, schema, or status changed. Production lifecycle remains unbound pending T11; UI verification uses headless Chrome with API fixtures. See [candidate-interview.md](candidate-interview.md).
+
 ## 0.10.0 — candidate execution HTTP operations
 
 Added `POST /candidate/executions`, `GET /candidate/executions/{id}`, `POST /candidate/executions/{id}/takeover`, and `POST /candidate/executions/{id}/cancel` ahead of the access catch-all. Start requires `Idempotency-Key` and returns 201/200 from the operation result. Execution POSTs require session, origin, CSRF and a tab id; takeover requires matching body/header ids. Foreign execution ids map to 404, classified policy errors to CIN codes, and wrapped storage validation failures to 500. Responses contain only the candidate-safe execution fields. ControllerStore is composed; lifecycle remains unbound and returns 503 for start/cancel. Session-attempt, ready and report routes remain absent. The T6 page shell is unchanged; controls are T10. See [candidate-interview.md](candidate-interview.md) and [openapi.yaml](openapi.yaml).

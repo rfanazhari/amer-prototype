@@ -361,9 +361,9 @@ Precedence for every new route:
 
 - [ ] Rules remain planned until the task evidence exists. Wording in code comments must not say the rules are already enforced by current startup.
 - [ ] Access exchange, cookie flags, CSRF issuance, and `GET /candidate/session` stay on their current handlers.
-- [ ] Candidate UI is in this slice. No admin or HR page, route, or notice editor.
+- [x] Candidate UI is in this slice. No admin or HR page, route, or notice editor. T10 browser fixture evidence: [t10-execution.md](t10-execution.md).
 - [ ] Consent is stored before start. Start cannot imply acceptance.
-- [ ] The final screen renders the terminal interview state and does not read or wait for a report.
+- [x] The final screen renders the terminal interview state and does not read or wait for a report. T10 proves UI behavior with API fixtures; live lifecycle proof remains T11/T13.
 - [ ] No stage workflow, transcript store, voice provider call, Document Analyzer path, or RabbitMQ client.
 - [ ] Schema change is `000009` SQL only. Runtime `AutoMigrate` stays absent. Floor becomes clean version 9 in the same change.
 - [ ] GORM is the CRUD adapter. Models stay in infrastructure.

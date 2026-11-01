@@ -7,102 +7,239 @@
   <meta http-equiv="Cache-Control" content="no-store">
   <title>Candidate interview</title>
   <style>
-    body { font-family: sans-serif; margin: 2rem; max-width: 40rem; }
+    body { font-family: sans-serif; margin: 2rem; max-width: 40rem; line-height: 1.5; }
     pre { white-space: pre-wrap; font: inherit; }
-    button { font: inherit; padding: 0.5rem 1rem; }
+    button { font: inherit; padding: 0.5rem 1rem; margin: 0.25rem; }
+    button:disabled { opacity: 0.6; }
+    [hidden] { display: none; }
   </style>
 </head>
 <body>
   <h1>Candidate interview</h1>
-  <p id="status">Loading</p>
-  <section id="notice" hidden>
+  <p id="status" role="status" aria-live="polite">Loading</p>
+  <p id="error" role="alert" hidden></p>
+  <section id="notice" aria-label="Interview notice" hidden>
     <pre id="statement"></pre>
     <button id="accept" type="button" hidden>Saya setuju</button>
   </section>
+  <p id="progress" hidden></p>
+  <button id="start" type="button" hidden>Start interview</button>
+  <button id="takeover" type="button" hidden>Take control in this tab</button>
+  <button id="cancel" type="button" hidden>Cancel interview</button>
+  <button id="refresh" type="button" hidden>Refresh interview</button>
   <script>
     (function () {
       var status = document.getElementById("status");
       var notice = document.getElementById("notice");
       var statement = document.getElementById("statement");
-      var accept = document.getElementById("accept");
+      var progress = document.getElementById("progress");
+      var error = document.getElementById("error");
+      var refresh = document.getElementById("refresh");
+      var buttons = {};
+      ["accept", "start", "takeover", "cancel"].forEach(function (name) {
+        buttons[name] = document.getElementById(name);
+      });
       var csrfToken = "";
-      var noticeVersion = "";
+      var controllerID = "";
+      var view = null;
+      var busy = false;
+      var active = true;
+      var timer = null;
+      var generation = 0;
+
+      function stopPolling() {
+        clearTimeout(timer);
+        timer = null;
+      }
+
+      function live() {
+        return view && view.execution && ["CREATED", "RUNNING"].indexOf(view.execution.state) >= 0;
+      }
+
+      function schedulePoll() {
+        stopPolling();
+        if (active && !busy && csrfToken && live()) timer = setTimeout(load, 2000);
+      }
+
+      function controls() {
+        Object.keys(buttons).forEach(function (name) {
+          buttons[name].hidden = !view || view.actions.indexOf(name) < 0 ||
+            (view.execution && !live());
+          buttons[name].disabled = busy;
+        });
+        refresh.disabled = busy;
+      }
 
       function accessError() {
+        generation++;
+        stopPolling();
+        view = null;
+        csrfToken = "";
         notice.hidden = true;
+        progress.hidden = true;
+        error.hidden = true;
+        refresh.hidden = true;
         status.textContent = "Access is no longer available";
+        controls();
+      }
+
+      function unavailable(message) {
+        error.textContent = message || "The interview is temporarily unavailable. Please try again.";
+        error.hidden = false;
+        refresh.hidden = false;
       }
 
       function render(data) {
-        if (!data.notice) {
-          notice.hidden = true;
+        view = data;
+        notice.hidden = !data.notice || !!data.execution;
+        if (data.notice) statement.textContent = data.notice.statement;
+        progress.hidden = !live() || !data.progress;
+        if (!progress.hidden) progress.textContent = [data.progress.phase, data.progress.connection].filter(Boolean).join(" — ");
+        if (data.execution) {
+          if (live()) {
+            status.textContent = "Interview " + data.execution.state +
+              (data.execution.isCurrentController ? " — You control this interview" : " — Read-only in this tab. Take control to cancel.");
+          } else {
+            var endings = {
+              COMPLETED: "Interview COMPLETED. Thank you for your time.",
+              FAILED: "Interview FAILED. The interview could not be completed.",
+              CANCELLED: "Interview CANCELLED. You have left the interview early."
+            };
+            status.textContent = endings[data.execution.state] || "The interview is unavailable";
+          }
+        } else if (!data.notice) {
           status.textContent = "The interview notice is not available yet";
-          return;
-        }
-        noticeVersion = data.notice.version;
-        statement.textContent = data.notice.statement;
-        notice.hidden = false;
-        var canAccept = data.actions.indexOf("accept") >= 0;
-        accept.hidden = !canAccept;
-        if (data.consent) {
-          status.textContent = "Notice accepted";
-        } else if (canAccept) {
+        } else if (!data.consent) {
           status.textContent = "Please read and accept the notice";
         } else {
-          status.textContent = "The interview notice is not available yet";
+          status.textContent = data.actions.indexOf("start") >= 0 ? "Notice accepted. Ready to start." : "Notice accepted. Start is not available for this session.";
         }
+        controls();
+        schedulePoll();
       }
 
       function load() {
-        return fetch("/candidate/interview", { credentials: "include" }).then(function (response) {
-          if (response.status === 401) {
-            accessError();
-            return;
-          }
-          if (!response.ok) {
-            status.textContent = "The interview is temporarily unavailable";
-            return;
-          }
-          return response.json().then(function (body) { render(body.data); });
+        stopPolling();
+        var request = ++generation;
+        return fetch("/candidate/interview", {
+          credentials: "include",
+          headers: { "X-Interview-Controller": controllerID }
+        }).then(function (response) {
+          if (request !== generation) return;
+          if (response.status === 401) { accessError(); return; }
+          if (!response.ok) { unavailable(); return; }
+          return response.json().then(function (body) {
+            if (request !== generation) return;
+            error.hidden = true;
+            refresh.hidden = true;
+            render(body.data);
+          });
+        }).catch(function () {
+          if (request === generation) unavailable();
+        }).finally(function () {
+          if (request === generation) schedulePoll();
         });
       }
 
-      accept.addEventListener("click", function () {
-        accept.disabled = true;
-        fetch("/candidate/consents", {
-          method: "POST",
-          credentials: "include",
-          headers: { "Content-Type": "application/json", "X-CSRF-Token": csrfToken },
-          body: JSON.stringify({ noticeVersion: noticeVersion, accepted: true })
-        }).then(function (response) {
-          if (response.status === 401) {
-            accessError();
-            return;
+      function startKey(consentID) {
+        var key = "candidate-interview-start-" + consentID;
+        var intent = sessionStorage.getItem(key);
+        if (!intent) {
+          intent = crypto.randomUUID();
+          sessionStorage.setItem(key, intent);
+        }
+        return intent;
+      }
+
+      function mutate(action) {
+        if (busy || !view || view.actions.indexOf(action) < 0) return;
+        if (action === "cancel" && !window.confirm("Cancel this interview and leave early?")) return;
+        var path, body;
+        var headers = { "Content-Type": "application/json", "X-CSRF-Token": csrfToken, "X-Interview-Controller": controllerID };
+        try {
+          if (action === "accept") {
+            path = "/candidate/consents";
+            body = { noticeVersion: view.notice.version, accepted: true };
+          } else if (action === "start") {
+            path = "/candidate/executions";
+            body = { consentId: view.consent.id };
+            headers["Idempotency-Key"] = startKey(view.consent.id);
+          } else {
+            path = "/candidate/executions/" + encodeURIComponent(view.execution.id) + "/" + action;
+            body = action === "takeover" ?
+              { controllerId: controllerID, expectedVersion: view.execution.controllerVersion } :
+              { expectedVersion: view.execution.version };
           }
-          if (!response.ok) {
-            status.textContent = "The interview notice is temporarily unavailable";
-            accept.disabled = false;
-            return;
-          }
-          return load();
-        }).catch(function () {
-          status.textContent = "The interview is temporarily unavailable";
-          accept.disabled = false;
-        });
+        } catch (_) { unavailable("Browser storage is unavailable. Allow session storage and refresh the page."); return; }
+        busy = true;
+        stopPolling();
+        var request = ++generation;
+        error.hidden = true;
+        controls();
+        fetch(path, { method: "POST", credentials: "include", headers: headers, body: JSON.stringify(body) })
+          .then(function (response) {
+            if (request !== generation) return;
+            if (response.status === 401) { accessError(); return; }
+            if (!response.ok) {
+              if (response.status === 403 || response.status === 409) {
+                return load().then(function () {
+                  if (csrfToken) unavailable("The interview changed or this action is unavailable. Review the current screen before trying again.");
+                });
+              }
+              unavailable(action === "start" ? "Start could not be confirmed. Retry Start to reuse the same request, or refresh the interview." : null);
+              return;
+            }
+            return response.json().then(function (body) {
+              if (request !== generation) return;
+              if (action === "cancel") {
+                render({ notice: view.notice, consent: view.consent, execution: body.data, actions: [], progress: null });
+              } else {
+                return load();
+              }
+            });
+          }).catch(function () {
+            if (request === generation) unavailable(action === "start" ? "Start could not be confirmed. Retry Start to reuse the same request, or refresh the interview." : null);
+          }).finally(function () {
+            busy = false;
+            controls();
+            schedulePoll();
+          });
+      }
+
+      Object.keys(buttons).forEach(function (name) {
+        buttons[name].addEventListener("click", function () { mutate(name); });
+      });
+      refresh.addEventListener("click", function () {
+        if (!busy) {
+          if (csrfToken) load();
+          else initialize();
+        }
+      });
+      window.addEventListener("pagehide", function () { active = false; generation++; stopPolling(); });
+      window.addEventListener("pageshow", function (event) {
+        if (event.persisted) { active = true; initialize(); }
       });
 
-      fetch("/candidate/session", { credentials: "include" }).then(function (response) {
-        if (!response.ok) {
-          accessError();
-          return;
+      try {
+        controllerID = sessionStorage.getItem("candidate-interview-controller");
+        if (!controllerID) {
+          controllerID = crypto.randomUUID();
+          sessionStorage.setItem("candidate-interview-controller", controllerID);
         }
-        return response.json().then(function (body) {
-          csrfToken = body.data.csrfToken;
-          return load();
-        });
-      }).catch(function () {
-        status.textContent = "The interview is temporarily unavailable";
-      });
+      } catch (_) {
+        status.textContent = "Browser storage is unavailable. Allow session storage and reload the page.";
+        return;
+      }
+      function initialize() {
+        return fetch("/candidate/session", { credentials: "include" }).then(function (response) {
+          if (!response.ok) { accessError(); return; }
+          return response.json().then(function (body) {
+            csrfToken = body.data.csrfToken;
+            return load();
+          });
+        }).catch(function () { unavailable(); });
+      }
+      initialize();
     })();
   </script>
 </body>

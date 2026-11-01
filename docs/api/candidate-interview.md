@@ -4,7 +4,7 @@ All responses use the standard JSON envelope. `Accept-Language: id` selects Indo
 
 The machine-readable specification is [openapi.yaml](openapi.yaml); contract changes are recorded in [CHANGELOG.md](CHANGELOG.md). Design: [technical-design.md](../services/core-ai/candidate-interview/technical-design.md).
 
-This document covers interview read, notice acceptance, the page shell, start, execution polling, takeover, and cancel. Session-attempt, ready, and report routes are absent. Execution Lifecycle remains unbound until T11; valid start and execution operations fail closed with `503 CIN_DEPENDENCY_UNAVAILABLE` after their input, session, CSRF, and applicable policy checks. The interview screen continues to return `execution: null`.
+This document covers interview read, notice acceptance, the candidate page, start, execution polling, takeover, and cancel. Session-attempt, ready, and report routes are absent. Execution Lifecycle remains unbound until T11; valid start and execution operations fail closed with `503 CIN_DEPENDENCY_UNAVAILABLE` after their input, session, CSRF, and applicable policy checks. The interview screen continues to return `execution: null`.
 
 ## Session, origin and CSRF
 
@@ -69,7 +69,7 @@ Body exactly `{ "expectedVersion": 1 }` using a positive **execution** version. 
 
 ### GET `/candidate/interview/page`
 
-Returns the candidate page shell as `text/html` with `Cache-Control: no-store` and `Referrer-Policy: no-referrer`. The page reads `GET /candidate/session`, then `GET /candidate/interview`, shows the notice with the accept action, and posts `POST /candidate/consents`. Without a cookie it shows the access-error state and no notice. It does not request a report. Other methods are `405` `METHOD_NOT_ALLOWED`.
+Returns the candidate page as `text/html` with `Cache-Control: no-store` and `Referrer-Policy: no-referrer`. The page reads `GET /candidate/session`, then `GET /candidate/interview`, and displays only the offered accept/start/takeover/cancel actions. It stores the tab controller and start intent in `sessionStorage`, sends `X-Interview-Controller`, and retains the same start key and consent id after an uncertain response or refresh. Refresh never POSTs start. A second tab is read-only until takeover; cancel asks for confirmation. Live `CREATED`/`RUNNING` views poll the interview every two seconds; polling stops on access loss or a terminal outcome and superseded responses are ignored. `COMPLETED`, `FAILED`, and `CANCELLED` have distinct final screens. Without a cookie it shows the access-error state and no notice. It does not request a report or open a microphone. Other methods are `405` `METHOD_NOT_ALLOWED`. Production execution remains null until T11; T10 browser evidence uses API fixtures.
 
 `GET /candidate/access` navigates to this page once, after `GET /candidate/session` succeeds.
 

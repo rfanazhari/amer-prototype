@@ -3013,7 +3013,7 @@
     "/candidate/interview/page": {
       "get": {
         "operationId": "getCandidateInterviewPage",
-        "summary": "Serve the candidate interview page shell. The JSON API enforces the session; without a cookie the page shows the access-error state and no notice.",
+        "summary": "Serve the candidate interview page with consent, API-offered start and control actions, confirmed cancel, and distinct terminal outcomes. Live views poll every two seconds; refresh never starts an execution. The JSON API enforces the session; without a cookie the page shows the access-error state and no notice.",
         "security": [],
         "responses": {
           "200": {

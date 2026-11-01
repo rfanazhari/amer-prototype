@@ -12,7 +12,7 @@ async function fixture(view, test, options = {}) {
   const calls = [], timers = new Map();
   let timerID = 0;
   w.sessionStorage.clear();
-  const reply = (data, status = 200) => Promise.resolve({ok: status < 400, status, json: () => Promise.resolve({data})});
+  const reply = (data, status = 200) => Promise.resolve({ok: status < 400, status, json: () => Promise.resolve(JSON.parse(JSON.stringify({data})))});
   w.fetch = (url, init = {}) => {
     calls.push({url, ...init});
     if (options.fetch) { const response = options.fetch(url, init, reply); if (response) return response; }
@@ -26,8 +26,9 @@ async function fixture(view, test, options = {}) {
   await flush();
   const el = id => w.document.getElementById(id);
   const click = async id => { check(el(id) && !el(id).hidden && !el(id).disabled, id + ' must be offered'); el(id).click(); await flush(); };
+  const reload = async () => { timers.clear(); w.document.open(); w.document.write(source); w.document.close(); await flush(); };
   const poll = async () => { check(timers.size === 1, 'one active poll'); const fn = timers.values().next().value; timers.clear(); fn(); await flush(); };
-  try { await test({w, calls, timers, el, click, poll, reply}); } finally { frame.remove(); }
+  try { await test({w, calls, timers, el, click, poll, reply, reload}); } finally { frame.remove(); }
   check(calls.every(c => !/report|session-attempts|\/ready/.test(c.url)), 'no sibling routes');
   check(calls.every(c => c.credentials === 'include'), 'include session cookie');
   results.push(options.name);
@@ -52,10 +53,11 @@ function screen(state = null, current = true) {
     check(JSON.parse(call.body).noticeVersion === 'notice-261102' && JSON.parse(call.body).accepted === true, 'explicit consent');
     check(call.headers['X-CSRF-Token'] === 'fixture-csrf', 'CSRF token');
   }, {name: 'notice-consent'});
-  await fixture(screen(), async ({w, el, click, calls, reply}) => {
+  await fixture(screen(), async ({w, el, click, calls, reply, reload}) => {
     check(el('start') && !el('start').hidden, 'start offered by API');
     check(!calls.some(c => c.method === 'POST'), 'refresh never starts');
     await click('start');
+    await reload();
     await click('start');
     const starts = calls.filter(c => c.url === '/candidate/executions');
     check(starts.length === 2, 'retry can be made after uncertain start');
@@ -103,6 +105,68 @@ function screen(state = null, current = true) {
     await poll();
     check(timers.size === 0 && el('status').textContent.includes('COMPLETED'), 'poll reaches terminal and stops');
   }, {name: 'poll-terminal'});
+  for (const status of [200, 201]) {
+    const started = screen();
+    await fixture(started, async ({click, el, timers, calls, reload}) => {
+      await click('start');
+      check(el('status').textContent.includes('CREATED') && timers.size === 1, 'successful start renders and polls');
+      const tab = calls.find(c => c.url === '/candidate/executions').headers['X-Interview-Controller'];
+      await reload();
+      check(calls.filter(c => c.method === 'POST').length === 1, 'refresh does not restart');
+      check(calls.filter(c => c.url === '/candidate/interview').at(-1).headers['X-Interview-Controller'] === tab, 'refresh retains tab identity');
+    }, {name: 'start-' + status + '-refresh', fetch: (url, init, reply) => {
+      if (url === '/candidate/executions') { started.execution = screen('CREATED').execution; started.actions = ['cancel']; return reply(started.execution, status); }
+    }});
+  }
+  let finishOldPoll;
+  let interviewReads = 0;
+  const stale = screen('RUNNING');
+  await fixture(stale, async ({poll, click, w, el, timers}) => {
+    await poll();
+    w.confirm = () => true;
+    await click('cancel');
+    finishOldPoll(); await flush();
+    check(el('status').textContent.includes('CANCELLED') && timers.size === 0, 'late live poll cannot undo cancellation');
+  }, {name: 'superseded-poll', fetch: (url, init, reply) => {
+    if (url === '/candidate/interview' && ++interviewReads === 2) {
+      return new Promise(resolve => { finishOldPoll = () => resolve({ok: true, status: 200, json: () => Promise.resolve({data: screen('RUNNING')})}); });
+    }
+    if (url.endsWith('/cancel')) return reply(screen('CANCELLED').execution);
+  }});
+  let reads = 0;
+  await fixture(screen('RUNNING'), async ({poll, el, timers}) => {
+    await poll();
+    check(el('status').textContent.includes('Access is no longer available'), 'expired poll session');
+    check(el('cancel').hidden && timers.size === 0, 'expired session hides actions and stops poll');
+  }, {name: 'poll-session-expired', fetch: (url, init, reply) => url === '/candidate/interview' && ++reads === 2 && reply({}, 401)});
+  const conflict = screen('RUNNING');
+  await fixture(conflict, async ({w, click, el}) => {
+    w.confirm = () => true;
+    await click('cancel');
+    check(el('cancel').hidden && !el('takeover').hidden, 'conflict refreshes controller actions');
+    check(!el('error').hidden && !el('error').textContent.includes('technical'), 'safe conflict explanation');
+  }, {name: 'controller-conflict', fetch: (url, init, reply) => {
+    if (url.endsWith('/cancel')) { conflict.execution.isCurrentController = false; conflict.actions = ['takeover']; return reply({}, 409); }
+  }});
+  const safe = screen('RUNNING'); safe.progress = {phase: '<b>Connecting</b>', connection: 'reconnecting'};
+  await fixture(safe, async ({el}) => {
+    check(!el('progress').hidden && el('progress').textContent.includes('reconnecting'), 'candidate-safe progress');
+    check(!el('progress').querySelector('b'), 'progress rendered as text');
+  }, {name: 'safe-progress'});
+  let sessionReads = 0;
+  await fixture(screen(), async ({click, el, calls}) => {
+    check(!el('error').hidden, 'initial network failure is visible');
+    await click('refresh');
+    check(!el('start').hidden, 'session read can recover');
+    check(calls.filter(c => c.url === '/candidate/session').length === 2, 'refresh recovers CSRF before actions');
+  }, {name: 'session-network-recovery', fetch: url => url === '/candidate/session' && ++sessionReads === 1 && Promise.reject(new Error('network'))});
+  await fixture(screen(), async ({click, el, calls}) => {
+    await click('start');
+    check(!el('error').hidden && !el('start').disabled, 'lost start response allows explicit retry');
+    await click('start');
+    const starts = calls.filter(c => c.method === 'POST');
+    check(starts[0].headers['Idempotency-Key'] === starts[1].headers['Idempotency-Key'], 'network retry keeps intent');
+  }, {name: 'start-network-retry', fetch: url => url === '/candidate/executions' && Promise.reject(new Error('network'))});
   document.getElementById('result').textContent = 'PASS ' + results.length + ' browser scenarios: ' + results.join(', ');
 })().catch(error => { document.getElementById('result').textContent = 'FAIL ' + error.message; });
 </script></body></html>

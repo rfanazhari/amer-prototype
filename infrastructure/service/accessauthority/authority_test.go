@@ -55,7 +55,7 @@ func TestAuthorityRechecksCurrentHRAndStableSubject(t *testing.T) {
 		{name: "revoked session unauthenticated", account: hr, session: revoked, principal: service.AdminPrincipal{SubjectID: hr.ID}, operation: service.AgentConfigurationRead, now: testdata.Now().Add(2 * time.Minute), wantPrinc: service.ErrSessionUnbound, wantAuth: service.ErrSessionUnbound},
 		{name: "disabled account unauthenticated", account: disabled, session: session, principal: service.AdminPrincipal{SubjectID: disabled.ID}, operation: service.AgentConfigurationRead, now: testdata.Now().Add(time.Minute), wantPrinc: service.ErrSessionUnbound, wantAuth: service.ErrSessionUnbound},
 		{name: "missing session unauthenticated", resolve: service.ErrSessionUnbound, principal: service.AdminPrincipal{SubjectID: hr.ID}, operation: service.AgentConfigurationRead, wantPrinc: service.ErrSessionUnbound, wantAuth: service.ErrSessionUnbound},
-		{name: "caller principal mismatch unbound", account: hr, session: session, principal: service.AdminPrincipal{SubjectID: admin.ID}, operation: service.AgentConfigurationRead, now: testdata.Now().Add(time.Minute), wantAuth: service.ErrSessionUnbound},
+		{name: "caller principal mismatch unbound", account: hr, session: session, principal: service.AdminPrincipal{SubjectID: "ffffffff-ffff-4fff-8fff-ffffffffffff"}, operation: service.AgentConfigurationRead, now: testdata.Now().Add(time.Minute), wantAuth: service.ErrSessionUnbound},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

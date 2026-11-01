@@ -12,12 +12,35 @@ type Authority struct {
 	Clock    service.Clock
 }
 
-// Principal is an inert T7 RED stub; GREEN returns the stable account SubjectID.
-func (Authority) Principal(context.Context) (service.AdminPrincipal, error) {
-	return service.AdminPrincipal{}, nil
+var _ service.AgentConfigurationAuthority = Authority{}
+
+// Principal returns the stable account UUID after current session and account binding succeed.
+func (a Authority) Principal(ctx context.Context) (service.AdminPrincipal, error) {
+	session, account, err := a.Sessions.Resolve(ctx)
+	if err != nil {
+		return service.AdminPrincipal{}, err
+	}
+	if err := authorizeCurrent(session, account, trustedNow(a.Clock)); err != nil {
+		return service.AdminPrincipal{}, err
+	}
+	return service.AdminPrincipal{SubjectID: account.ID}, nil
 }
 
-// Authorize is an inert T7 RED stub; GREEN rechecks current HR authority before configuration work.
-func (Authority) Authorize(context.Context, service.AdminPrincipal, string, string) error {
+// Authorize rechecks the bound session and permits only current HR configuration operations.
+func (a Authority) Authorize(ctx context.Context, principal service.AdminPrincipal, operation, resource string) error {
+	session, account, err := a.Sessions.Resolve(ctx)
+	if err != nil {
+		return err
+	}
+	if principal.SubjectID == "" || principal.SubjectID != account.ID {
+		return service.ErrSessionUnbound
+	}
+	if err := authorizeCurrent(session, account, trustedNow(a.Clock)); err != nil {
+		return err
+	}
+	if !service.KnownAgentConfigurationOperation(operation) || !service.AllowsAgentConfiguration(account.Role) {
+		return service.ErrForbidden
+	}
+	_ = resource
 	return nil
 }

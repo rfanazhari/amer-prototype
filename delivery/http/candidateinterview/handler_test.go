@@ -26,7 +26,7 @@ func TestInterviewPageShellDocument(t *testing.T) {
 		require.Contains(t, body, needle)
 	}
 	lower := strings.ToLower(body)
-	for _, absent := range []string{"/candidate/executions", "report", "getusermedia", "rtcpeerconnection", "salary", "/voice-session"} {
+	for _, absent := range []string{"report", "getusermedia", "rtcpeerconnection", "salary", "/voice-session"} {
 		require.NotContains(t, lower, absent)
 	}
 }

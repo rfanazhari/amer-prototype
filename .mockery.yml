@@ -19,6 +19,10 @@ packages:
       Accounts:
       AccountTx:
       Sessions:
+      LoginTx:
+      SessionIssuance:
+      AssignmentAccess:
+      AssignmentTx:
   github.com/rfanazhari/amer-prototype/application/service:
     config:
       dir: test/mocks
@@ -30,6 +34,10 @@ packages:
       Reservation:
       AgentConfigurationAuthority:
       AgentReferenceReader:
+      PasswordHasher:
+      TokenSecrets:
+      CSRFTokens:
+      CurrentAdministrativeSession:
   github.com/rfanazhari/amer-prototype/application/usecase/taskusecase:
     config:
       dir: test/mocks
@@ -47,6 +55,23 @@ packages:
       filename: '{{.InterfaceName | snakecase}}_mock.go'
     interfaces:
       DetailOperation:
+  github.com/rfanazhari/amer-prototype/application/usecase/accessusecase:
+    config:
+      dir: test/mocks
+      outpkg: mocks
+      filename: '{{.InterfaceName | snakecase}}_mock.go'
+    interfaces:
+      BootstrapOperation:
+      ProvisionHROperation:
+      LoginOperation:
+      LogoutOperation:
+  github.com/rfanazhari/amer-prototype/application/query/accessquery:
+    config:
+      dir: test/mocks
+      outpkg: mocks
+      filename: '{{.InterfaceName | snakecase}}_mock.go'
+    interfaces:
+      CurrentSessionOperation:
   github.com/rfanazhari/amer-prototype/application/usecase/voicesession:
     config:
       dir: test/mocks

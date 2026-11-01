@@ -13,16 +13,22 @@ import (
 
 // Handler translates administrative HTTP requests through injected access operations.
 type Handler struct {
-	Login        accessusecase.LoginOperation
-	Current      accessquery.CurrentSessionOperation
-	Provision    accessusecase.ProvisionHROperation
-	Logout       accessusecase.LogoutOperation
-	CSRF         service.CSRFTokens
-	Sessions     service.CurrentAdministrativeSession
-	Origin       string
-	SecureCookie bool
-	Limiter      *LoginLimiter
-	LogError     func(error)
+	Login            accessusecase.LoginOperation
+	Current          accessquery.CurrentSessionOperation
+	Provision        accessusecase.ProvisionHROperation
+	Logout           accessusecase.LogoutOperation
+	CreateCandidate  accessusecase.CreateCandidateOperation
+	Candidate        accessquery.CandidateOperation
+	IssueInvitation  accessusecase.IssueInvitationOperation
+	Exchange         accessusecase.ExchangeInvitationOperation
+	CandidateSession accessquery.CandidateSessionOperation
+	CSRF             service.CSRFTokens
+	Sessions         service.CurrentAdministrativeSession
+	Origin           string
+	SecureCookie     bool
+	Limiter          *LoginLimiter
+	ExchangeLimiter  *LoginLimiter
+	LogError         func(error)
 }
 
 // ServeHTTP dispatches the four administrative access paths.

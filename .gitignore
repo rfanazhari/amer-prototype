@@ -9,3 +9,6 @@ skills-lock.json
 .idea
 bin
 .cursor
+AGENTS.md
+CLAUDE.md
+.claude

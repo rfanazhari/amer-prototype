@@ -42,6 +42,15 @@ func (s Store) FindInvitationByTokenHash(ctx context.Context, tokenHash string) 
 	return toInvitation(model)
 }
 
+// FindCandidateSessionByTokenHash restores one candidate session by digest or returns ErrNotFound.
+func (s Store) FindCandidateSessionByTokenHash(ctx context.Context, tokenHash string) (accessport.CandidateSessionRecord, error) {
+	var model CandidateSessionModel
+	if err := s.DB.WithContext(ctx).Where("token_hash = ?", tokenHash).Take(&model).Error; err != nil {
+		return accessport.CandidateSessionRecord{}, notFoundOrError(err)
+	}
+	return toCandidateSession(model)
+}
+
 // WithAssignment locks the Interview assignment row first, then runs access collaboration.
 func (s Store) WithAssignment(ctx context.Context, assignmentID string, fn func(accessport.AssignmentTx) error) error {
 	return s.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {

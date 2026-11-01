@@ -20,6 +20,22 @@ DELETE `/admin/sessions/current` requires the cookie and CSRF header, accepts an
 
 POST `/admin/hr-accounts` requires a current ADMIN session and CSRF, accepts exactly `name`, `email`, and `password`, and returns `201` with `id`, `name`, `email`, `role` (`HR`), `status` (`ACTIVE`), `createdAt`, and `updatedAt`.
 
+POST `/admin/candidates` requires current HR and CSRF, accepts exactly `name` and `email`, and returns `201` with `id`, `name`, `email`, `createdAt`, and `updatedAt`. Email is contact only and never unique.
+
+GET `/admin/candidates/{id}` requires current HR and returns the same identity fields. Unknown identities are `404` after authorization.
+
+POST `/admin/interview-assignments/{id}/invitations` requires current HR and CSRF, accepts an empty object or absent body, and returns `201` with `id`, `assignmentId`, `expiresAt`, and `token` once.
+
+## Candidate landing, exchange and session
+
+GET `/candidate/access` serves the invitation landing HTML with `Cache-Control: no-store` and `Referrer-Policy: no-referrer`. The page calls `history.replaceState` to remove the invitation token from the URL before any exchange request. GET/prefetch cannot exchange. POST or HEAD on the landing path is `405` `METHOD_NOT_ALLOWED` and does not start an interview.
+
+POST `/candidate/access/exchange` requires origin and `Content-Type: application/json`, accepts exactly `token`, and returns `201` with `candidate` `{id,name}`, `assignment` `{id}`, and `session` `{id,expiresAt}` after commit. HTTPS uses cookie `__Host-ia-candidate`; HTTP localhost uses `ia-candidate`. GET/prefetch cannot exchange. Unavailable invitations are `410` `IA_INVITATION_UNAVAILABLE` with no cookie. Uncertain commit is `503` with no cookie. Exchange is limited to 5 attempts per invitation token and 20 per client IP per 15 minutes.
+
+GET `/candidate/session` requires the candidate cookie and origin, returns `200` with the same candidate/assignment/session fields plus `csrfToken`, and never exchanges or starts an interview. Browser refresh reuses the existing session. Administrative cookies cannot authenticate this route.
+
+Authenticated candidate unsafe methods require `X-CSRF-Token` bound to credential kind `candidate`.
+
 ## Errors
 
-Origin, content-type, size, and JSON failures are `400` `INVALID_INPUT`. Missing or substituted administrative sessions are `401` `IA_UNAUTHENTICATED`. Invalid CSRF and insufficient role are `403` `IA_FORBIDDEN`. Duplicate canonical email is `409` `IA_ACCOUNT_CONFLICT`. Failed login proof is `401` `IA_UNAUTHENTICATED`. Store uncertainty is `503` `IA_DEPENDENCY_UNAVAILABLE`. Shutdown admission remains `503` `SHUTTING_DOWN`.
+Origin, content-type, size, and JSON failures are `400` `INVALID_INPUT`. Missing or substituted administrative sessions are `401` `IA_UNAUTHENTICATED`. Invalid CSRF and insufficient role are `403` `IA_FORBIDDEN`. Duplicate canonical email is `409` `IA_ACCOUNT_CONFLICT`. Failed login proof is `401` `IA_UNAUTHENTICATED`. Missing, expired, revoked, or inaccessible invitations are `410` `IA_INVITATION_UNAVAILABLE`. Store uncertainty is `503` `IA_DEPENDENCY_UNAVAILABLE`. Shutdown admission remains `503` `SHUTTING_DOWN`.

@@ -180,6 +180,32 @@ func toInvitation(model InvitationModel) (accessport.InvitationRecord, error) {
 	}, nil
 }
 
+// toCandidateSession restores a detached candidate session record and classifies corrupt stored facts as technical failures.
+func toCandidateSession(model CandidateSessionModel) (accessport.CandidateSessionRecord, error) {
+	if _, err := access.RestoreCandidateSession(access.CandidateSessionSnapshot{
+		ID:           model.ID,
+		AssignmentID: model.AssignmentID,
+		InvitationID: model.InvitationID,
+		CreatedAt:    model.CreatedAt.UTC(),
+		ExpiresAt:    model.ExpiresAt.UTC(),
+		RevokedAt:    copyTime(model.RevokedAt),
+	}); err != nil {
+		return accessport.CandidateSessionRecord{}, errs.Technical{Cause: err}
+	}
+	if model.TokenHash == "" {
+		return accessport.CandidateSessionRecord{}, errs.Technical{Cause: access.ErrInvalidCandidateSession}
+	}
+	return accessport.CandidateSessionRecord{
+		ID:           model.ID,
+		AssignmentID: model.AssignmentID,
+		InvitationID: model.InvitationID,
+		TokenHash:    model.TokenHash,
+		CreatedAt:    model.CreatedAt.UTC(),
+		ExpiresAt:    model.ExpiresAt.UTC(),
+		RevokedAt:    copyTime(model.RevokedAt),
+	}, nil
+}
+
 // fromCandidateSession maps a detached candidate session record onto the storage model.
 func fromCandidateSession(record accessport.CandidateSessionRecord) CandidateSessionModel {
 	return CandidateSessionModel{

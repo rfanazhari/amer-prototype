@@ -44,6 +44,53 @@ type provisionRequest struct {
 // emptyRequest permits an absent or empty logout object without unexpected fields.
 type emptyRequest struct{}
 
+// candidateRequest accepts candidate contact fields chosen by current HR.
+type candidateRequest struct {
+	Name  string `json:"name"`
+	Email string `json:"email"`
+}
+
+// exchangeRequest accepts the invitation secret only; assignment overrides are unknown fields.
+type exchangeRequest struct {
+	Token string `json:"token"`
+}
+
+// candidateBody is the candidate identity created or read by HR without credentials.
+type candidateBody struct {
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	Email     string `json:"email"`
+	CreatedAt string `json:"createdAt"`
+	UpdatedAt string `json:"updatedAt"`
+}
+
+// invitationBody is the issued invitation including the plaintext token shown once.
+type invitationBody struct {
+	ID           string `json:"id"`
+	AssignmentID string `json:"assignmentId"`
+	ExpiresAt    string `json:"expiresAt"`
+	Token        string `json:"token"`
+}
+
+// candidateIdentityBody is the safe candidate identity returned after exchange or session reads.
+type candidateIdentityBody struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
+// assignmentRefBody is the assignment identity bound to a candidate session.
+type assignmentRefBody struct {
+	ID string `json:"id"`
+}
+
+// candidateAccessBody is the exchange or current-session payload without cookie material.
+type candidateAccessBody struct {
+	Candidate  candidateIdentityBody `json:"candidate"`
+	Assignment assignmentRefBody     `json:"assignment"`
+	Session    sessionBody           `json:"session"`
+	CSRFToken  string                `json:"csrfToken,omitempty"`
+}
+
 // accountBody is the safe administrative identity returned after login or session reads.
 type accountBody struct {
 	ID     string `json:"id"`

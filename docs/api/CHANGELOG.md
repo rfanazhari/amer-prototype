@@ -1,5 +1,9 @@
 # API changelog
 
+## 0.4.0 — candidate identity, invitation landing and session access
+
+Added `POST /admin/candidates`, `GET /admin/candidates/{id}`, `POST /admin/interview-assignments/{id}/invitations`, `GET /candidate/access`, `POST /candidate/access/exchange`, and `GET /candidate/session`. Invitation landing removes the token from history before exchange; GET/prefetch cannot exchange. Candidate cookies, origin, CSRF, and `IA_INVITATION_UNAVAILABLE` are documented in [identity-access.md](identity-access.md). See [openapi.yaml](openapi.yaml).
+
 ## 0.3.0 — administrative identity and access
 
 Added `POST /admin/sessions`, `GET /admin/session`, `DELETE /admin/sessions/current`, and `POST /admin/hr-accounts`. Task, voice, and health remain unauthenticated. Administrative cookies, origin, CSRF, rate limits, and `IA_*` error codes are documented in [identity-access.md](identity-access.md). See [openapi.yaml](openapi.yaml).

@@ -61,7 +61,11 @@ func (h Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case "/voice-sessions":
 		h.Setup.ServeHTTP(w, r)
 	default:
-		if h.Access != nil && strings.HasPrefix(r.URL.Path, "/admin/") {
+		if h.Landing != nil && r.URL.Path == "/candidate/access" {
+			h.Landing.ServeHTTP(w, r)
+			return
+		}
+		if h.Access != nil && (strings.HasPrefix(r.URL.Path, "/admin/") || strings.HasPrefix(r.URL.Path, "/candidate/")) {
 			h.Access.ServeHTTP(w, r)
 			return
 		}

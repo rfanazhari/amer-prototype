@@ -24,10 +24,14 @@ func (h Handler) sendError(w http.ResponseWriter, r *http.Request, err error) {
 	switch {
 	case errors.Is(err, errInput), errors.Is(err, service.ErrInvalidInput):
 		fail(w, r, http.StatusBadRequest, errs.InvalidInput)
-	case errors.Is(err, service.ErrAuthenticationFailed), errors.Is(err, service.ErrSessionUnbound):
+	case errors.Is(err, service.ErrAuthenticationFailed), errors.Is(err, service.ErrSessionUnbound), errors.Is(err, service.ErrCandidateSessionUnbound):
 		fail(w, r, http.StatusUnauthorized, errs.IAUnauthenticated)
 	case errors.Is(err, service.ErrCSRFMismatch), errors.Is(err, service.ErrForbidden):
 		fail(w, r, http.StatusForbidden, errs.IAForbidden)
+	case errors.Is(err, accessport.ErrNotFound):
+		fail(w, r, http.StatusNotFound, errs.NotFound)
+	case errors.Is(err, accessport.ErrInvitationUnavailable):
+		fail(w, r, http.StatusGone, errs.IAInvitationUnavailable)
 	case errors.As(err, &conflict):
 		fail(w, r, http.StatusConflict, errs.IAAccountConflict)
 	case errors.As(err, &uncertain):
@@ -48,6 +52,16 @@ func (h Handler) authenticate(w http.ResponseWriter, r *http.Request) (*http.Req
 		return r, false
 	}
 	return bindCredential(r, token), true
+}
+
+// authenticateCandidate binds the candidate cookie or rejects administrative substitution and missing sessions.
+func (h Handler) authenticateCandidate(w http.ResponseWriter, r *http.Request) (*http.Request, bool) {
+	token, ok, admin := readCandidateCookie(r, h.SecureCookie)
+	if admin || !ok {
+		fail(w, r, http.StatusUnauthorized, errs.IAUnauthenticated)
+		return r, false
+	}
+	return bindCandidateCredential(r, token), true
 }
 
 // verifyCSRF authenticates then accepts a session-bound CSRF header on unsafe methods.

@@ -80,16 +80,26 @@ func assembleAccess(db *gorm.DB, cfg Config, logs *logmanager.Application) acces
 		txn.NoticeError(err)
 		txn.End()
 	}
+	candidates := accessrepository.CandidateIdentities{Store: store}
+	invitations := accessrepository.InvitationSecrets{Store: store}
+	candidateSecrets := accessrepository.CandidateSessionSecrets{Store: store}
+	candidateSessions := accessauthority.CandidateSessions{Store: candidateSecrets, Tokens: tokens, Clock: timer}
 	return accesshandler.Handler{
-		Login:        accessusecase.Login{Accounts: store, Issuance: store, Hasher: hasher, Tokens: tokens, Clock: timer},
-		Current:      accessquery.CurrentSession{Current: sessions, CSRF: csrf, Clock: timer},
-		Provision:    accessusecase.ProvisionHR{Accounts: store, Current: sessions, Hasher: hasher, Clock: timer},
-		Logout:       accessusecase.Logout{Current: sessions, Sessions: store, Clock: timer},
-		CSRF:         csrf,
-		Sessions:     sessions,
-		Origin:       cfg.AccessHTTPOrigin,
-		SecureCookie: strings.HasPrefix(cfg.AccessHTTPOrigin, "https://"),
-		Limiter:      &accesshandler.LoginLimiter{},
-		LogError:     logErr,
+		Login:            accessusecase.Login{Accounts: store, Issuance: store, Hasher: hasher, Tokens: tokens, Clock: timer},
+		Current:          accessquery.CurrentSession{Current: sessions, CSRF: csrf, Clock: timer},
+		Provision:        accessusecase.ProvisionHR{Accounts: store, Current: sessions, Hasher: hasher, Clock: timer},
+		Logout:           accessusecase.Logout{Current: sessions, Sessions: store, Clock: timer},
+		CreateCandidate:  accessusecase.CreateCandidate{Candidates: candidates, Current: sessions, Clock: timer},
+		Candidate:        accessquery.Candidate{Candidates: candidates, Current: sessions, Clock: timer},
+		IssueInvitation:  accessusecase.IssueInvitation{Assignments: store, Current: sessions, Tokens: tokens, Clock: timer},
+		Exchange:         accessusecase.ExchangeInvitation{Invitations: invitations, Candidates: candidates, Assignments: store, Tokens: tokens, Clock: timer},
+		CandidateSession: accessquery.CandidateSession{Current: candidateSessions, Candidates: candidates, Assignments: store, CSRF: csrf, Clock: timer},
+		CSRF:             csrf,
+		Sessions:         sessions,
+		Origin:           cfg.AccessHTTPOrigin,
+		SecureCookie:     strings.HasPrefix(cfg.AccessHTTPOrigin, "https://"),
+		Limiter:          &accesshandler.LoginLimiter{},
+		ExchangeLimiter:  &accesshandler.LoginLimiter{},
+		LogError:         logErr,
 	}
 }

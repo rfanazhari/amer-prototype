@@ -1,6 +1,7 @@
 package candidatelanding
 
 import (
+	_ "embed"
 	"encoding/json"
 	"net/http"
 
@@ -8,7 +9,12 @@ import (
 	"github.com/rfanazhari/amer-prototype/translations"
 )
 
-// Handler serves GET /candidate/access without exchanging an invitation.
+// page is the embedded invitation landing document for GET /candidate/access.
+//
+//go:embed page.html
+var page []byte
+
+// Handler serves GET /candidate/access without exchanging an invitation on GET.
 type Handler struct{}
 
 // envelope keeps status and data present on every JSON error response.
@@ -32,7 +38,15 @@ func fail(w http.ResponseWriter, r *http.Request, status int, code string) {
 	_ = json.NewEncoder(w).Encode(envelope{Status: "error", Data: map[string]any{}, Error: &errorBody{Code: code, Message: msg}})
 }
 
-// ServeHTTP currently rejects landing until the invitation page is implemented.
+// ServeHTTP writes the embedded landing page for GET and rejects other methods without exchanging.
 func (Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	fail(w, r, http.StatusNotFound, errs.NotFound)
+	if r.Method != http.MethodGet {
+		fail(w, r, http.StatusMethodNotAllowed, errs.MethodNotAllowed)
+		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Referrer-Policy", "no-referrer")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(page)
 }

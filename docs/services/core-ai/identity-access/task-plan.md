@@ -98,7 +98,7 @@ The owner has resolved the schema-policy choice; do not ask for that approval ag
   - Blocked by: none for Q2/Q3/Q4; Q2/Q3/Q4 resolved in T10. Ordinary T10 dependency remains.
   - DoD: HR candidate create/read and invitation issue/reissue; explicit exchange and session resolution use trusted facts, scoped credentials and exact expiry. Tests cover no execution/model/consent side effects, current-session reload, cross-assignment denial, reissue preserving active access, assignment revocation and resolved retry/device policy. No caller role/candidate/assignment override accepted at exchange.
 
-- [ ] **T13. Wire candidate access HTTP and invitation landing interaction** — Delivery/runtime/contracts/browser — L
+- [x] **T13. Wire candidate access HTTP and invitation landing interaction** — Delivery/runtime/contracts/browser — L
   - Ticket: `CORE-IAM-013` — depends: T5, T8, T10, T11, T12 — ref: design §2, §4 security, §5–7.
   - Blocked by: Q2/Q3/Q4 and absence of candidate UI integration harness — ready when T10–T12 complete and Interview owner supplies the minimal UI/harness contract.
   - DoD: candidate identity/invitation/session endpoints, strict inputs, origin/CSRF, cookies and errors are documented/tested; invitation token removed from URL/history before external resources; GET/prefetch cannot exchange/start. Candidate browser refresh uses existing session and resolved recovery policy. Update OpenAPI, endpoint docs and changelog together; do not build consent or interview runtime inside this task.

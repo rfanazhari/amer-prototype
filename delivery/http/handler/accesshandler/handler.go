@@ -43,6 +43,9 @@ func (h Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case "/admin/hr-accounts":
 		h.provision(w, r)
 	default:
+		if h.dispatchCandidateRoutes(w, r) {
+			return
+		}
 		fail(w, r, http.StatusNotFound, errs.NotFound)
 	}
 }

@@ -39,7 +39,7 @@ func TestCandidateSessionsResolveSQL(t *testing.T) {
 			store, mock := sqlStore(t)
 			tokens := mocks.NewTokenSecrets(t)
 			clock := mocks.NewClock(t)
-			clock.On("Now").Return(testdata.Now()).Maybe()
+			clock.On("Now").Return(testdata.Now().Add(time.Hour)).Maybe()
 			if !tt.noCookie {
 				tokens.On("Digest", service.CredentialCandidate, "plain-candidate-secret").Return(testdata.TokenHash, nil)
 				expectCandidateSessionQuery(t, mock, tt.expires, tt.revoked, tt.noRows)
@@ -66,11 +66,11 @@ func expectCandidateSessionQuery(t *testing.T, mock sqlmock.Sqlmock, expires tim
 	t.Helper()
 	columns := []string{"id", "assignment_id", "invitation_id", "token_hash", "created_at", "expires_at", "revoked_at"}
 	if noRows {
-		mock.ExpectQuery(`(?i)SELECT .* FROM .*candidate_sessions`).WillReturnRows(sqlmock.NewRows(columns))
+		mock.ExpectQuery(`(?i)SELECT .* FROM .*candidate_sessions`).WithArgs(testdata.TokenHash, 1).WillReturnRows(sqlmock.NewRows(columns))
 		return
 	}
 	session := testdata.CandidateSessionRecord(t)
-	mock.ExpectQuery(`(?i)SELECT .* FROM .*candidate_sessions`).WithArgs(testdata.TokenHash).WillReturnRows(
+	mock.ExpectQuery(`(?i)SELECT .* FROM .*candidate_sessions`).WithArgs(testdata.TokenHash, 1).WillReturnRows(
 		sqlmock.NewRows(columns).AddRow(session.ID, session.AssignmentID, session.InvitationID, testdata.TokenHash, session.CreatedAt, expires, revoked),
 	)
 }

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/SALT-Indonesia/salt-pkg/logmanager"
+	"github.com/rfanazhari/amer-prototype/delivery/http/candidatelanding"
 	"github.com/rfanazhari/amer-prototype/domain/event"
 )
 
@@ -99,7 +100,7 @@ func Run(ctx context.Context, cfg Config, logs *logmanager.Application) (result 
 	}
 	taskHandler, queue := assembleTask(db, logs, cfg.TaskCompleted)
 	page, setup := assembleVoice(cfg, logs)
-	handler := Router{Page: page, Setup: setup, Task: taskHandler, Access: assembleAccess(db, cfg, logs)}
+	handler := Router{Page: page, Setup: setup, Task: taskHandler, Access: assembleAccess(db, cfg, logs), Landing: candidatelanding.Handler{}}
 	transport := HTTPServer(handler, logs)
 	defer transport.cancel()
 	queue.Start()

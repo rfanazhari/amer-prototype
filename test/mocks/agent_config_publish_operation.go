@@ -7,8 +7,6 @@ import (
 
 	agentconfigusecase "github.com/rfanazhari/amer-prototype/application/usecase/agentconfigusecase"
 
-	dto "github.com/rfanazhari/amer-prototype/application/dto"
-
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -18,23 +16,23 @@ type AgentConfigPublishOperation struct {
 }
 
 // Execute provides a mock function with given fields: _a0, _a1
-func (_m *AgentConfigPublishOperation) Execute(_a0 context.Context, _a1 agentconfigusecase.PublishInput) (*dto.AgentRevision, error) {
+func (_m *AgentConfigPublishOperation) Execute(_a0 context.Context, _a1 agentconfigusecase.PublishInput) (*agentconfigusecase.PublishResult, error) {
 	ret := _m.Called(_a0, _a1)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Execute")
 	}
 
-	var r0 *dto.AgentRevision
+	var r0 *agentconfigusecase.PublishResult
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, agentconfigusecase.PublishInput) (*dto.AgentRevision, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, agentconfigusecase.PublishInput) (*agentconfigusecase.PublishResult, error)); ok {
 		return rf(_a0, _a1)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, agentconfigusecase.PublishInput) *dto.AgentRevision); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, agentconfigusecase.PublishInput) *agentconfigusecase.PublishResult); ok {
 		r0 = rf(_a0, _a1)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*dto.AgentRevision)
+			r0 = ret.Get(0).(*agentconfigusecase.PublishResult)
 		}
 	}
 

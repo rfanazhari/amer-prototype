@@ -11,4 +11,6 @@ var (
 	ErrValidationConflict = errors.New("validation does not match the current draft")
 	// ErrPublicationBlocked reports an eligible-draft check that found blocking validation errors.
 	ErrPublicationBlocked = errors.New("publication is blocked by validation errors")
+	// ErrDependencyUnavailable reports a reference or store outage before durable acceptance.
+	ErrDependencyUnavailable = errors.New("agent configuration dependency is unavailable")
 )

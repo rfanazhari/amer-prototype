@@ -17,13 +17,14 @@ const (
 	defaultRealtimeURL   = "https://api.openai.com/v1/realtime/calls"
 )
 
-// Router sends prototype voice paths to their handlers, administrative paths to access, and every other path to Task.
+// Router sends prototype voice paths to their handlers, configuration paths before access, administrative paths to access, and every other path to Task.
 type Router struct {
-	Page    http.Handler
-	Setup   http.Handler
-	Task    http.Handler
-	Access  http.Handler
-	Landing http.Handler
+	Page          http.Handler
+	Setup         http.Handler
+	Task          http.Handler
+	Access        http.Handler
+	Landing       http.Handler
+	Configuration http.Handler
 }
 
 // firstNonEmpty returns value when it is set and fallback otherwise.

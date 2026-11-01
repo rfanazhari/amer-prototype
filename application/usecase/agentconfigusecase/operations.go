@@ -24,8 +24,14 @@ type ValidateOperation interface {
 	Execute(context.Context, ValidateInput) (*dto.AgentValidation, error)
 }
 
+// PublishResult is the detached publication outcome, including whether the command was replayed.
+type PublishResult struct {
+	Revision *dto.AgentRevision
+	Replayed bool
+}
+
 // PublishOperation is the publication command contract consumed by delivery.
 type PublishOperation interface {
 	// Execute authorizes publication, checks replay before current-draft eligibility, and withholds results until commit.
-	Execute(context.Context, PublishInput) (*dto.AgentRevision, error)
+	Execute(context.Context, PublishInput) (*PublishResult, error)
 }

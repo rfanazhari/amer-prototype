@@ -13,7 +13,7 @@ Date: 2026-11-01. Mode C — revise the existing tripack after administrative im
 
 ### Non-Goals
 
-Multiple companies/workspaces, public signup, configurable role/permission tables, combined roles, SSO/MFA, account recovery UI, public candidate passwords, mail delivery infrastructure, assignment/execution/consent implementation, interview provider integration, and replacing Task/voice authentication behavior. A DISABLED state does not authorize adding account-lifecycle endpoints. Do not implement a placeholder assignment table or permissive authorizer to unblock candidate delivery.
+Multiple companies/workspaces, public signup, configurable role/permission tables, combined roles, SSO/MFA, account recovery UI, public candidate passwords, mail delivery infrastructure, assignment creation, execution state, consent implementation, interview provider integration, and replacing Task/voice authentication behavior. A DISABLED state does not authorize adding account-lifecycle endpoints. Do not implement a placeholder assignment table or permissive authorizer to unblock candidate delivery. `CORE-IAM-022` is the exception that writes the existing `access_revoked_at` marker and calls `CancelNonterminal`; it does not own execution transitions, add a table, or add an HR page.
 
 ### Verified project context and impact
 
@@ -57,10 +57,11 @@ The existing `/admin` prefix means the administrative channel, not the ADMIN rol
 | GET `/admin/candidates` | Current HR; origin and administrative cookie; no CSRF | 200; array of candidates that account created, newest first; empty array when none |
 | GET `/admin/candidates/{id}` | Current HR | 200; detached candidate contact view for selection by known identity |
 | POST `/admin/interview-assignments/{id}/invitations` | Current HR + assignment eligibility + CSRF | 201; persist new invitation/revoke former invitation atomically; reveal link/token once |
+| POST `/admin/interview-assignments/{id}/revocation` | Current HR + CSRF | 200; commit `access_revoked_at` when still null, then call lifecycle `CancelNonterminal`. No HR page. Contract §6.10 |
 | POST `/candidate/access/exchange` | Valid invitation + pre-session origin protection | 201 after new session commit; scoped cookie and safe assignment identity; reusable invitation until expiry/revocation (§6.7) |
 | GET `/candidate/session` | Valid candidate session + accessible assignment | 200; safe candidate/assignment identity, expiry and CSRF material; no execution creation |
 
-Administrative account/session schemas and limits are approved in §6.1–6.5; candidate-specific accepted inputs are approved in §6.6–6.9. GET `/admin/candidates` lists only candidates whose `created_by` is the logged-in HR account, ordered by `created_at` descending then `id` descending. Email search and candidate lifecycle mutation stay forbidden. The Interview capability owns `/candidate/interview`, consent, initiation, assignment creation/revocation and its full candidate UI. A known `candidate_id` enables reuse without introducing deduplication by email.
+Administrative account/session schemas and limits are approved in §6.1–6.5; candidate-specific accepted inputs are approved in §6.6–6.9. GET `/admin/candidates` lists only candidates whose `created_by` is the logged-in HR account, ordered by `created_at` descending then `id` descending. Email search and candidate lifecycle mutation stay forbidden. The Interview capability owns `/candidate/interview`, consent, initiation, and its candidate UI. Assignment creation stays on the published HR assignment route. Assignment access revocation is the HR command in §6.10 (`CORE-IAM-022`): it writes the existing `access_revoked_at` marker and asks Execution Lifecycle to cancel a nonterminal run. It is not an HR page, and a candidate `401` is not that cancellation. A known `candidate_id` enables reuse without introducing deduplication by email.
 
 Implement one operation interface per delivery use case/query in `application/usecase/accessusecase/` and `application/query/accessquery/`, returning detached `application/dto` values. Purpose-specific repositories in `application/repository/accessport/` hide ORM handles. Ports in `application/service/` isolate password verification, secure token generation/digests, session resolution and assignment access facts.
 
@@ -169,8 +170,9 @@ No persisted master/reference rows are required. ADMIN/HR and ACTIVE/DISABLED re
 - Administrative login: resolve account, verify password outside row locks, then lock/recheck account eligibility and verified credential version/hash before inserting session. If credentials changed meanwhile, fail/retry authentication rather than issue against stale proof. On every protected action, verify current session/account. Logout atomically persists revocation; protected mutations recheck access inside their transaction. Already-admitted operations may complete if revocation commits afterward; no retroactive cancellation claim.
 - Invitation issue/reissue: lock assignment first; check current HR and assignment eligibility; revoke prior unrevoked invitations, insert new invitation, and commit before revealing token. Rollback retains former invitation. Concurrent reissues serialize; a later issuance may invalidate an earlier returned link. Lost-response/retry delivery details are Q3; do not claim exactly-once token delivery.
 - Exchange: lock assignment, then invitation, check recognized credential, expiry/revocation and assignment state, and insert candidate session atomically. Q3 controls whether another exchange may insert another session. Commit failure sends no session cookie. A random token collision is retried internally with a new random value in a fresh valid transaction, with a bounded attempt count; no aborted transaction is reused.
-- Candidate session resolution: check its own expiry/revocation and current assignment access. Source invitation revocation/expiry is checked at exchange, not blindly reapplied to existing sessions: otherwise reissuing a link would cancel active access contrary to BR-037. The source FK records provenance, not perpetual authorization. Assignment revocation invalidates all access through a live assignment predicate and coordinates cancellation under Interview ownership.
-- Interview admission/revocation: assignment lock precedes execution locks per platform §5. Access module must not acquire assignment after execution or independently cancel execution. Persistent revocation/expiry during an active execution is integrated by the Interview owner; request denial alone is not proof of cancellation.
+- Candidate session resolution: check its own expiry/revocation and current assignment access. Source invitation revocation/expiry is checked at exchange, not blindly reapplied to existing sessions: otherwise reissuing a link would cancel active access contrary to BR-037. The source FK records provenance, not perpetual authorization. Assignment revocation invalidates later access through the live assignment predicate. The resulting candidate `401` does not cancel an execution.
+- Assignment revocation (`CORE-IAM-022`): current HR locks the assignment, commits `access_revoked_at` from the trusted clock when it is still null, and only then calls `CancelNonterminal` with reason `access_revoked` and the HR account id as actor. Those are two database transactions. `executionrepository.Store.WithAssignment` always opens its own transaction and does not join the access transaction; `CancelNonterminal` does not read the revocation marker (`application/usecase/executionusecase/cancel.go`). HTTP success is returned only after the lifecycle call commits. A failure of that call after the marker is committed is `503` `IA_DEPENDENCY_UNAVAILABLE` with no success body; a repeat keeps the original timestamp and calls `CancelNonterminal` again. Reissue does not call it. A session that expires during a run is not detected here.
+- Lock order: access still locks the assignment before its own invitation or session writes. It does not lock an execution and then the assignment, and it does not implement the execution transition itself.
 
 ### Rule ownership and proof plan
 
@@ -191,7 +193,7 @@ All proof below is planned, not observed test evidence.
 | BR-034/035 | Access application operations; Interview owns initiation | Page load, exchange, reload, replacement session | No execution writes/model calls; valid reload reuses session |
 | BR-036 | CandidateSession | Resolution and admission port | Exact 2-hour boundary; no sliding renewal |
 | BR-037 | Assignment-serialized invitation replacement | Reissue, exchange old link, existing session resolve | Old invitation denied; active existing session not invalidated by reissue alone; rollback/concurrent issue |
-| BR-038 | Live assignment access facts; Interview revocation coordinator | Exchange, protected reads, admission, active-run revocation | Revocation/exchange race; existing sessions denied; actual cancellation requires real Interview integration |
+| BR-038 | HR revoke command plus live assignment predicate | Exchange, protected reads, `POST .../revocation` | Marker commit, then `CancelNonterminal`; repeat keeps the timestamp; reissue does not cancel; candidate `401` writes nothing |
 | BR-039 | Interview assignment/execution owner; access has no start operation | Reopen, reissue, initiation integration | Completed assignment not restarted; new interview uses a new assignment |
 
 ## 4. Component Breakdown
@@ -227,6 +229,7 @@ Password hashing, token generation/digesting and CSRF use replaceable applicatio
 | Separate migration command and read-only startup guard | Automatic startup `up` would retain release-time DDL inside each app process. An explicit pre-start command makes execution deliberate, with a separate budget; startup can reject unprepared databases | Manual-migration policy D8; ten-second startup and bounded cleanup remain binding | Revised; no fallback to AutoMigrate; older DDL-running binaries excluded from routine rollback |
 | Two baseline versions and guarded legacy adoption | One combined create-all file cannot cleanly adopt a Task-only database. Blind IF NOT EXISTS or forced version stamping can hide incompatible constraints | Existing Task/account/session compatibility; §3.3 manifest checks and exclusive coordination | Retained proposal; versions 1–2 separate Task from administrative schema; refusal on drift is deliberate |
 | No seed accounts or role tables | Fixed enums need no reference rows; SQL account insertion would bypass approved hashing/provisioning and invite hardcoded credentials | BR-020/021; T1 no-overwrite bootstrap; approved five-table access scope | Retained; bootstrap runs only after compatible schema is established |
+| HR revoke commits the marker, then calls `CancelNonterminal` in a second transaction | BR-CORE-038 removes access and BR-CORE-055 must cancel a nonterminal run. One shared SQL transaction would require `executionrepository.Store.WithAssignment` to join the access transaction; that method always opens `DB.Transaction`, and `CancelNonterminal` already documents that the access change is committed first and that it does not read the marker. A candidate `401` leaves the run in place, which fails BR-CORE-055. Putting the route in Candidate Interview would give the command to an actor who has no HR session | Approved 2026-11-02, decision-log D11; existing `CancelNonterminal` signature stays | Retained as two commits inside one command. HTTP success waits for the second commit. In-interview expiry stays deferred (Q7) |
 
 Assessment gate: role, lifetime, scope and business table boundaries are retained. Schema ownership is revised with owner approval (Q6 resolved), explicit baseline/adoption/error paths and proof plans in §3. Migration reconciliation needs both code and documents in T16–T20; this revision changes documents only. Q1 is resolved in §6; Q2–Q5 remain deferred with affected tasks in §9. No new test success is inferred from code presence or task checkmarks.
 
@@ -257,12 +260,13 @@ Technical references consulted for these adapter choices: [OWASP password storag
 2. HR requests invitation issuance; assignment lock coordinates replacement and access eligibility. Only the new credential is returned after commit.
 3. Candidate browser opens the link without starting execution. Explicit POST exchange checks origin, invitation and assignment; it commits a scoped session before setting the candidate cookie.
 4. Candidate page obtains safe session/assignment context. Reload uses the current cookie. Consent and sufficient validity for the execution deadline are checked by Interview before initiation.
-5. Reissue blocks new exchanges using the old invitation, while existing session access remains governed by its session/assignment. Assignment revocation blocks existing and new access and coordinates execution cancellation.
-6. A further interview for the same person creates a new assignment, not a reset of this one.
+5. Reissue blocks new exchanges using the old invitation, while existing session access remains governed by its session and assignment. Reissue does not call `CancelNonterminal`.
+6. HR revokes the assignment with `POST /admin/interview-assignments/{id}/revocation`. The command commits `access_revoked_at` when it is null, then calls `CancelNonterminal`. Later candidate requests are refused. That refusal is not the cancellation.
+7. A further interview for the same person creates a new assignment, not a reset of this one.
 
 ## 6. Request / Response
 
-Accepted for `CORE-IAM-001` (T1 sections A–E) on 2026-11-01 and `CORE-IAM-010` (T10 sections F–I) on 2026-11-01. Use the established JSON envelope, strict fields and UTC millisecond response timestamps. No password hashes, token digests, salary policy, HR reports or database details in responses. No session credential in response JSON; only HttpOnly cookies. Invitation issuance remains the deliberate exception for a new invitation credential shown once to authorized HR; never return it on read.
+Accepted for `CORE-IAM-001` (T1 sections A–E) on 2026-11-01, `CORE-IAM-010` (T10 sections F–I) on 2026-11-01, and `CORE-IAM-022` (section J) on 2026-11-02. Use the established JSON envelope, strict fields and UTC millisecond response timestamps. No password hashes, token digests, salary policy, HR reports or database details in responses. No session credential in response JSON; only HttpOnly cookies. Invitation issuance remains the deliberate exception for a new invitation credential shown once to authorized HR; never return it on read.
 
 ### 6.1 Administrative identity, password and bootstrap (approved A)
 
@@ -413,7 +417,23 @@ Rejected cases: two creates with `Andi@Example.com` → two candidate IDs; excha
 
 Interview owns table `interview_assignments`. Access never creates, migrates or fakes that table. Required access facts, read only after `SELECT … FOR UPDATE` on the assignment row: stable assignment ID; `candidate_id` referencing `candidates(id)` RESTRICT; pinned `published_revision_id`; `access_revoked_at` nullable; `completed_at` nullable terminal marker. Invitation and session rows store `assignment_id` as a real FK to that table once Interview's migration exists; until then T11 must not install invitation/session FKs against a placeholder.
 
-`AssignmentAccess.WithAssignment` locks the assignment first, then runs invitation or session writes inside that boundary. `AssignmentFacts.PermitsInvitation`, `PermitsExchange` and `PermitsSessionAccess` deny when identity is missing or access is revoked. Terminal completion does not deny access and never authorizes creating, restarting or cancelling execution. Consent, admission duration checks and active-run cancellation remain Interview-owned. Cross-assignment composite FKs on invitations/sessions prevent binding a session to another assignment's invitation.
+`AssignmentAccess.WithAssignment` locks the assignment first, then runs invitation or session writes inside that boundary. `AssignmentFacts.PermitsInvitation`, `PermitsExchange` and `PermitsSessionAccess` deny when identity is missing or access is revoked. Terminal completion does not deny access and never authorizes creating, restarting or cancelling execution. Consent and the session-covers-deadline check stay with Candidate Interview. HR revocation of assignment access is §6.10. Cross-assignment composite FKs on invitations/sessions prevent binding a session to another assignment's invitation.
+
+### 6.10 Assignment access revocation (approved J)
+
+Approved 2026-11-02 for `CORE-IAM-022`. This is an administrative API, not an HR page and not a candidate action. Publish the route in OpenAPI, `docs/api/identity-access.md`, and `docs/api/CHANGELOG.md` only when the operation is implemented.
+
+`POST /admin/interview-assignments/{id}/revocation` uses the same origin, `Content-Type: application/json`, administrative cookie, and `X-CSRF-Token` rules as invitation issue. The body is an empty object or absent. Unknown or duplicate JSON fields are `400` `INVALID_INPUT` before a lock. A malformed assignment id is `400` `INVALID_INPUT` before a lock.
+
+Authority is the current HR session. ADMIN is `403` `IA_FORBIDDEN` before the assignment is read. A missing, expired, revoked, or candidate-cookie session is `401` `IA_UNAUTHENTICATED`. Error order otherwise follows §6.5.
+
+The operation locks `interview_assignments` by id. A missing row is `404` `NOT_FOUND` and does not call lifecycle. When `access_revoked_at` is null, it stores the trusted UTC millisecond clock, using an explicit column update so a zero or null value cannot be skipped. When the marker is already set, it leaves that instant unchanged. `completed_at` is not written. No invitation row is revoked by this command, and no session row is deleted. The column and its check already exist in `000005_interview_assignments`; this command adds no migration and no seed.
+
+After that access transaction commits, the operation calls the existing `CancelNonterminal` with the assignment id, reason `access_revoked`, and the HR account id as `ActorRef`. It does not call `Cancel`, and it does not pass `authority_expired`. The call is made whether or not an execution exists and whether or not the marker was written on this attempt. Lifecycle locks the assignment again, then the execution, and leaves an already terminal execution unchanged. An assignment with no execution is a successful revocation.
+
+Success is `200` and only after `CancelNonterminal` returns nil. `data` is `{ "id", "accessRevokedAt" }`. It contains no token, cookie, execution id, or execution state. If the lifecycle call fails after the marker commit, the response is `503` `IA_DEPENDENCY_UNAVAILABLE` with no success body. A repeat then returns the original `accessRevokedAt` once cancellation has committed.
+
+`IssueInvitation` does not call `CancelNonterminal`. Candidate interview continues to refuse a revoked or expired session with `401` and does not call `CancelNonterminal`. Detecting that a session expired during a live run remains Q7 and is not part of this route.
 
 ### Creation, restoration, and transition contracts
 
@@ -427,7 +447,7 @@ Interview owns table `interview_assignments`. Access never creates, migrates or 
 | Invitation issue/reissue | Existing eligible assignment; trusted 24h expiry; prior invitation revoked | HR then assignment ownership/existence, serialize on assignment | Old link invalid; existing sessions/execution not automatically cancelled | Concurrent reissue, rollback, lost response §6.7 |
 | Invitation exchange | Exact secret proof, live invitation and assignment, reusable until expiry/revocation | Reject missing/invalid/expired/revoked proof as uniform 410 before session creation; technical failure distinct | New 2h access session only; no consent/execution/model call | Exact expiry, token collision, races, retry §6.7 |
 | Candidate session resolve | Live scoped session plus accessible assignment | Outside-session resource hidden as 404; unauthenticated as 401 | No new session/expiry extension on GET; invitation provenance not ongoing validity | Cross-assignment access, reload, source invitation reissued |
-| Assignment revoke / admission | Interview contract §6.9; lock assignment before execution | Serialize before acceptance; no admission from stale access facts | Live access removed; execution cancellation belongs to Interview | Real consumer race and cancellation integration T14 |
+| Assignment revocation | Current HR, §6.10; empty body; trusted clock; marker written only while null | §6.5 before the lock; missing assignment 404; lifecycle failure after the marker is 503 | `access_revoked_at` committed, then `CancelNonterminal` reason `access_revoked`; no execution body; reissue and candidate `401` do not call it | `CORE-IAM-022`: first revoke, repeat, no execution, nonterminal cancel, reissue, failed lifecycle call |
 
 ## 7. Error Handling
 
@@ -451,6 +471,7 @@ These are implementation verification gates, not completed checks.
 - [ ] Fresh, Task-only and populated administrative adoption preserve data; drift/dirty/lock failure and disposable reversal/recovery verified.
 - [ ] Active OpenAPI, endpoint docs, changelog, codes and EN/ID messages synchronized when implemented.
 - [ ] No test/database acceptance, historical RED/GREEN, or Q2 completion inferred from this document.
+- [ ] `CORE-IAM-022` writes `access_revoked_at` and then calls `CancelNonterminal`. Reissue and candidate `401` do not. No migration, HR page, or `authority_expired` path is added by that task.
 
 ## 9. Risks & Open Questions
 
@@ -462,6 +483,7 @@ These are implementation verification gates, not completed checks.
 | Q4 | **Resolved 2026-11-01 (T10):** candidate name/email follow §6.1 canonicalization; email is nonunique contact; reuse is by known `candidate_id`; bearer link proves possession | T11 candidate table; T12 create/read | Matching/upsert by email remains forbidden |
 | Q5 | Product/data owner: retention and FK-safe purge of contacts, credentials and assignment-bound references | T15 cleanup only | Explicit retention/purge ordering and data-loss consequences accepted; no physical purge before then |
 | Q6 | **Resolved 2026-11-01:** owner explicitly selected manual migrations because the project has grown; see D8 | T16–T20; T11 must use the completed foundation | Policy decision is approved; no further policy confirmation needed. Target execution still requires an authorized database and inspected schema. |
+| Q7 | Who notices that a candidate session expired during a nonterminal run, and when? Owner: product, with Identity and Access. Not decided on 2026-11-02 | No current task. Execution Lifecycle T10 does not pick this up | A later decision names the trigger and a task that calls `CancelNonterminal` with `authority_expired`. No scheduler is added meanwhile |
 
 Operational readiness is distinct from Q6 approval: no target database inventory, backup/restore rehearsal, pinned runner version or migration runtime evidence exists yet. T16–T20 establish these before cutover. Legacy drift blocks that target's adoption only; it does not block drafting artifacts or isolated verification. Baseline locking must cover catalog comparison and metadata adoption together. Future version allocation must account for the real assignment migration rather than assuming its table appears automatically.
 
@@ -475,3 +497,4 @@ Administrative foundation and ACP Q2 access delivery do not depend on candidate 
 | v1.1 | 2026-11-01 | Incorporate T1 A–E administrative contracts and resolve Q1 | Executable HTTP/schema/bootstrap contract for T4/T6/T8 without runtime implementation |
 | v1.2 | 2026-11-01 | Mode C: align administrative baseline with T1–T9 records; plan shared Task/access SQL versions, legacy adoption, explicit runner, startup guard, seed assessment and T16–T20 | Owner approved replacing AutoMigrate with manual migrations as the project grew; retain data/business contracts and candidate decision gates |
 | v1.3 | 2026-11-01 | Incorporate T10 F–I candidate, exchange and assignment collaboration contracts; resolve Q2/Q3/Q4 | Executable candidate/session contract for T12; T11 invitation FKs still wait for Interview migration and T20 |
+| v1.4 | 2026-11-02 | Add §6.10 HR assignment revocation and Q7 for in-interview session expiry | Owner approved `CORE-IAM-022` as the revocation caller. Expiry during a run stays undecided. Documents only |

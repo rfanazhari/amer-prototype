@@ -38,6 +38,7 @@
           return;
         }
         status.textContent = "Access ready";
+        window.location.replace("/candidate/interview/page");
       }).catch(function () {
         status.textContent = "Invitation is no longer available";
       });

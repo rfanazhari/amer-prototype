@@ -1,0 +1,172 @@
+<!doctype html><html lang="en"><title>T10 browser fixtures</title><body>
+<pre id="result">RUNNING</pre>
+<script>
+const source = PAGE_SOURCE;
+const results = [];
+function check(condition, message) { if (!condition) throw new Error(message); }
+async function flush() { for (let i = 0; i < 40; i++) await Promise.resolve(); }
+async function fixture(view, test, options = {}) {
+  const frame = document.createElement('iframe');
+  document.body.append(frame);
+  const w = frame.contentWindow;
+  const calls = [], timers = new Map();
+  let timerID = 0;
+  w.sessionStorage.clear();
+  const reply = (data, status = 200) => Promise.resolve({ok: status < 400, status, json: () => Promise.resolve(JSON.parse(JSON.stringify({data})))});
+  w.fetch = (url, init = {}) => {
+    calls.push({url, ...init});
+    if (options.fetch) { const response = options.fetch(url, init, reply); if (response) return response; }
+    if (url === '/candidate/session') return reply({csrfToken: 'fixture-csrf'}, options.unauthenticated ? 401 : 200);
+    return reply(view);
+  };
+  w.setTimeout = w.setInterval = (fn, delay) => { check(delay === 2000, 'poll must wait two seconds'); timers.set(++timerID, fn); return timerID; };
+  w.clearTimeout = w.clearInterval = id => timers.delete(id);
+  w.confirm = () => false;
+  w.document.open(); w.document.write(source); w.document.close();
+  await flush();
+  const el = id => w.document.getElementById(id);
+  const click = async id => { check(el(id) && !el(id).hidden && !el(id).disabled, id + ' must be offered'); el(id).click(); await flush(); };
+  const reload = async () => { timers.clear(); w.document.open(); w.document.write(source); w.document.close(); await flush(); };
+  const poll = async () => { check(timers.size === 1, 'one active poll'); const fn = timers.values().next().value; timers.clear(); fn(); await flush(); };
+  try { await test({w, calls, timers, el, click, poll, reply, reload}); } finally { frame.remove(); }
+  check(calls.every(c => !/report|session-attempts|\/ready/.test(c.url)), 'no sibling routes');
+  check(calls.every(c => c.credentials === 'include'), 'include session cookie');
+  results.push(options.name);
+}
+function screen(state = null, current = true) {
+  const execution = state && {id: 'execution-1', state, version: 7, controllerVersion: 3, isCurrentController: current};
+  return {notice: {version: 'notice-261102', statement: '<img src=x onerror=alert(1)> Approved notice'}, consent: {id: 'consent-1'}, execution,
+    actions: state ? (['COMPLETED', 'FAILED', 'CANCELLED'].includes(state) ? [] : [current ? 'cancel' : 'takeover']) : ['start'], progress: null};
+}
+(async () => {
+  await fixture(screen(), async ({el, calls, timers}) => {
+    check(el('notice').hidden, 'no notice without session');
+    check(el('status').textContent.includes('Access is no longer available'), 'access-error label');
+    check(calls.length === 1 && timers.size === 0, 'access refusal stops requests');
+  }, {name: 'missing-cookie', unauthenticated: true});
+  const consent = screen(); consent.consent = null; consent.actions = ['accept'];
+  await fixture(consent, async ({el, click, calls}) => {
+    check(!el('notice').hidden && !el('accept').hidden, 'API notice and accept');
+    check(!el('statement').querySelector('img'), 'notice rendered as text');
+    await click('accept');
+    const call = calls.find(c => c.url === '/candidate/consents');
+    check(JSON.parse(call.body).noticeVersion === 'notice-261102' && JSON.parse(call.body).accepted === true, 'explicit consent');
+    check(call.headers['X-CSRF-Token'] === 'fixture-csrf', 'CSRF token');
+  }, {name: 'notice-consent'});
+  await fixture(screen(), async ({w, el, click, calls, reply, reload}) => {
+    check(el('start') && !el('start').hidden, 'start offered by API');
+    check(!calls.some(c => c.method === 'POST'), 'refresh never starts');
+    await click('start');
+    await reload();
+    await click('start');
+    const starts = calls.filter(c => c.url === '/candidate/executions');
+    check(starts.length === 2, 'retry can be made after uncertain start');
+    check(starts[0].headers['Idempotency-Key'] === starts[1].headers['Idempotency-Key'], 'uncertain retry keeps key');
+    check(JSON.parse(starts[0].body).consentId === 'consent-1', 'stored consent id');
+    const controller = starts[0].headers['X-Interview-Controller'];
+    check(controller && Object.values(w.sessionStorage).includes(controller), 'controller stored in sessionStorage');
+    check(calls.filter(c => c.url === '/candidate/interview').every(c => c.headers['X-Interview-Controller'] === controller), 'reads send tab header');
+  }, {name: 'start-uncertain-retry', fetch: (url, init, reply) => url === '/candidate/executions' && reply({}, 503)});
+  const noActions = screen(); noActions.actions = [];
+  await fixture(noActions, async ({el}) => { check(el('start').hidden, 'start hidden unless offered'); }, {name: 'start-policy'});
+  const live = screen('RUNNING', false);
+  await fixture(live, async ({w, el, click, calls, poll, timers}) => {
+    check(el('cancel').hidden && !el('takeover').hidden, 'second tab read-only');
+    check(el('status').textContent.toLowerCase().includes('read-only'), 'read-only label');
+    await click('takeover');
+    const take = calls.find(c => c.url.endsWith('/takeover'));
+    check(JSON.parse(take.body).expectedVersion === 3 && JSON.parse(take.body).controllerId === take.headers['X-Interview-Controller'], 'controller version and id');
+    check(!el('cancel').hidden, 'takeover enables controller actions after refresh');
+    const before = calls.length;
+    await click('cancel');
+    check(calls.length === before, 'declined confirmation makes no request');
+    w.confirm = () => true;
+    await click('cancel');
+    const cancel = calls.find(c => c.url.endsWith('/cancel'));
+    check(JSON.parse(cancel.body).expectedVersion === 7, 'cancel uses execution version');
+    check(el('status').textContent.toLowerCase().includes('cancelled'), 'cancel is labelled cancelled');
+    check(timers.size === 0, 'cancel stops polling');
+  }, {name: 'takeover-confirm-cancel', fetch: (url, init, reply) => {
+    if (url.endsWith('/takeover')) { live.execution.isCurrentController = true; live.actions = ['cancel']; return reply({isCurrentController: true, controllerVersion: 4}); }
+    if (url.endsWith('/cancel')) { live.execution.state = 'CANCELLED'; live.actions = []; return reply(live.execution); }
+  }});
+  for (const state of ['COMPLETED', 'FAILED', 'CANCELLED']) {
+    await fixture(screen(state), async ({el, timers, calls}) => {
+      check(el('status').textContent.toLowerCase().includes(state.toLowerCase()), state + ' immediate outcome');
+      check(timers.size === 0, state + ' stops polling');
+      check(['accept','start','takeover','cancel'].every(id => el(id).hidden), 'no terminal mutations');
+      check(calls.length === 2, 'terminal only session and interview');
+    }, {name: 'terminal-' + state});
+  }
+  const progress = screen('CREATED');
+  await fixture(progress, async ({el, poll, timers, calls}) => {
+    check(timers.size === 1, 'created polls');
+    progress.execution.state = 'COMPLETED'; progress.actions = [];
+    await poll();
+    check(timers.size === 0 && el('status').textContent.includes('COMPLETED'), 'poll reaches terminal and stops');
+  }, {name: 'poll-terminal'});
+  for (const status of [200, 201]) {
+    const started = screen();
+    await fixture(started, async ({click, el, timers, calls, reload}) => {
+      await click('start');
+      check(el('status').textContent.includes('CREATED') && timers.size === 1, 'successful start renders and polls');
+      const tab = calls.find(c => c.url === '/candidate/executions').headers['X-Interview-Controller'];
+      await reload();
+      check(calls.filter(c => c.method === 'POST').length === 1, 'refresh does not restart');
+      check(calls.filter(c => c.url === '/candidate/interview').at(-1).headers['X-Interview-Controller'] === tab, 'refresh retains tab identity');
+    }, {name: 'start-' + status + '-refresh', fetch: (url, init, reply) => {
+      if (url === '/candidate/executions') { started.execution = screen('CREATED').execution; started.actions = ['cancel']; return reply(started.execution, status); }
+    }});
+  }
+  let finishOldPoll;
+  let interviewReads = 0;
+  const stale = screen('RUNNING');
+  await fixture(stale, async ({poll, click, w, el, timers}) => {
+    await poll();
+    w.confirm = () => true;
+    await click('cancel');
+    finishOldPoll(); await flush();
+    check(el('status').textContent.includes('CANCELLED') && timers.size === 0, 'late live poll cannot undo cancellation');
+  }, {name: 'superseded-poll', fetch: (url, init, reply) => {
+    if (url === '/candidate/interview' && ++interviewReads === 2) {
+      return new Promise(resolve => { finishOldPoll = () => resolve({ok: true, status: 200, json: () => Promise.resolve({data: screen('RUNNING')})}); });
+    }
+    if (url.endsWith('/cancel')) return reply(screen('CANCELLED').execution);
+  }});
+  let reads = 0;
+  await fixture(screen('RUNNING'), async ({poll, el, timers}) => {
+    await poll();
+    check(el('status').textContent.includes('Access is no longer available'), 'expired poll session');
+    check(el('cancel').hidden && timers.size === 0, 'expired session hides actions and stops poll');
+  }, {name: 'poll-session-expired', fetch: (url, init, reply) => url === '/candidate/interview' && ++reads === 2 && reply({}, 401)});
+  const conflict = screen('RUNNING');
+  await fixture(conflict, async ({w, click, el}) => {
+    w.confirm = () => true;
+    await click('cancel');
+    check(el('cancel').hidden && !el('takeover').hidden, 'conflict refreshes controller actions');
+    check(!el('error').hidden && !el('error').textContent.includes('technical'), 'safe conflict explanation');
+  }, {name: 'controller-conflict', fetch: (url, init, reply) => {
+    if (url.endsWith('/cancel')) { conflict.execution.isCurrentController = false; conflict.actions = ['takeover']; return reply({}, 409); }
+  }});
+  const safe = screen('RUNNING'); safe.progress = {phase: '<b>Connecting</b>', connection: 'reconnecting'};
+  await fixture(safe, async ({el}) => {
+    check(!el('progress').hidden && el('progress').textContent.includes('reconnecting'), 'candidate-safe progress');
+    check(!el('progress').querySelector('b'), 'progress rendered as text');
+  }, {name: 'safe-progress'});
+  let sessionReads = 0;
+  await fixture(screen(), async ({click, el, calls}) => {
+    check(!el('error').hidden, 'initial network failure is visible');
+    await click('refresh');
+    check(!el('start').hidden, 'session read can recover');
+    check(calls.filter(c => c.url === '/candidate/session').length === 2, 'refresh recovers CSRF before actions');
+  }, {name: 'session-network-recovery', fetch: url => url === '/candidate/session' && ++sessionReads === 1 && Promise.reject(new Error('network'))});
+  await fixture(screen(), async ({click, el, calls}) => {
+    await click('start');
+    check(!el('error').hidden && !el('start').disabled, 'lost start response allows explicit retry');
+    await click('start');
+    const starts = calls.filter(c => c.method === 'POST');
+    check(starts[0].headers['Idempotency-Key'] === starts[1].headers['Idempotency-Key'], 'network retry keeps intent');
+  }, {name: 'start-network-retry', fetch: url => url === '/candidate/executions' && Promise.reject(new Error('network'))});
+  document.getElementById('result').textContent = 'PASS ' + results.length + ' browser scenarios: ' + results.join(', ');
+})().catch(error => { document.getElementById('result').textContent = 'FAIL ' + error.message; });
+</script></body></html>

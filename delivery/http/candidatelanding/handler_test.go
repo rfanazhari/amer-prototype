@@ -91,3 +91,25 @@ func TestInvitationLandingRejectsNonGet(t *testing.T) {
 		})
 	}
 }
+
+// TestInvitationLandingOpensInterviewPageOnlyAfterSessionSuccess verifies the one handoff navigation follows a successful session read.
+func TestInvitationLandingOpensInterviewPageOnlyAfterSessionSuccess(t *testing.T) {
+	rec := httptest.NewRecorder()
+	candidatelanding.Handler{}.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/candidate/access?token=invitation-secret", nil))
+	body := rec.Body.String()
+	require.Contains(t, body, "<script>")
+	script := body[strings.Index(body, "<script>"):]
+
+	exchangeAt := strings.Index(script, "/candidate/access/exchange")
+	sessionAt := strings.Index(script, `fetch("/candidate/session"`)
+	guardAt := strings.Index(script, "!response || !response.ok")
+	navigateAt := strings.Index(script, "/candidate/interview/page")
+
+	require.GreaterOrEqual(t, navigateAt, 0)
+	require.Less(t, exchangeAt, sessionAt)
+	require.Less(t, sessionAt, guardAt)
+	require.Less(t, guardAt, navigateAt, "navigation sits after the failed-session return")
+	require.Equal(t, 1, strings.Count(script, "/candidate/interview/page"))
+	require.Contains(t, script, "Invitation is no longer available")
+	require.NotContains(t, strings.ToLower(body), "consent")
+}

@@ -38,6 +38,8 @@ POST `/candidate/access/exchange` requires origin and `Content-Type: application
 
 GET `/candidate/session` requires the candidate cookie. Browsers omit `Origin` on same-origin GET; a missing `Origin` is accepted when `Host` matches `ACCESS_HTTP_ORIGIN`. It returns `200` with the same candidate/assignment/session fields plus `csrfToken`, and never exchanges or starts an interview. Browser refresh reuses the existing session. Administrative cookies cannot authenticate this route.
 
+After `GET /candidate/session` succeeds, the landing page navigates once to `/candidate/interview/page`; the interview routes are documented in [candidate-interview.md](candidate-interview.md). A failed exchange still shows the unavailable message.
+
 Authenticated candidate unsafe methods require `X-CSRF-Token` bound to credential kind `candidate`.
 
 ## Errors

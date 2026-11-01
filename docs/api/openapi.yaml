@@ -2,8 +2,8 @@
   "openapi": "3.0.3",
   "info": {
     "title": "amer-prototype Task API",
-    "version": "0.6.0",
-    "description": "Task reference feature, voice session setup, identity/access, and HR agent configuration. All active responses use the standard JSON envelope. Unknown routes return 404; unsupported methods return 405. Task, voice, and health remain unauthenticated. Request bodies are limited to 1 MiB. System-owned timestamps, IDs and status are rejected as request fields. Completion events are volatile and process-local. POST /voice-sessions exchanges one WebRTC offer for a provider SDP answer. Administrative, candidate, and configuration routes use origin, cookies, and CSRF as documented in identity-access.md and agent-configuration.md."
+    "version": "0.10.0",
+    "description": "Task reference feature, voice session setup, identity/access, and HR agent configuration. All active responses use the standard JSON envelope. Unknown routes return 404; unsupported methods return 405. Task, voice, and health remain unauthenticated. Request bodies are limited to 1 MiB. System-owned timestamps, IDs and status are rejected as request fields. Completion events are volatile and process-local. POST /voice-sessions exchanges one WebRTC offer for a provider SDP answer. Administrative, candidate, and configuration routes use origin, cookies, and CSRF as documented in identity-access.md, agent-configuration.md and candidate-interview.md."
   },
   "servers": [
     {
@@ -26,7 +26,7 @@
     },
     {
       "name": "candidate",
-      "description": "Candidate invitation access and session routes."
+      "description": "Candidate invitation access, session, consent and interview execution routes."
     },
     {
       "name": "health",
@@ -2754,6 +2754,1198 @@
           "voice-sessions"
         ]
       }
+    },
+    "/candidate/interview": {
+      "get": {
+        "operationId": "getCandidateInterview",
+        "summary": "Return the candidate-safe interview screen model: notice, consent, execution, actions and progress. A read never starts an interview and never records consent.",
+        "description": "Dispatched ahead of the access catch-all. X-Interview-Controller is the tab id kept in sessionStorage; it tells the server whether this tab is the controller and never authenticates. The response has no controller id, salary, report or transcript member. notice is null and actions is empty when the notice catalog is empty. execution is null until Execution Lifecycle has an execution for the assignment.",
+        "security": [
+          {
+            "CandidateCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": false,
+            "description": "Must equal ACCESS_HTTP_ORIGIN when present. Same-origin GET may omit it; Host must then match ACCESS_HTTP_ORIGIN.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Interview-Controller",
+            "in": "header",
+            "required": false,
+            "description": "Tab id kept in sessionStorage. Never returned by the server.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "example": "id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Candidate-safe interview view.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CandidateInterviewEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "INVALID_INPUT for a foreign Origin.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "IA_UNAUTHENTICATED for a missing, expired, revoked or substituted session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "METHOD_NOT_ALLOWED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "INTERNAL_ERROR.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "candidate"
+        ]
+      }
+    },
+    "/candidate/consents": {
+      "post": {
+        "operationId": "acceptCandidateNotice",
+        "summary": "Record acceptance of the current notice version for the session's assignment. 201 on first acceptance, 200 with the same acceptance on retry.",
+        "description": "Precedence: method, Origin and content type, strict JSON, session (401), CSRF (403 CIN_FORBIDDEN), then policy. accepted false and a notice version that is not current are INVALID_INPUT and write nothing. An empty notice catalog is 503 CIN_NOTICE_UNAVAILABLE and writes nothing. Consent is insert-only; there is no withdrawal.",
+        "security": [
+          {
+            "CandidateCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "description": "csrfToken from GET /candidate/session.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "example": "id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CandidateConsentRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The acceptance already stored for that assignment and notice version.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CandidateConsentEnvelope"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "The acceptance created by this request.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CandidateConsentEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "INVALID_INPUT for malformed JSON, unknown or system-owned fields, accepted false, or a notice version that is malformed or not current.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "IA_UNAUTHENTICATED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "CIN_FORBIDDEN for a missing or mismatched CSRF header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "METHOD_NOT_ALLOWED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "INTERNAL_ERROR.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "CIN_NOTICE_UNAVAILABLE when the notice catalog is empty or the acceptance cannot be read back.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "candidate"
+        ]
+      }
+    },
+    "/candidate/interview/page": {
+      "get": {
+        "operationId": "getCandidateInterviewPage",
+        "summary": "Serve the candidate interview page with consent, API-offered start and control actions, confirmed cancel, and distinct terminal outcomes. Live views poll every two seconds; refresh never starts an execution. The JSON API enforces the session; without a cookie the page shows the access-error state and no notice.",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Interview page HTML with no-store and no-referrer.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "no-store"
+                }
+              },
+              "Referrer-Policy": {
+                "schema": {
+                  "type": "string",
+                  "example": "no-referrer"
+                }
+              }
+            },
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "METHOD_NOT_ALLOWED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "candidate"
+        ]
+      }
+    },
+    "/candidate/executions": {
+      "post": {
+        "operationId": "startCandidateExecution",
+        "summary": "Commit or find the session assignment execution using stored consent.",
+        "description": "Precedence: method; origin, content type and strict input; candidate session; CSRF on POST; execution assignment scope; policy; dependency; ambiguous commit; technical error. No controller id, salary, transcript or report is returned. All JSON responses use no-store. Lifecycle remains unbound until T11, returning 503 CIN_DEPENDENCY_UNAVAILABLE. No execution is created by this adapter.",
+        "security": [
+          {
+            "CandidateCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "description": "csrfToken from GET /candidate/session.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "example": "id"
+            }
+          },
+          {
+            "name": "X-Interview-Controller",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$"
+            },
+            "description": "Tab id in sessionStorage; takeover body must equal this header. This does not authenticate."
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+            },
+            "description": "Retry the same key and consent id after a lost response or CIN_START_UNCERTAIN."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CandidateStartRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Candidate-safe result.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CandidateExecutionEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "INVALID_INPUT for origin, content type, malformed/unknown/duplicate fields, invalid tab, or invalid request values.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "IA_UNAUTHENTICATED.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "METHOD_NOT_ALLOWED.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "INTERNAL_ERROR.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "CIN_DEPENDENCY_UNAVAILABLE for an unbound sibling; CIN_START_UNCERTAIN for ambiguous start, retry the same key.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "CIN_FORBIDDEN for CSRF mismatch; CIN_SESSION_COVERAGE when the session does not outlast the interview budget.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "CIN_CONSENT_REQUIRED or CIN_IDEMPOTENCY_CONFLICT.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Execution committed by this call; replay returns 200.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CandidateExecutionEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "candidate"
+        ]
+      }
+    },
+    "/candidate/executions/{id}": {
+      "get": {
+        "operationId": "getCandidateExecution",
+        "summary": "Poll one execution inside the session assignment.",
+        "description": "Precedence: method; origin, content type and strict input; candidate session; CSRF on POST; execution assignment scope; policy; dependency; ambiguous commit; technical error. No controller id, salary, transcript or report is returned. All JSON responses use no-store. Lifecycle remains unbound until T11, returning 503 CIN_DEPENDENCY_UNAVAILABLE. No execution is created by this adapter.",
+        "security": [
+          {
+            "CandidateCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": false,
+            "description": "Must equal ACCESS_HTTP_ORIGIN when present. Same-origin GET may omit it; Host must then match ACCESS_HTTP_ORIGIN.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "example": "id"
+            }
+          },
+          {
+            "name": "X-Interview-Controller",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$"
+            },
+            "description": "Tab id in sessionStorage; takeover body must equal this header. This does not authenticate."
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Execution identity scoped to the session assignment; another assignment is 404."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Candidate-safe result.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CandidateExecutionEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "INVALID_INPUT for origin.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "IA_UNAUTHENTICATED.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "METHOD_NOT_ALLOWED.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "INTERNAL_ERROR.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "CIN_DEPENDENCY_UNAVAILABLE for an unbound sibling.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND: absent execution or another assignment execution id.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "candidate"
+        ]
+      }
+    },
+    "/candidate/executions/{id}/takeover": {
+      "post": {
+        "operationId": "takeoverCandidateExecution",
+        "summary": "Replace the controlling tab using the controller version.",
+        "description": "Precedence: method; origin, content type and strict input; candidate session; CSRF on POST; execution assignment scope; policy; dependency; ambiguous commit; technical error. No controller id, salary, transcript or report is returned. All JSON responses use no-store. Lifecycle remains unbound until T11, returning 503 CIN_DEPENDENCY_UNAVAILABLE. No execution is created by this adapter.",
+        "security": [
+          {
+            "CandidateCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "description": "csrfToken from GET /candidate/session.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "example": "id"
+            }
+          },
+          {
+            "name": "X-Interview-Controller",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$"
+            },
+            "description": "Tab id in sessionStorage; takeover body must equal this header. This does not authenticate."
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Execution identity scoped to the session assignment; another assignment is 404."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CandidateTakeoverRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Candidate-safe result.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CandidateTakeoverEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "INVALID_INPUT for origin, content type, malformed/unknown/duplicate fields, invalid tab, or invalid request values.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "IA_UNAUTHENTICATED.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "METHOD_NOT_ALLOWED.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "INTERNAL_ERROR.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "CIN_DEPENDENCY_UNAVAILABLE for an unbound sibling.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND: absent execution or another assignment execution id.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "CIN_FORBIDDEN for CSRF mismatch.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "CIN_CONTROLLER_CONFLICT for a stale version, CIN_TERMINAL, or CIN_NOT_LIVE.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "candidate"
+        ]
+      }
+    },
+    "/candidate/executions/{id}/cancel": {
+      "post": {
+        "operationId": "cancelCandidateExecution",
+        "summary": "Cancel as the current controller using the execution version.",
+        "description": "Precedence: method; origin, content type and strict input; candidate session; CSRF on POST; execution assignment scope; policy; dependency; ambiguous commit; technical error. No controller id, salary, transcript or report is returned. All JSON responses use no-store. Lifecycle remains unbound until T11, returning 503 CIN_DEPENDENCY_UNAVAILABLE. No execution is created by this adapter.",
+        "security": [
+          {
+            "CandidateCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "description": "csrfToken from GET /candidate/session.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "example": "id"
+            }
+          },
+          {
+            "name": "X-Interview-Controller",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$"
+            },
+            "description": "Tab id in sessionStorage; takeover body must equal this header. This does not authenticate."
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Execution identity scoped to the session assignment; another assignment is 404."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CandidateCancelRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Candidate-safe result.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CandidateExecutionEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "INVALID_INPUT for origin, content type, malformed/unknown/duplicate fields, invalid tab, or invalid request values.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "IA_UNAUTHENTICATED.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "METHOD_NOT_ALLOWED.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "INTERNAL_ERROR.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "CIN_DEPENDENCY_UNAVAILABLE for an unbound sibling.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND: absent execution or another assignment execution id.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "CIN_FORBIDDEN for CSRF mismatch. CIN_NOT_CONTROLLER for cancellation from another tab.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "CIN_CONTROLLER_CONFLICT for a stale version, CIN_TERMINAL, or CIN_NOT_LIVE.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "candidate"
+        ]
+      }
     }
   },
   "components": {
@@ -3993,6 +5185,358 @@
           },
           "data": {
             "$ref": "#/components/schemas/AgentRevision"
+          }
+        }
+      },
+      "CandidateConsentRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "noticeVersion",
+          "accepted"
+        ],
+        "properties": {
+          "noticeVersion": {
+            "type": "string",
+            "description": "The notice version the candidate saw; it must equal the current version.",
+            "example": "notice-261102"
+          },
+          "accepted": {
+            "type": "boolean",
+            "description": "Must be true. false is malformed input, not withdrawal."
+          }
+        }
+      },
+      "CandidateConsent": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "noticeVersion",
+          "acceptedAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "noticeVersion": {
+            "type": "string"
+          },
+          "acceptedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "UTC with millisecond precision."
+          }
+        }
+      },
+      "CandidateConsentEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "status",
+          "data"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "success"
+            ]
+          },
+          "data": {
+            "$ref": "#/components/schemas/CandidateConsent"
+          }
+        }
+      },
+      "CandidateInterviewView": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "notice",
+          "consent",
+          "execution",
+          "actions",
+          "progress"
+        ],
+        "properties": {
+          "notice": {
+            "nullable": true,
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "version",
+              "statement"
+            ],
+            "properties": {
+              "version": {
+                "type": "string"
+              },
+              "statement": {
+                "type": "string"
+              }
+            }
+          },
+          "consent": {
+            "nullable": true,
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "noticeVersion",
+              "acceptedAt"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "noticeVersion": {
+                "type": "string"
+              },
+              "acceptedAt": {
+                "type": "string",
+                "format": "date-time"
+              }
+            }
+          },
+          "execution": {
+            "nullable": true,
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "state",
+              "version",
+              "hardDeadline",
+              "isCurrentController",
+              "controllerVersion"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "state": {
+                "type": "string",
+                "enum": [
+                  "CREATED",
+                  "RUNNING",
+                  "COMPLETED",
+                  "FAILED",
+                  "CANCELLED"
+                ]
+              },
+              "version": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "hardDeadline": {
+                "type": "string",
+                "format": "date-time",
+                "nullable": true,
+                "description": "Present once the execution is RUNNING."
+              },
+              "isCurrentController": {
+                "type": "boolean"
+              },
+              "controllerVersion": {
+                "type": "integer",
+                "format": "int64"
+              }
+            }
+          },
+          "actions": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "accept",
+                "start",
+                "takeover",
+                "cancel"
+              ]
+            }
+          },
+          "progress": {
+            "nullable": true,
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "phase",
+              "connection"
+            ],
+            "properties": {
+              "phase": {
+                "type": "string"
+              },
+              "connection": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "CandidateInterviewEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "status",
+          "data"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "success"
+            ]
+          },
+          "data": {
+            "$ref": "#/components/schemas/CandidateInterviewView"
+          }
+        }
+      },
+      "CandidateExecution": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "state",
+          "version",
+          "hardDeadline",
+          "isCurrentController",
+          "controllerVersion"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "CREATED",
+              "RUNNING",
+              "COMPLETED",
+              "FAILED",
+              "CANCELLED"
+            ]
+          },
+          "version": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "hardDeadline": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "Present once the execution is RUNNING."
+          },
+          "isCurrentController": {
+            "type": "boolean"
+          },
+          "controllerVersion": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "CandidateExecutionEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "status",
+          "data"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "success"
+            ]
+          },
+          "data": {
+            "$ref": "#/components/schemas/CandidateExecution"
+          }
+        }
+      },
+      "CandidateStartRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "consentId"
+        ],
+        "properties": {
+          "consentId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "CandidateTakeoverRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "controllerId",
+          "expectedVersion"
+        ],
+        "properties": {
+          "controllerId": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$"
+          },
+          "expectedVersion": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          }
+        }
+      },
+      "CandidateCancelRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "expectedVersion"
+        ],
+        "properties": {
+          "expectedVersion": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          }
+        }
+      },
+      "CandidateTakeoverEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "status",
+          "data"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "success"
+            ]
+          },
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "isCurrentController",
+              "controllerVersion"
+            ],
+            "properties": {
+              "isCurrentController": {
+                "type": "boolean"
+              },
+              "controllerVersion": {
+                "type": "integer",
+                "format": "int64",
+                "minimum": 1
+              }
+            }
           }
         }
       }

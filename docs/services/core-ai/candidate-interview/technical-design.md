@@ -6,6 +6,8 @@ Platform sources that refine the capability, where the later technical design is
 
 Business-driven technical decisions are D1–D3 in [decision-log.md](decision-log.md).
 
+T9 implementation evidence (2026-11-02): the four execution HTTP operations in §2 are mounted, `ControllerStore` is composed, and delivery tests use Mockery operation mocks. sqlmock exercises valid start/cancel through real application wiring and confirms `503 CIN_DEPENDENCY_UNAVAILABLE` while lifecycle is unbound. Input/session/CSRF ordering and candidate-safe results are covered by HTTP tests. Wrapped storage validation failures remain technical 500s. This does not establish real lifecycle commits, runtime fencing, or the T10 screen; T11–T13 remain pending. See [t9-execution.md](t9-execution.md).
+
 ## 1. Overview
 
 A candidate who already holds an assignment-scoped session reviews one notice, accepts that notice version, enters the assignment's one interview, follows a candidate-safe view, keeps a single controlling tab, may leave early, and sees a final outcome as soon as the interview itself is terminal.
@@ -146,7 +148,7 @@ No migration seed and no seeder. The notice statement is not a row. The current 
 
 | Target | Stable key | Proposed values | Purpose / status | Environments |
 |---|---|---|---|---|
-| In-memory notice catalog | `notice version` | Unresolved version and statement | Required before a real candidate can accept. Source: product owner, Q1. | All, once approved. Absent until then. |
+| In-memory notice catalog | `notice version` | `notice-261102` and the statement in section 6 | Required before a real candidate can accept. Source: product owner, Q1 (resolved). | All. |
 
 Open data decision Q1 blocks T1 and any demonstration that records a real acceptance. It does not block the schema, the fail-closed operations, or tests that inject a fixture notice.
 
@@ -271,6 +273,26 @@ When an execution exists:
 | `CREATED` or `RUNNING`, this tab is the controller | `cancel` |
 | Terminal | none |
 
+### Notice catalog value
+
+Resolved Q1 (product owner, 2026-11-02). The catalog is a composition constant in `infrastructure/runtime/candidatenotice.go`, not a database row or seeder (D1). Version: `notice-261102`. A statement change requires a new version.
+
+Statement:
+
+```text
+Pemberitahuan dan Persetujuan Interview
+
+Interview ini dilakukan secara lisan dengan agen AI dan berlangsung maksimal 15 menit. Dengan menekan "Saya setuju", Anda menyatakan memahami dan menyetujui hal berikut:
+
+1. Suara Anda direkam dan diubah menjadi transkrip selama interview berlangsung.
+2. Rekaman, transkrip, dan hasil penilaian dipakai hanya untuk proses seleksi pada lowongan yang Anda lamar.
+3. Hasil interview hanya dapat dilihat oleh tim rekrutmen yang berwenang. Kandidat lain tidak dapat melihatnya.
+4. Anda dapat menghentikan interview kapan saja dengan tombol berhenti. Interview yang dihentikan dicatat sebagai dibatalkan.
+5. Persetujuan ini tercatat bersama versi pemberitahuan dan waktu Anda menyetujuinya.
+
+Jika Anda tidak setuju, tutup halaman ini dan hubungi tim rekrutmen.
+```
+
 ### POST `/candidate/consents`
 
 Body exactly `{ "noticeVersion": "<version>", "accepted": true }`. Response `data`: `{ "id", "noticeVersion", "acceptedAt" }`. 201 on insert, 200 when that assignment already has that version.
@@ -293,7 +315,7 @@ Body exactly `{ "expectedVersion": 1 }` where the number is the execution versio
 
 ### 6.3 Sibling contracts
 
-These are requirements on other capabilities. This slice ships the Go interfaces and a failing adapter. Tasks that need a real adapter are blocked.
+These are requirements on other capabilities. T11 now binds the lifecycle interface through `infrastructure/service/candidatelifecycle`; Interview Runtime remains pending for T12. Lifecycle keeps transaction and transition ownership.
 
 **Execution Lifecycle** must provide:
 
@@ -303,7 +325,7 @@ These are requirements on other capabilities. This slice ships the Go interfaces
 | Read | Assignment id from the session | The execution above or a not-found that this slice renders as `execution: null`. |
 | Hard deadline | While `RUNNING` | `hardDeadline = runningStartedAt + 15 minutes`, stable across restart. |
 | Cancel | Execution id, expected version, reason `candidate_early_stop` | Committed `CANCELLED`, or conflict when the version is stale or the execution is already terminal. The first terminal commit wins. |
-| Access ended during a non-terminal interview | Revocation or session expiry | Lifecycle commits `CANCELLED` (BR-CORE-055). This slice only refuses further candidate commands. Refusal is not that cancellation. |
+| Access ended during a non-terminal interview | Revocation or session expiry | Lifecycle commits `CANCELLED` (BR-CORE-055). This slice only refuses further candidate commands. Refusal is not that cancellation. The HR revocation command is Identity and Access `CORE-IAM-022`, not a task in this plan. Session expiry during a run remains Identity and Access Q7. |
 
 **Interview Runtime** must provide:
 
@@ -339,9 +361,9 @@ Precedence for every new route:
 
 - [ ] Rules remain planned until the task evidence exists. Wording in code comments must not say the rules are already enforced by current startup.
 - [ ] Access exchange, cookie flags, CSRF issuance, and `GET /candidate/session` stay on their current handlers.
-- [ ] Candidate UI is in this slice. No admin or HR page, route, or notice editor.
+- [x] Candidate UI is in this slice. No admin or HR page, route, or notice editor. T10 browser fixture evidence: [t10-execution.md](t10-execution.md).
 - [ ] Consent is stored before start. Start cannot imply acceptance.
-- [ ] The final screen renders the terminal interview state and does not read or wait for a report.
+- [x] The final screen renders the terminal interview state and does not read or wait for a report. T10 proves UI behavior with API fixtures; live lifecycle proof remains T11/T13.
 - [ ] No stage workflow, transcript store, voice provider call, Document Analyzer path, or RabbitMQ client.
 - [ ] Schema change is `000009` SQL only. Runtime `AutoMigrate` stays absent. Floor becomes clean version 9 in the same change.
 - [ ] GORM is the CRUD adapter. Models stay in infrastructure.
@@ -352,9 +374,9 @@ Precedence for every new route:
 
 | ID | Question | Owner | Blocks | Ready when |
 |---|---|---|---|---|
-| Q1 | What notice version and statement text are shown? | Product owner | T1, and any real acceptance demonstration | The version matches §3's character rule and the statement is the approved text, recorded in §6 and the catalog. |
+| Q1 | What notice version and statement text are shown? Resolved 2026-11-02: `notice-261102` and the statement in section 6. | Product owner | None | The version matches §3's character rule and the statement is the approved text, recorded in §6 and the catalog. |
 | Q2 | What happens if the candidate withdraws consent after start? | Product and data owner | No current task. Withdrawal stays unimplemented. | A later decision adds a task. This plan does not add `withdrawn_at`. |
-| Q3 | Lifecycle commit-or-find, read, deadline, and cancel are not implemented. `interview_executions` is a pin. | Execution Lifecycle capability | T11, and the live portion of T13 | The §6.3 lifecycle operations exist and are covered by that capability's own proof. |
+| Q3 | Resolved for T11: existing lifecycle operations and `agent_executions` support start/read/cancel; deadline derives from persisted `activated_at + 15m`. `interview_executions` remains a pin. | Execution Lifecycle capability | T11 completed; T13 still requires T12 | See [T11 evidence](t11-execution.md); sibling capability status is unchanged. |
 | Q4 | Runtime candidate-safe progress and controller fencing are not implemented. | Interview Runtime capability | T12, and the progress portion of T13 | The §6.3 runtime operations exist. |
 | Q5 | `countExecutions` in the access integration fixture counts table presence for `interview_executions`, which version 7 already creates. | Access tests, pre-existing | None in this plan, provided new tables are not named `consent_records` or `interview_runs` | Leave that assertion to its owner unless a candidate-interview test run shows it failing for a reason this slice introduced. |
 
@@ -366,3 +388,6 @@ Implementation risks: the exact schema floor makes version 8 and version 9 binar
 |---|---|---|---|
 | v1 | 2026-11-02 | Initial design | Mode A plan for BR-CORE-040..047. Rules are not enforced. |
 | v2 | 2026-11-02 | Assign `000009_candidate_interview` and clean floor 9 | assign a unique migration version after the parallel tripack collision on 000008 |
+| v2.1 | 2026-11-02 | Point the access-ended cancellation caller at Identity and Access `CORE-IAM-022` | Owner approved that command outside this slice. No new candidate-interview task |
+
+T11 execution update (2026-11-02): the production composition binds lifecycle start/read/cancel. Candidate intent uses a fixed `candidate-start` command key per assignment and typed SHA-256 references for the client idempotency key and consent id, preserving the 128-character API key within lifecycle's 64-character token limit. A call-local minted execution id identifies a successful first commit; replay and race reconciliation report `created=false`. A store decorator refuses terminal cancel inside the existing locked callback; the lifecycle operation still performs the transition and commits. Interview credential reads join assignment revocation without changing access routes. PostgreSQL and mocked evidence, assessment and limits are in [t11-execution.md](t11-execution.md). T12 progress/fencing and T13 remain pending. No business decision changed.

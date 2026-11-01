@@ -1,5 +1,21 @@
 # API changelog
 
+## Candidate lifecycle integration — T11 (2026-11-02)
+
+The existing candidate routes now use the PostgreSQL lifecycle adapter for start, read and cancel. Repeated intent returns the same execution, different intent conflicts, and cancellation commits before success. Running deadlines derive from persisted activation. Interview credentials refuse revoked assignments. Routes, JSON schemas and public codes are unchanged. Progress/fencing remain T12; no report call is introduced. See [candidate-interview.md](candidate-interview.md).
+
+## Candidate page — T10 (2026-11-02)
+
+The existing HTML route now presents API-offered start/takeover/cancel actions, confirmed cancellation, and distinct completed/failed/cancelled outcomes. The tab controller and retryable start intent stay in sessionStorage. Live interview reads poll every two seconds and stop at terminal/access loss; refresh never starts an execution. No JSON route, schema, or status changed. Production lifecycle remains unbound pending T11; UI verification uses headless Chrome with API fixtures. See [candidate-interview.md](candidate-interview.md).
+
+## 0.10.0 — candidate execution HTTP operations
+
+Added `POST /candidate/executions`, `GET /candidate/executions/{id}`, `POST /candidate/executions/{id}/takeover`, and `POST /candidate/executions/{id}/cancel` ahead of the access catch-all. Start requires `Idempotency-Key` and returns 201/200 from the operation result. Execution POSTs require session, origin, CSRF and a tab id; takeover requires matching body/header ids. Foreign execution ids map to 404, classified policy errors to CIN codes, and wrapped storage validation failures to 500. Responses contain only the candidate-safe execution fields. ControllerStore is composed; lifecycle remains unbound and returns 503 for start/cancel. Session-attempt, ready and report routes remain absent. The T6 page shell is unchanged; controls are T10. See [candidate-interview.md](candidate-interview.md) and [openapi.yaml](openapi.yaml).
+
+## 0.9.0 — candidate notice consent, interview read and page shell
+
+Added `GET /candidate/interview`, `POST /candidate/consents`, and `GET /candidate/interview/page`. They are dispatched ahead of the `/candidate/` access catch-all and reuse the candidate cookie, origin, and CSRF; `POST /candidate/access/exchange` and `GET /candidate/session` are unchanged. Consent is `201` on first acceptance and `200` on replay. The read returns notice, consent, a null execution, actions, and a null progress, with no controller id, salary, or report member. Added `CIN_*` codes (`CIN_FORBIDDEN` for a bad CSRF header, `CIN_NOTICE_UNAVAILABLE` for an empty catalog, and the codes later start, takeover, and cancel routes use). The invitation landing now navigates to the page shell once after the session read succeeds. See [candidate-interview.md](candidate-interview.md) and [openapi.yaml](openapi.yaml).
+
 ## 0.8.0 — HR agent instance list
 
 Added `GET /admin/agent-instances`. Current HR receives every instance, newest first (`createdAt` descending, then `id` descending). An empty result is `200` with `data` as an empty array. Each item keeps the filtered instance view: `salaryCeilingConfigured`, never the salary reference. POST create on that path is unchanged. See [agent-configuration.md](agent-configuration.md) and [openapi.yaml](openapi.yaml).

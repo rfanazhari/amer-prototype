@@ -10,6 +10,8 @@ Reconcile the service's schema installation before adding candidate persistence:
 
 Prepare candidate identity and access separately. The approved target adds three access-owned tables: candidates, invitations and candidate sessions. T10 settled contact, exchange reuse and assignment-fact collaboration; T12 may implement operations against those ports. T11 still waits for T20 and the real Interview assignment migration. Never install a fake assignment model, treat mocks as assignment integration, or start an execution on exchange. Keep template/draft/publication transaction behavior unchanged.
 
+T22 (`CORE-IAM-022`) adds the HR revocation command from design §6.10 and decision-log D11. It writes the existing `access_revoked_at` column and then calls the existing `CancelNonterminal`. It does not add a migration, an HR page, or an expiry sweeper. T21 can proceed beside it. Execution Lifecycle T10 stays outside this plan until T22 is Done.
+
 ## 2. Code Reuse Map
 
 These paths were inspected; suitability is assessed rather than inferred from precedent.
@@ -28,6 +30,9 @@ These paths were inspected; suitability is assessed rather than inferred from pr
 | Integration database helpers and lifecycle cases | `test/integration/repository_test.go`, `access_repository_test.go`, `access_http_test.go`, `lifecycle_test.go` | Replace schema setup; preserve cancellation/cleanup proof | Current helpers run AutoMigrate. Use explicit SQL setup, move DDL cancellation to runner coverage, retain runtime failure cleanup. |
 | Dependency/documentation checks and mocks | `test/architecture/`, `.mockery.yml`, `Makefile` | Architecture enforcement, Mockery generation, verification | Register new interfaces; existing ACP authority mock is not a real adapter. |
 | Existing REST envelope contract | `docs/api/openapi.yaml`, `docs/api/task.md`, `docs/api/CHANGELOG.md` | Schema/error/security documentation conventions | Current routes remain compatible; access paths added only with real implemented behavior. |
+| `IssueInvitation` | `application/usecase/accessusecase/issue_invitation.go` | HR authority, origin/CSRF shape, assignment-first lock | Reuse the authority and lock pattern. Do not call `CancelNonterminal` from this operation. |
+| `AssignmentAccess.WithAssignment` | `infrastructure/repository/accessrepository/candidate_store.go` | `SELECT id … FOR UPDATE` then access writes | Reuse for the revocation marker. The callback's transaction ends before lifecycle runs. Facts today expose a boolean, not the timestamp; the write must return the stored instant. |
+| `CancelNonterminal` | `application/usecase/executionusecase/cancel.go` | Cancel a nonterminal run after access has ended | Call it after the marker commit, reason `access_revoked`, actor the HR account id. It opens its own assignment transaction and does not read `access_revoked_at`. Do not change its signature in T22. |
 
 Administrative account/session storage is reused; candidate/invitation/session and assignment stores do not yet exist. No Redis, RabbitMQ, provider client, Task event queue or document artifact adapter is required for migration.
 
@@ -63,6 +68,7 @@ The original access inventory below retains implemented administrative items as 
 | Canonical legacy manifest and synthetic fixtures | Docs / integration | `docs/design/database-schema-baseline.md`, `test/integration/testdata/schema/legacy_automigrate.sql` | Schema equivalence record / legacy adoption fixture | T16/T19; exact types/defaults/nullability/checks/indexes/FKs; no real secrets/data |
 | Migration runbook and execution wiring | Operations / build | `docs/design/database-migrations.md`, `Makefile`, `compose.yaml`, `Dockerfile`, `scripts/verify_compose.py` | Explicit pre-start command/job and artifact packaging | T18; normal startup does no DDL; verification orchestrator migrates before app startup |
 | Migration acceptance suite | Integration / architecture | `test/integration/` and existing architecture suite | Real PostgreSQL adoption/recovery and schema-owner checks | T19; empty/Task-only/full/partial/drift/dirty/timeout/concurrency; no AutoMigrate setup bypass |
+| Revoke assignment access | Application / delivery / infrastructure | `application/usecase/accessusecase/`, `delivery/http/handler/accesshandler/`, `infrastructure/repository/accessrepository/` | Operation, HTTP route, explicit `access_revoked_at` update | T22. No new table. Calls existing `CancelNonterminal`. No HR page |
 
 Candidate work updates catalogs/mocks/API docs in its owning tasks; migration transition does not change HTTP contracts. Migration metadata is tool-owned and separate from the five access business tables. No SQL seeder is needed: fixed roles/statuses remain enums/checks; initial ADMIN remains approved application bootstrap after schema validation. No account-management UI, assignment schema, consent records, execution storage or retention worker is added by this inventory.
 
@@ -75,6 +81,7 @@ Recommended review order only; no branch, commit or PR creation is authorized by
 3. Runtime/test/Compose replacement (T18), real migration/recovery evidence (T19), then coordinated local/target adoption and readiness handoff (T20). Merge/deploy only a verified combination; do not deploy a guard-only binary before preparing its database.
 4. Candidate contracts (T10) are Done. Candidate persistence (T11) waits for T20 and actual assignment readiness; domain/application T12 may proceed against the approved ports.
 5. Candidate HTTP/browser and real assignment integration (T13–T14), then authorized retention/purge (T15).
+6. HR assignment revocation (T22) after T12 and T13. It can land beside T21. Do not start Execution Lifecycle T10 in the same change.
 
 Dependency branches/parallel headings do not instruct spawning agents. Split large tasks into smaller stable follow-up IDs if estimates prove inaccurate; preserve existing IDs on revision.
 
@@ -87,7 +94,7 @@ Cases below are acceptance requirements; existing administrative suites and T9 h
 - BR-020..023: bootstrap/provision paths, ADMIN-only HR creation, HR-only configuration, valid ADMIN login followed by configuration denial, HR cross-creator scope, unknown operation deny, no caller role accepted.
 - BR-024..029: session creation and exact `now == expires_at` refusal; no sliding renewal; current-session logout; revoked/disabled denial; stable SubjectID across sessions; current HR authorization before any replay read; candidate cookies cannot resolve admin principals.
 - BR-030..033: one candidate referenced repeatedly; no implicit email merge; invitation/session binding and copied snapshots; wrong assignment/invitation ownership, expiry and revocation; no success before commit. GET `/admin/candidates` (T21 / `CORE-IAM-021`) returns only the logged-in HR creator's rows, newest first, with `[]` when empty; ADMIN is forbidden before the read; email search and lifecycle mutation stay out.
-- BR-034..039: exchange/reload has no execution/consent/provider write; expired session cannot authorize; reissue does not invalidate otherwise-live session; assignment revocation invalidates access; access does not reopen terminal execution.
+- BR-034..039: exchange/reload has no execution/consent/provider write; expired session cannot authorize; reissue does not invalidate otherwise-live session; assignment revocation invalidates access; access does not reopen terminal execution. T22: HR revoke sets `access_revoked_at` once, then calls `CancelNonterminal`; ADMIN is forbidden before the read; a repeat keeps the timestamp; `IssueInvitation` and candidate `401` do not call lifecycle.
 - Restore corrupt roles, missing identities, inconsistent references, malformed digests/hashes and time order as technical failure. Do not reapply latest new-input policy during read or mutate deadlines.
 - Credential adapter: independent random secrets, unique digests, password verify mismatch/unknown-account dummy path, bounded malformed-hash costs, constant-time secret checks, context/rate/concurrency limits, no secret leakage. Password acceptance follows T1 §6.1.
 - Delivery: strict schema/limits, wrong-role/unauthenticated distinction, session kind substitution, origin and CSRF boundaries, cookie flags and clearing, no-store responses, no credential echoes; ACP retains its own public codes/ordering.
@@ -104,6 +111,7 @@ Cases below are acceptance requirements; existing administrative suites and T9 h
 - Candidate happy path with real assignments: one candidate → assignments A/B → two invitations → sessions with separate assignment authority → refresh without another execution. Source invitation expiration alone does not shorten an already-issued session.
 - Creator list: the logged-in HR receives only candidates they created, ordered `created_at DESC, id DESC`; another HR's rows are absent; GET by id still returns a known candidate to any current HR; empty `data` is `[]`. sqlmock covers the creator predicate and order. Real PostgreSQL proof extends the existing candidate HTTP suite and is skipped when `TEST_DATABASE_URL` is absent.
 - Candidate failures: concurrent reissue, reissue vs exchange, rollback retaining old invitation, cross-assignment composite FK violations, unique-token collision handling, assignment revocation vs exchange/admission, exact expiry, session revocation and persisted state across restart.
+- T22 PostgreSQL: a nonterminal execution becomes `CANCELLED` after the revoke route; a second call does not reopen it or move `access_revoked_at`; reissue leaves the execution state unchanged; revocation with no execution still returns the marker; a lifecycle failure after the marker commit returns 503 and no success body. sqlmock may show the explicit timestamp update. sqlmock is not the cancellation proof.
 - Resolve Q3 before repeated exchange/lost-response/device tests. Test accepted reuse/replacement policy without inventing a consumed column. Real Interview integration must prove active cancellation and completed-assignment no-restart (BR-038/039), not a fake store returning a boolean.
 - GORM tests explicitly exercise null/zero writes, bounded joins, same-assignment FK and partial uniqueness, no association side effects or physical soft-delete assumptions. Test against project-selected versions; mocks cannot establish these guarantees.
 
@@ -129,7 +137,7 @@ T17/T18 add the proposed `make migrate.status`, `make migrate.up MIGRATION_VERSI
 - Observe safe operation/outcome/record IDs, denial categories, expiry, login/exchange failures, rate limiting, bootstrap/schema failure and transaction uncertainty. Never log passwords, cookies, raw link tokens, CSRF values, candidate contacts or HR configuration/report content by default.
 - Stop rollout on drift, dirty/unsupported schema version, migration lock/timeout/failure, cross-role or cross-assignment access, missing constraints, credential leaks, duplicate interview initiation, unexpected session invalidation or broken existing routes. Restore a tested migration-aware binary or use reviewed forward repair/backup restore; retain business data and external references. Never make destructive down or unchecked force the routine rollback path.
 - Cookie/CSRF secret rotation behavior and credential persistence across restart must be tested; rotating a CSRF signing key may invalidate outstanding CSRF values, while session authority remains persisted. Do not claim rotation preserves every browser action without proof.
-- No automatic purge until Q5. Rollback is not deletion of accounts/candidates, reset of subject IDs or removal of referenced invitations. Candidate cancellation remains the assignment owner's responsibility.
+- No automatic purge until Q5. Rollback is not deletion of accounts/candidates, reset of subject IDs or removal of referenced invitations. T22 has no migration. Withdrawing the route leaves a committed `access_revoked_at` in place; do not clear that marker as a rollback. In-interview session expiry stays Q7.
 
 ## Revision History
 
@@ -139,6 +147,7 @@ T17/T18 add the proposed `make migrate.status`, `make migrate.up MIGRATION_VERSI
 | v1.1 | 2026-11-01 | Mode C: align T1–T9 baseline, add shared manual-migration artifacts, legacy adoption, runner/runtime reconciliation, verification and recovery; owner policy D8 |
 | v1.2 | 2026-11-01 | Record T10 candidate/exchange/assignment contracts; T12 unblocked; T11 still waits T20 and Interview assignment migration |
 | v1.3 | 2026-11-02 | D10 / T21: GET `/admin/candidates` lists the logged-in HR creator's candidates; email search and lifecycle mutation stay forbidden |
+| v1.4 | 2026-11-02 | D11 / T22: HR revocation writes `access_revoked_at`, then calls `CancelNonterminal`. No migration, page, or expiry sweeper |
 
 ## T18–T20 execution handoff
 

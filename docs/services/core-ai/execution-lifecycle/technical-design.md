@@ -262,7 +262,7 @@ Rule and source → problem → alternatives → comparison → decision.
 | Manual `000008`. No AutoMigrate. | `ReleaseVersion` is 7 and the highest file is `000007`. Platform technical design §5 still mentions AutoMigrate; root `AGENTS.md`, Identity and Access D8, and the user instruction replace that sentence for this service. | Explicit required structure. | Retained. |
 | Kernel does not write `interview_assignments.completed_at`. | That column is an interview marker. Writing it inside the shared complete path would couple every future agent to an interview table. `Start` still honors it when it is already set, using the column that exists today. | Binding for the kernel. A later interview coordinator may set the marker in its own transaction. | Retained. Gap is recorded in §9. It does not block kernel tasks. |
 | Activation retry budget stays with Interview Runtime. | Scope freeze §4.4 says a failed activation is an attempt outcome and bounded retries then activate or fail. It does not choose the bound. Inventing a number here would be a product rule. The kernel already allows another `Activate` from `CREATED` and an explicit `Fail`. | Deferred to Interview Runtime. No kernel task waits on the number. | Deferred, non-blocking. |
-| End-to-end revocation producer. | BR-CORE-055 needs a caller when access ends. No production writer of `access_revoked_at` exists beyond the test helper. The operation and its fixture proof do not need that writer. The HR-facing path does. | Blocks only T10. | Deferred. |
+| End-to-end revocation producer. | BR-CORE-055 needs a caller when access ends. No production writer of `access_revoked_at` exists beyond the test helper. The approved caller is Identity and Access `CORE-IAM-022`, which commits the marker and then calls `CancelNonterminal`. It is not implemented. In-interview expiry remains Identity and Access Q7. | Blocks T10 until `CORE-IAM-022` is Done. | Caller assigned. Not built. |
 
 Domain assessment applies. The core language is execution, accepted (`CREATED`), running, terminal outcome, activation, and attempt. "Assignment" stays an interview admission word and is not a field on the shared execution. The consistency boundary is one execution row plus the operation authority being changed. Cross-boundary work is the assignment lock before that row, and the progress port read before completion.
 
@@ -358,13 +358,14 @@ These are obligations for implementation. Checked items are recorded in this des
 - [x] Sibling calls are kernel operations. Consent, stages, transcript, voice, and report content are out of scope.
 - [x] Every new Go declaration is required to satisfy `test/architecture/documentation_test.go`.
 - [ ] PostgreSQL proof of locking, rollback, and idempotency still has to be produced by T8.
-- [ ] A production revocation or expiry caller still has to exist before BR-CORE-055 is demonstrated outside a fixture.
+- [ ] A production revocation caller still has to exist before BR-CORE-055 is demonstrated outside a fixture. That caller is `CORE-IAM-022`. In-interview expiry remains Identity and Access Q7.
 
 ## 9. Risks & Open Questions
 
 | Item | Effect | Readiness |
 |---|---|---|
-| Q1. No production command writes `access_revoked_at` or detects authority expiry during a run. | T1–T9 can implement and prove `CancelNonterminal` with a fixture. T10 cannot show an HR revocation or a live session expiry cancelling a run. | Ready when the owning sibling has a real command that commits the access change and calls `CancelNonterminal` under the assignment lock. Owner: Identity and Access together with Candidate Interview. |
+| Q1. No production command writes `access_revoked_at`. | T1–T9 can implement and prove `CancelNonterminal` with a fixture. T10 cannot show an HR revocation cancelling a run until `CORE-IAM-022` is Done. | Ready when that command is Done and `CancelNonterminal` still accepts assignment id, actor, and reason `access_revoked`. Owner: Identity and Access T22. |
+| Q1b. No command detects authority expiry during a run. | T10 does not pick this up. A live session can end without cancelling the execution. | Ready when Identity and Access Q7 names the trigger and a task calls `CancelNonterminal` with `authority_expired`. |
 | Q2. `interview_assignments.completed_at` is not set when the execution completes. | BR-CORE-039 is met for `Start` because a second execution is not created while the pin exists. A reader that looks only at `completed_at` will not see completion. | Not a blocker. Revisit when the interview completion coordinator is designed. That coordinator may set the marker. This kernel still must not. |
 | Q3. Activation retry budget and voice deadlines are unset. | Interview Runtime chooses them when it calls `Fail` or sets `deadline_at`. | Not a blocker for this kernel. |
 | Q4. Platform retention (content versus metadata) is not implemented. | Execution rows are kept. This slice stores no transcript bytes. | Out of scope until a retention decision names purge order. No task deletes rows. |
@@ -373,10 +374,11 @@ These are obligations for implementation. Checked items are recorded in this des
 | Risk. `StartExecution` against a version-8 database fails the new foreign key. | The function is unmounted. Private-table pin tests still pass and still do not prove the release schema. | T8 covers the release schema. T9 checks runtime does not reference `StartExecution`. |
 | Risk. Two terminal transactions deadlock if a new path locks the execution and then the assignment. | The repository must not offer that method. | T8 includes a lock-order test and review of the SQL order. |
 
-No independent implementation task is waiting on Q2, Q3, or Q4.
+No independent implementation task is waiting on Q2, Q3, or Q4. T10 waits on Q1. Q1b has no task in this plan.
 
 ## 10. Revision History
 
 | Version | Date | Change | Reason |
 |---|---|---|---|
 | v1 | 2026-11-02 | Initial design | Mode A plan for BR-CORE-050..BR-CORE-059. The existing pin is recorded as impact, not as an implementation of the lifecycle. |
+| v1.1 | 2026-11-02 | Q1 names `CORE-IAM-022` as the revocation caller. Expiry during a run is Q1b | Owner approved the caller outside this capability. `CancelNonterminal` signature unchanged. Documents only |

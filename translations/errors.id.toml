@@ -100,6 +100,39 @@ other = "dependensi eksekusi tidak tersedia"
 [EXL_UNCERTAIN_COMMIT]
 other = "hasil eksekusi tidak pasti; coba lagi dengan kunci yang sama"
 
+[CIN_FORBIDDEN]
+other = "permintaan tidak dapat diverifikasi; muat ulang halaman lalu coba lagi"
+
+[CIN_CONSENT_REQUIRED]
+other = "setujui pemberitahuan terbaru sebelum memulai interview"
+
+[CIN_SESSION_COVERAGE]
+other = "akses Anda berakhir sebelum interview dapat selesai; buka undangan yang masih berlaku"
+
+[CIN_IDEMPOTENCY_CONFLICT]
+other = "permintaan mulai ini bertentangan dengan permintaan sebelumnya"
+
+[CIN_CONTROLLER_CONFLICT]
+other = "tab lain mengambil alih interview ini; muat ulang lalu coba lagi"
+
+[CIN_NOT_CONTROLLER]
+other = "hanya tab pengendali yang dapat melakukan ini"
+
+[CIN_TERMINAL]
+other = "interview sudah berakhir"
+
+[CIN_NOT_LIVE]
+other = "interview sedang tidak berlangsung"
+
+[CIN_NOTICE_UNAVAILABLE]
+other = "pemberitahuan interview tidak tersedia; coba lagi nanti"
+
+[CIN_DEPENDENCY_UNAVAILABLE]
+other = "layanan interview tidak tersedia; coba lagi nanti"
+
+[CIN_START_UNCERTAIN]
+other = "awal interview belum dapat dipastikan; coba lagi dengan kunci yang sama"
+
 [REQUIRED_VALUE]
 other = "nilai publikasi yang wajib belum diisi"
 

@@ -16,6 +16,8 @@ func TestEveryErrorCodeHasBothTranslations(t *testing.T) {
 		errs.InvalidInput, errs.NotFound, errs.MethodNotAllowed, errs.InvalidTransition, errs.EventUnavailable, errs.InternalError, errs.ShuttingDown, errs.SessionUnavailable,
 		errs.IAUnauthenticated, errs.IAForbidden, errs.IAAccountConflict, errs.IAInvitationUnavailable, errs.IARateLimited, errs.IADependencyUnavailable,
 		errs.ACPUnauthenticated, errs.ACPForbidden, errs.ACPIdempotencyConflict, errs.ACPDraftConflict, errs.ACPValidationConflict, errs.ACPPublicationBlocked, errs.ACPDependencyUnavailable, errs.ACPPublicationUncertain,
+		errs.CINForbidden, errs.CINConsentRequired, errs.CINSessionCoverage, errs.CINIdempotencyConflict, errs.CINControllerConflict, errs.CINNotController,
+		errs.CINTerminal, errs.CINNotLive, errs.CINNoticeUnavailable, errs.CINDependencyUnavailable, errs.CINStartUncertain,
 		errs.EXLNotFound, errs.EXLAssignmentUnavailable, errs.EXLIdempotencyConflict, errs.EXLInvalidTransition, errs.EXLStaleVersion,
 		errs.EXLStaleAttempt, errs.EXLProgressRequired, errs.EXLTerminalConflict, errs.EXLDependencyUnavailable, errs.EXLUncertainCommit,
 	} {

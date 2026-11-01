@@ -17,7 +17,7 @@ const (
 	defaultRealtimeURL   = "https://api.openai.com/v1/realtime/calls"
 )
 
-// Router sends prototype voice paths to their handlers, configuration paths before access, administrative paths to access, and every other path to Task.
+// Router sends prototype voice paths to their handlers, configuration and candidate interview paths before access, administrative paths to access, and every other path to Task.
 type Router struct {
 	Page          http.Handler
 	Setup         http.Handler
@@ -25,6 +25,10 @@ type Router struct {
 	Access        http.Handler
 	Landing       http.Handler
 	Configuration http.Handler
+	// Interview serves the candidate interview JSON routes ahead of the access catch-all.
+	Interview http.Handler
+	// InterviewPage serves the candidate interview page shell ahead of the access catch-all.
+	InterviewPage http.Handler
 }
 
 // isAgentConfigurationPath reports the configuration collections that must precede the access catch-all.
@@ -71,6 +75,14 @@ func (h Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			h.Landing.ServeHTTP(w, r)
 			return
 		}
+		if h.InterviewPage != nil && r.URL.Path == "/candidate/interview/page" {
+			h.InterviewPage.ServeHTTP(w, r)
+			return
+		}
+		if h.Interview != nil && (r.URL.Path == "/candidate/interview" || r.URL.Path == "/candidate/consents" || isCandidateExecutionPath(r.URL.Path)) {
+			h.Interview.ServeHTTP(w, r)
+			return
+		}
 		if h.Configuration != nil && isAgentConfigurationPath(r.URL.Path) {
 			h.Configuration.ServeHTTP(w, r)
 			return
@@ -81,4 +93,17 @@ func (h Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		h.Task.ServeHTTP(w, r)
 	}
+}
+
+// isCandidateExecutionPath matches only start, poll, takeover and cancel, leaving sibling routes unmounted.
+func isCandidateExecutionPath(path string) bool {
+	const base = "/candidate/executions"
+	if path == base {
+		return true
+	}
+	if !strings.HasPrefix(path, base+"/") {
+		return false
+	}
+	parts := strings.Split(strings.TrimPrefix(path, base+"/"), "/")
+	return parts[0] != "" && (len(parts) == 1 || (len(parts) == 2 && (parts[1] == "takeover" || parts[1] == "cancel")))
 }

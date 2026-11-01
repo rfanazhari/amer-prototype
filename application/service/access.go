@@ -28,6 +28,17 @@ var (
 	ErrCSRFMismatch = errors.New("csrf token does not match the current session")
 	// ErrSessionUnbound reports a missing, expired, revoked or account-mismatched session.
 	ErrSessionUnbound = errors.New("administrative session is not bound to a current account")
+	// ErrInvalidInput reports rejected administrative name, email or password policy.
+	ErrInvalidInput = errors.New("invalid administrative input")
+	// ErrForbidden reports a current administrative session that lacks the required role.
+	ErrForbidden = errors.New("administrative operation is forbidden")
+	// ErrBootstrapIncompatible reports existing administrative state that bootstrap must not overwrite.
+	ErrBootstrapIncompatible = errors.New("bootstrap administrative state is incompatible")
+)
+
+const (
+	// DummyEncodedPassword is the encoded digest used for unknown-account verification work.
+	DummyEncodedPassword = "$argon2id$v=19$m=19456,t=2,p=1$YWFhYWFhYWFhYWFhYWFhYQ$YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWE"
 )
 
 // PasswordHasher hashes and verifies administrative passwords outside persistence transactions.

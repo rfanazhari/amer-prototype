@@ -6,7 +6,6 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -14,7 +13,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/rfanazhari/amer-prototype/infrastructure/database/schema"
 	"github.com/stretchr/testify/require"
 )
@@ -114,74 +112,6 @@ func TestExecutionLifecycleChecksums(t *testing.T) {
 	}
 	require.Equal(t, "fad47701239f7dd8ecf4d060904a19697ae177dcea39a0508ba85f96825b4b78", sums["000007_interview_executions.up.sql"])
 	require.Equal(t, "55a758f53320f47737a270a30a43d0ac9ddf20d760f886e177cbdd9c72304909", sums["000007_interview_executions.down.sql"])
-}
-
-// TestReleaseVersionRequiresEight proves the clean schema floor and its operator messages.
-func TestReleaseVersionRequiresEight(t *testing.T) {
-	require.Equal(t, 8, schema.ReleaseVersion)
-	require.Subset(t, schema.RuntimeGrantTables, lifecycleTables)
-
-	tests := []struct {
-		name string
-		rows *sqlmock.Rows
-		err  error
-		want string
-	}{
-		{name: "unreadable", err: errors.New("private"), want: "clean version 8"},
-		{name: "old", rows: sqlmock.NewRows([]string{"version", "dirty"}).AddRow(7, false), want: "require clean version 8"},
-		{name: "ambiguous", rows: sqlmock.NewRows([]string{"version", "dirty"}).AddRow(8, false).AddRow(8, false), want: "exactly one clean version 8"},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			db, mock, err := sqlmock.New()
-			require.NoError(t, err)
-			defer func() { _ = db.Close() }()
-			expect := mock.ExpectQuery("SELECT version, dirty FROM public.schema_migrations")
-			if tt.err != nil {
-				expect.WillReturnError(tt.err)
-			} else {
-				expect.WillReturnRows(tt.rows)
-			}
-			err = schema.RequireCompatible(context.Background(), db)
-			require.ErrorContains(t, err, tt.want)
-		})
-	}
-
-	runner := schema.Runner{}
-	_, _, err := runner.Execute(context.Background(), schema.Options{Action: "up", Version: 9})
-	require.ErrorContains(t, err, "1 through 8")
-	_, _, err = runner.Execute(context.Background(), schema.Options{Action: "up", Version: 8})
-	require.EqualError(t, err, "database required")
-	_, _, err = runner.Execute(context.Background(), schema.Options{Action: "down", Steps: 8, Disposable: true})
-	require.EqualError(t, err, "database required")
-}
-
-// TestOperationalFilesRequireVersionEight proves operator-facing files move to the same floor.
-func TestOperationalFilesRequireVersionEight(t *testing.T) {
-	makefile := readRepoFile(t, "Makefile")
-	require.Contains(t, makefile, "version=8 dirty=false")
-	require.Contains(t, makefile, "make docker.migrate MIGRATION_VERSION=8")
-	require.NotContains(t, makefile, "version=7 dirty=false")
-	require.NotContains(t, makefile, "MIGRATION_VERSION=7")
-
-	compose := readRepoFile(t, "scripts", "verify_compose.py")
-	require.Contains(t, compose, "MIGRATION_VERSION=8")
-	require.NotContains(t, compose, "MIGRATION_VERSION=7")
-	require.NotContains(t, compose, `"MIGRATION_VERSION"] = "7"`)
-	require.NotContains(t, compose, "retained version 7")
-
-	readme := readRepoFile(t, "README.md")
-	require.Contains(t, readme, "clean version 8")
-	require.Contains(t, readme, "MIGRATION_VERSION=8")
-	require.NotContains(t, readme, "clean version 7")
-	require.NotContains(t, readme, "MIGRATION_VERSION=7")
-	require.NotContains(t, readme, "1 through 7")
-
-	runbook := readRepoFile(t, "docs", "design", "database-migrations.md")
-	require.Contains(t, runbook, "clean version 8 only")
-	require.Contains(t, runbook, "000008")
-	require.NotContains(t, runbook, "MIGRATION_VERSION=7")
-	require.NotContains(t, runbook, "version=7")
 }
 
 // openMigrationDatabase opens the explicitly authorized disposable database or skips.

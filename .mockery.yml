@@ -120,3 +120,11 @@ packages:
       ReplayReader:
       Mutation:
       Transaction:
+  github.com/rfanazhari/amer-prototype/application/repository/agentbindingport:
+    config:
+      dir: test/mocks
+      outpkg: mocks
+      filename: 'agent_binding_{{.InterfaceName | snakecase}}.go'
+    interfaces:
+      Assignments:
+      Executions:

@@ -25,3 +25,7 @@ Retained with rationale: AdministrativeAccount owns role/status/identity; sessio
 Q1 is resolved. Q2 assignment integration, Q3 exchange reuse, Q4 candidate contact matching and Q5 retention retain their gates. Only T1 documentation and the architecture contract test are in this change.
 
 sqlmock and Mockery apply to later SQL and interface mocking; they are not used in T1.
+
+## Subsequent migration-policy revision (2026-11-01)
+
+The statements above record T1's scope at its closure; later administrative tasks T2–T9 are recorded Done in task-plan.md. The owner has now approved replacing service startup AutoMigrate with explicit, versioned SQL migrations; see [decision-log D8](decision-log.md#d8-database-changes-must-be-reviewed-and-applied-before-the-application-starts), [technical-design §3.1–3.4](technical-design.md#31-migration-policy-and-artifacts) and task-plan T16–T20. This is an approved schema-delivery policy change, not a revision of T1 A–E. Existing canonical emails, password hashes, account/session identities, bootstrap no-overwrite behavior, cookies/CSRF and public error contracts remain binding. The first ADMIN is still created through application bootstrap after schema validation, never through a credential seed migration. This revision plans the transition only; no SQL or Go implementation is added.

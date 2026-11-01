@@ -17,13 +17,17 @@ Mode C revision; planning date 2026-11-01. T1–T9 retain their recorded Done st
 
 The owner has resolved the schema-policy choice; do not ask for that approval again. Both code and documentation need to change. The existing AutoMigrate work was valid under its original contract: keep T4/T8/T9 Done rather than relabeling them obsolete. The following new work replaces their schema-installation mechanism before dependent candidate persistence. No business-rule repair is required.
 
-- [ ] **T16. Capture the legacy schema baseline and synchronize approved policy** — Infrastructure/design/operations — M
+- [x] **T16. Capture the legacy schema baseline and synchronize approved policy** — Infrastructure/design/operations — M
   - Ticket: `CORE-IAM-016` — depends: T4, T8 — ref: design §1 baseline, §3.1, §3.3–3.4, §9 Q6; decision-log D8.
   - DoD: inventory all runtime/test AutoMigrate and adapter DDL callers. Reproduce current Task + two administrative schemas on isolated PostgreSQL; record exact types/defaults/nullability, PKs, checks, all five administrative indexes and RESTRICT FKs in `docs/design/database-schema-baseline.md`; freeze synthetic legacy SQL at `test/integration/testdata/schema/legacy_automigrate.sql`. Distinguish observed generated schema from any uninspected deployed target. Allocate the first two versions without conflicting with other work. Synchronize schema-policy wording in root `AGENTS.md`, `README.md`, `requirement.txt`, `docs/design/task-tracking.md` and the audit's current-policy note while preserving historical selections/results. No unrelated standard/skill rewrite, runtime change or live-data correction.
 
-- [ ] **T17. Add versioned baseline SQL and explicit migration tooling** — Infrastructure/cmd/build — L
+  - Evidence: [T16–T17 execution](t16-t17-evidence.md); observed synthetic PostgreSQL schema, not an inspected deployed target.
+
+- [~] **T17. Add versioned baseline SQL and explicit migration tooling** — Infrastructure/cmd/build — L
   - Ticket: `CORE-IAM-017` — depends: T16 — ref: design §3.1–3.3 and migration proof matrix, §4.
   - DoD: create `migrations/pgsql/000001_tasks.{up,down}.sql` and `000002_administrative_access.{up,down}.sql` equivalent to the captured schema. Add pinned/verified golang-migrate v4 dependency, thin `cmd/migrate/main.go`, adapter under `infrastructure/database/schema/` and proposed Make targets `migrate.status`, `migrate.up`, `migrate.baseline`, guarded `migrate.down`. Explicit target required for up; secrets come from `MIGRATION_DATABASE_URL`, never arguments/logs. Baseline supports exact Task-only → version 1 and exact three-table → version 2 under exclusive coordination; rejects drift/partial schema/foreign metadata. Transactions, metadata/dirty state, immutable artifacts, 60-second command budget/5-second lock wait, bounded cancellation and no automatic force are covered by focused tests. No accounts/reference data seeded. Artifacts alone do not mark runtime ownership switched.
+
+  - Implementation and focused PostgreSQL tests pass; final GREEN blocked by failing full Docker regressions outside this task. Evidence: [T16–T17 execution](t16-t17-evidence.md). Startup AutoMigrate remains T18.
 
 - [x] **T18. Replace startup and test AutoMigrate with explicit migration execution** — Runtime/integration/Compose/operations — L
   - Ticket: `CORE-IAM-018` — depends: T17 — ref: design §3.2–3.4, §4–5, §8.

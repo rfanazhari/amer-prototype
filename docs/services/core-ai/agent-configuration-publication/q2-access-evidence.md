@@ -20,4 +20,4 @@ Date: 2026-11-01. This handoff supplies administrative access proof for Agent Co
 
 - Candidate invitation/exchange HTTP
 - Real Interview assignment consumers
-- ACP secured configuration endpoints
+- ACP secured configuration endpoints. The 2026-11-01 ACP alignment treats this file as the satisfied administrative prerequisite for those routes; it still does not implement them.

@@ -1,6 +1,6 @@
 # Task Plan: Agent Configuration and Publication
 
-Planning baseline: 2026-11-01, Mode A. T2 and T3 are implemented; all other implementation tasks remain Todo. No code was written or verified for this capability during document generation.
+Planning baseline: 2026-11-01, Mode C. T1 contracts are approved and Done; T2 and T3 are implemented. T4–T11 remain Todo. This revision changes documents only.
 
 ## Ticket Identity
 
@@ -16,6 +16,14 @@ Each task has a stable ticket ID in the form `CORE-ACP-NNN`, mapped to its exist
 - `ref` identifies sections of [technical-design.md](technical-design.md); DoD is required observable evidence.
 - A decision-blocked task is not executable until its stated readiness condition is met. Ordinary dependency blocks also apply.
 - At closure synchronize affected design/strategy/status. Material changes to contracts or transactions need a resolved decision before dependent tasks; local structural refinements may proceed with preserved-contract evidence.
+
+Companion dependency: [Identity and Access task plan](../identity-access/task-plan.md) and [decision log](../identity-access/decision-log.md). CORE-IAM-007/009 supply the authority adapter and [q2-access-evidence.md](q2-access-evidence.md). That evidence does not mark ACP T8/T9 complete. Identity and Access D8 governs schema installation. D9 does not supply the assignment or execution consumers required by T11.
+
+## Access and schema revision impact (2026-11-01)
+
+Documents-only Mode C revision: preserve T1/T2/T3 Done and all task IDs. No configuration code exists to repair. T6 mocks HR allow, ADMIN deny, candidate deny, and current-authority replay through the existing port and operation names. T8/T9 prove the same behavior on real configuration routes, including HR access to another HR's company configuration. ADMIN account management never implies configuration authority. Publication scope remains the stable account UUID.
+
+T4 does not call AutoMigrate. It inserts `migrations/pgsql/000003_agent_configuration.{up,down}.sql` and shifts the unpublished `000003_candidates` and `000004_assignment_access` files forward, then raises the startup floor from clean version 2 to clean version 3. T4 stops if version 3 or higher has already been applied. T8 is no longer waiting for an absent admin session; it still waits for T4–T7. Q4 and Q5 remain open.
 
 ## Tasks
 
@@ -37,56 +45,56 @@ T2 and T3 are independent work streams, not instructions to spawn agents. Change
 
 ### Contract decisions before dependent implementation
 
-- [ ] **T1. Resolve template, publication, and public error contracts** — Product/API/domain design — M
+- [x] **T1. Resolve template, publication, and public error contracts** — Product/API/domain design — M
   - Ticket ID: `CORE-ACP-001`
+  - Evidence: user approved sections A–E on 2026-11-01; see [approval record](t1-contract-proposal.md), [accepted contracts in design §6](technical-design.md#6-request--response), and [decision D5](decision-log.md#d5-t1-template-publication-and-public-error-contracts-are-approved). Document checks pass; no behavioral RED/GREEN commands or SHAs apply to this document-only task.
   - depends: none — ref: design §2–3, §6–7, §9 Q1/Q3.
-  - blocked by: product/template owners and API lead decisions on exact supported configuration, initial draft, limits/normalization, warning acknowledgment, request-key scope/fingerprint, validation statuses, and overlapping errors.
-  - ready when: the decision owners provide or confirm concrete examples and choices.
-  - DoD: design records complete accepted input/output schemas, valid/incomplete/invalid examples for both templates, warning behavior, same/different-intent examples, and error ordering. Preserve source-approved bounds. No question is converted into an invented business rule. Synchronize all three planning documents before starting dependents.
+  - Decision gate: Q1/Q3 resolved by the user approval of all A–E choices, including limits, normalization, warning policy, identity and error ordering. Q2/Q4/Q5 remain independent gates.
+  - DoD satisfied: design §6 records accepted input/output schemas, valid/incomplete/invalid examples for both templates, warning behavior, same/different-intent examples, and error ordering. Source-approved constraints are preserved; new limits are backed by explicit A–E approval. Technical design, tactical strategy and task plan are synchronized. No dependent task is implemented here.
 
 ### Sequential implementation after contracts are resolved
 
-- [ ] **T4. Specify and register additive configuration schema** — Infrastructure/runtime — M
+- [ ] **T4. Specify and register the configuration SQL version** — Infrastructure/database schema — M
   - Ticket ID: `CORE-ACP-004`
-  - depends: T1, T3 — ref: design §3–4.
-  - decision gate: Q1 resolved in T1.
-  - DoD: five versioned record mappings, all ownership/uniqueness constraints and explicit zero/null update mappings are reviewable; runtime AutoMigrate stays additive and bounded; isolated database test proves installation both empty and with Task rows. No publication adapter behavior or live database migration is assumed from schema declarations.
+  - depends: T1, T3 — ref: design §3–4; Identity and Access D8.
+  - Ready when: `infrastructure/database/schema/checksums.json` still pins only versions 1–2 and `docs/design/database-migrations.md` still targets clean version 2. If version 3 or higher has been applied, stop; do not rename applied files.
+  - DoD: five configuration tables, ownership and uniqueness constraints, the account-scope foreign key, and explicit zero/null update mappings are reviewable in `migrations/pgsql/000003_agent_configuration.{up,down}.sql`. Unpublished `000003_candidates` becomes `000004_candidates` and `000004_assignment_access` becomes `000005_assignment_access`, with Identity and Access design and task references synchronized. `schema.RequireCompatible`, the checksum manifest, runtime grants, and the migration operations document accept clean version 3. Startup still performs no DDL and architecture checks still reject `AutoMigrate`. An isolated database test proves fresh migrate-to-3 and upgrade from version 2 with existing Task and administrative rows. No publication adapter behavior is assumed from the SQL file.
 
 - [ ] **T5. Implement both concrete catalogs and deterministic validators** — Domain/application reference resolution — L
   - Ticket ID: `CORE-ACP-005`
   - depends: T1, T3 — ref: design §3–4, §6.
-  - decision gate: Q1/Q3 resolved in T1.
+  - decision gate: Q1/Q3 resolved in T1; implementation remains Todo.
   - DoD: both versioned templates discoverable; full supported field/boundary matrix tested; editable incomplete drafts yield correct findings; warning policy tested; exact reference versions preserved; no model/provider calls. BR-CORE-001/002/006/007/014 local proof captured.
 
 - [ ] **T6. Implement configuration commands and detached queries** — Application — L
   - Ticket ID: `CORE-ACP-006`
   - depends: T1, T2, T3, T5 — ref: design §2–7.
-  - decision gate: Q1/Q3 resolved; real Q2 adapter not needed for mocked application tests.
-  - DoD: create, replace, validate, publish and read operations use authority checks; exact-version validation recording rejects an edit race; replay precedes current-draft eligibility; mismatched intent conflicts; trusted UTC time and detached outputs used. Generated mock tests cover denied access, reference failures, no result before commit, ambiguous-commit reconciliation and old-command replay after later publication. No assumption that mocks establish SQL or real authentication correctness.
+  - decision gate: Q1/Q3 resolved; the real authority adapter is not required for mocked application tests.
+  - DoD: create, replace, validate, publish, and read operations call `AgentConfigurationAuthority` with the existing operation names. Exact-version validation recording rejects an edit race; replay precedes current-draft eligibility; mismatched intent conflicts; trusted UTC time and detached outputs are used. Generated mock tests cover HR allow, ADMIN deny, candidate deny, reference failures, no result before commit, ambiguous-commit reconciliation, and old-command replay after later publication. Scope stored for a command is the account UUID. No assumption that mocks establish SQL or cookie/CSRF correctness.
 
 - [ ] **T7. Implement PostgreSQL publication transactions and repository proof** — Infrastructure — L
   - Ticket ID: `CORE-ACP-007`
   - depends: T1, T2, T3, T4, T5, T6 — ref: design §3, §5–7.
   - decision gate: Q1/Q3 resolved.
-  - DoD: real PostgreSQL tests cover exact-version replacement/validation/publication races, all write/commit rollback points, duplicate keys with same/different intent, cross-instance constraint checks, replay after new active revision, corrupted restoration, and null/zero mapping. Unique-constraint loser resolves in a fresh transaction. Restart retains revisions. Immutable read-by-ID supports future binding; do not claim full BR-CORE-013 consumer proof. Use isolated Docker or explicitly authorized integration database.
+  - DoD: real PostgreSQL tests apply the version-3 migration and cover exact-version replacement/validation/publication races, all write/commit rollback points, duplicate keys with same/different intent, cross-instance constraint checks, replay after new active revision, corrupted restoration, and null/zero mapping. Unique-constraint loser resolves in a fresh transaction. Restart retains revisions. Immutable read-by-ID supports future binding; do not claim full BR-CORE-013 consumer proof. Use isolated Docker or an explicitly authorized integration database. Do not call AutoMigrate.
 
 T4 and T5 may proceed independently once their shared prerequisites are complete. T6 can use generated repository mocks while T4 is prepared; T7 integrates the finalized application contract.
 
-### Blocked exposure and acceptance
+### Sequential exposure after persistence
 
 - [ ] **T8. Add secured HTTP endpoints and synchronized API documentation** — Delivery/runtime/contracts — L
   - Ticket ID: `CORE-ACP-008`
-  - depends: T1, T2, T5, T6, T7 — ref: design §2, §4, §6–7, §9 Q2.
-  - blocked by: absent real admin-session/authorization integration (platform/security owner).
-  - ready when: companion access implementation establishes trusted principal, scoped authorization, session expiry/revocation and CSRF controls with evidence. No mounted permissive placeholder is acceptable.
-  - DoD: all seven endpoint directions implemented using operation interfaces; strict input, confidentiality, safe EN/ID errors, correct new/replayed response statuses and exact precedence tested; update OpenAPI, new endpoint documentation and changelog together. Candidate/unauthenticated requests fail. Composition preserves existing routes and lifecycle budgets.
+  - depends: T1, T2, T5, T6, T7 — ref: design §2, §4, §6–7.
+  - DoD: all seven endpoint directions implemented using operation interfaces and the existing `accessauthority.Authority`. Dispatch `/admin/agent-templates` and `/admin/agent-instances` before the access `/admin/` catch-all. Reuse the administrative cookie and CSRF verifier, and map failures to §6.5 ACP codes. Strict input, confidentiality, safe EN/ID errors, correct new/replayed response statuses, and exact precedence are tested. Update OpenAPI, endpoint documentation, and changelog together. Candidate, ADMIN, expired, and revoked sessions fail as specified. Existing access, Task, and voice routes and lifecycle budgets stay intact. No permissive authorizer.
 
 - [ ] **T9. Verify the complete backend configuration flow and regressions** — Integration/verification — L
   - Ticket ID: `CORE-ACP-009`
   - depends: T4, T5, T6, T7, T8 — ref: design §3 proof matrix, §8–9.
-  - blocked by: Q2 until T8 is ready; Q1/Q3 inherited from prior tasks.
-  - ready when: both template contracts and real secure endpoint composition are available.
-  - DoD: each template completes create/replace/validate/publish/read through real HTTP/PostgreSQL; stale publication and replay-after-new-publication negative paths pass; fixture seeding uses ordinary operations. Run `make test`, `make test.all`, `make test.contract`, `make test.architecture`, `make lint`, `make test.security`, and `make test.docker` with the new suites included. Record failures/skips, command outputs and per-rule evidence. Existing Task/voice tests remain passing. Clearly retain UI and T11 acceptance limitations; no unqualified platform MVP-complete claim.
+  - Q1/Q3 are resolved. Configuration-route proof comes from T8; no separate access decision remains.
+  - ready when: both template implementations and the secured configuration composition are available.
+  - DoD: each template completes create/replace/validate/publish/read through real HTTP/PostgreSQL; stale publication and replay-after-new-publication negative paths pass; HR, ADMIN, and candidate-cookie cases pass; fixture seeding uses ordinary operations. Run `make test`, `make test.all`, `make test.contract`, `make test.architecture`, `make lint`, `make test.security`, and `make test.docker` with the new suites included. Record failures/skips, command outputs and per-rule evidence. Existing Task, voice, and access tests remain passing. Clearly retain UI and T11 acceptance limitations; no unqualified platform MVP-complete claim.
+
+### Blocked / deferred
 
 - [ ] **T10. Establish historical template deployment compatibility** — Platform/domain/infrastructure — M
   - Ticket ID: `CORE-ACP-010`
@@ -98,21 +106,21 @@ T4 and T5 may proceed independently once their shared prerequisites are complete
 - [ ] **T11. Prove binding preservation with actual assignment/execution consumers** — Cross-capability integration — M
   - Ticket ID: `CORE-ACP-011`
   - depends: T9 — ref: design §3 BR-CORE-013, §5, §9 Q5.
-  - blocked by: absent assignment/execution consumers owned by their separate capability work.
+  - blocked by: absent assignment/execution consumers owned by their separate capability work. Identity and Access D9 does not create those consumers.
   - ready when: those consumers exist with immutable published revision bindings; if multiple behavior versions are involved, T10 must also pass.
   - DoD: assignment pinned before new publication keeps its original revision at start; execution started before publication retains its original requirements; intentional new binding selects the appropriate active revision. Record real integration evidence. Do not implement the entire execution capability inside this task or count a fake consumer as full acceptance.
 
 ## Dependency Graph
 
 ```text
-Q1 + Q3 decisions → T1
-T2 (independent application boundaries)
-T3 (independent domain version mechanics)
-T1 + T3 → T4 (schema)
+Q1 + Q3 decisions (resolved) → T1 (Done)
+T2 (Done; authority port reused)
+T3 (Done; domain version mechanics)
+T1 + T3 + unpublished migration versions 3–4 → T4 (SQL version 3)
 T1 + T3 → T5 (templates/validators)
 T1 + T2 + T3 + T5 → T6 (application)
 T1 + T2 + T3 + T4 + T5 + T6 → T7 (PostgreSQL adapter)
-T1 + T2 + T5 + T6 + T7 + Q2 access implementation → T8 (HTTP)
+T1 + T2 + T5 + T6 + T7 + existing authority adapter → T8 (HTTP)
 T4 + T5 + T6 + T7 + T8 → T9 (backend acceptance)
 T1 + T3 + T4 + T5 + Q4 → T10 (multi-version deployment gate)
 T9 + Q5 consumers [and T10 for multiple behavior versions] → T11
@@ -124,3 +132,10 @@ T9 + Q5 consumers [and T10 for multiple behavior versions] → T11
 |---|---|---|
 | v1 | 2026-11-01 | Initial remaining-work plan; all tasks Todo and decision dependencies explicit |
 | v1.1 | 2026-11-01 | Add capability-group ticket prefix CORE-ACP and stable ticket IDs for T1–T11; task statuses and dependencies unchanged |
+| v1.2 | 2026-11-01 | T1 In Progress: link reviewable Q1/Q3 contract candidate; no owner acceptance or dependent-task readiness claimed |
+| v1.3 | 2026-11-01 | Record user approval of A–E, resolve Q1/Q3 and mark T1 Done; remaining tasks retain their statuses/dependencies |
+
+| v1.4 | 2026-11-01 | Mode C: preserve T1/T2/T3 Done; require HR allow/ADMIN deny and shared company scope in T6/T8/T9; Q2 remains an implementation gate |
+
+| v1.5 | 2026-11-01 | Link CORE-IAM-009 administrative evidence to Q2/T8/T9 without changing stable task IDs or status |
+| v1.6 | 2026-11-01 | Replace T4 AutoMigrate with SQL version 3 and remove the absent-session block from T8; T4–T11 stay Todo |

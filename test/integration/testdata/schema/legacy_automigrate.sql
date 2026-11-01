@@ -140,5 +140,3 @@ ALTER TABLE ONLY public.administrative_sessions
 --
 -- PostgreSQL database dump complete
 --
-
-

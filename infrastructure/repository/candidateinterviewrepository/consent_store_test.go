@@ -94,7 +94,7 @@ func TestWithAssignmentRefusesUnavailableAssignment(t *testing.T) {
 		revoked    *time.Time
 	}
 	tests := []unavailableCase{
-		{name: "assignment access revoked", assignment: &revoked, expires: testdata.Now().Add(time.Hour)},
+		{name: "assignment access revoked skips the session read", assignment: &revoked, expires: testdata.Now().Add(time.Hour)},
 		{name: "session revoked", expires: testdata.Now().Add(time.Hour), revoked: &revoked},
 		{name: "session expiry equals now", expires: testdata.Now()},
 		{name: "session expired", expires: testdata.Now().Add(-time.Second)},
@@ -102,7 +102,14 @@ func TestWithAssignmentRefusesUnavailableAssignment(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			store, mock := consentStore(t)
-			expectLockAndSession(mock, tt.assignment, tt.expires, tt.revoked)
+			if tt.assignment != nil {
+				mock.ExpectBegin()
+				mock.ExpectQuery(`(?i)SELECT access_revoked_at FROM interview_assignments WHERE id = .+ FOR UPDATE`).
+					WithArgs(testdata.AssignmentID).
+					WillReturnRows(sqlmock.NewRows([]string{"access_revoked_at"}).AddRow(tt.assignment))
+			} else {
+				expectLockAndSession(mock, nil, tt.expires, tt.revoked)
+			}
 			mock.ExpectRollback()
 			called := false
 			err := store.WithAssignment(context.Background(), testdata.AssignmentID, testdata.CandidateSessionID, func(context.Context) error {

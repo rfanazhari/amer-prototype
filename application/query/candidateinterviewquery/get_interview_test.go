@@ -145,7 +145,7 @@ func TestGetInterviewCoverageBoundary(t *testing.T) {
 		actions []string
 	}
 	tests := []boundaryCase{
-		{name: "equality is not covered", offset: candidateinterview.InterviewBudget, actions: nil},
+		{name: "equality is not covered", offset: candidateinterview.InterviewBudget, actions: []string{}},
 		{name: "one millisecond beyond is covered", offset: candidateinterview.InterviewBudget + time.Millisecond, actions: []string{"start"}},
 	}
 	for _, tt := range tests {

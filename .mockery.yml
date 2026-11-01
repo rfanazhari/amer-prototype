@@ -81,6 +81,13 @@ packages:
       CurrentSessionOperation:
       CandidateOperation:
       CandidateSessionOperation:
+  github.com/rfanazhari/amer-prototype/application/usecase/agentbindingusecase:
+    config:
+      dir: test/mocks
+      outpkg: mocks
+      filename: 'agent_binding_{{.InterfaceName | snakecase}}.go'
+    interfaces:
+      CreateAssignmentOperation:
   github.com/rfanazhari/amer-prototype/application/usecase/agentconfigusecase:
     config:
       dir: test/mocks

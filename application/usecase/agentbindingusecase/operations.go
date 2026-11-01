@@ -3,8 +3,15 @@ package agentbindingusecase
 import (
 	"context"
 
+	"github.com/rfanazhari/amer-prototype/application/dto"
 	"github.com/rfanazhari/amer-prototype/application/repository/agentbindingport"
 )
+
+// CreateAssignmentOperation records a new interview assignment pin under current HR authority.
+type CreateAssignmentOperation interface {
+	// Execute mints an assignment identity, copies the current HR Interviewer active revision, and persists the pin.
+	Execute(ctx context.Context, candidateID, instanceID string) (*dto.Assignment, error)
+}
 
 // PinAssignmentOperation pins a new assignment to the instance's current active revision.
 type PinAssignmentOperation interface {

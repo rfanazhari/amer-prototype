@@ -10,6 +10,8 @@ var (
 	ErrNotFound = errors.New("configuration binding record not found")
 	// ErrNoActiveRevision reports that a new binding cannot select an unpublished instance.
 	ErrNoActiveRevision = errors.New("instance has no active published revision")
+	// ErrUnsupportedTemplate reports that a new assignment cannot pin a non-HR Interviewer instance.
+	ErrUnsupportedTemplate = errors.New("assignment requires an hr-interviewer instance")
 )
 
 // AssignmentBinding is an Interview-owned assignment pin to one immutable published revision.

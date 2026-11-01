@@ -15,6 +15,8 @@ const (
 	IAInvitationUnavailable  = "IA_INVITATION_UNAVAILABLE"
 	IARateLimited            = "IA_RATE_LIMITED"
 	IADependencyUnavailable  = "IA_DEPENDENCY_UNAVAILABLE"
+	IANoActiveRevision       = "IA_NO_ACTIVE_REVISION"
+	IAUnsupportedTemplate    = "IA_UNSUPPORTED_TEMPLATE"
 	ACPUnauthenticated       = "ACP_UNAUTHENTICATED"
 	ACPForbidden             = "ACP_FORBIDDEN"
 	ACPIdempotencyConflict   = "ACP_IDEMPOTENCY_CONFLICT"

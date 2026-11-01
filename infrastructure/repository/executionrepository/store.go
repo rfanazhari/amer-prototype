@@ -5,7 +5,9 @@ import (
 	"database/sql"
 	"errors"
 	"reflect"
+	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/rfanazhari/amer-prototype/application/repository/executionport"
 	"github.com/rfanazhari/amer-prototype/domain/aggregate/execution"
@@ -20,6 +22,7 @@ var (
 	_ executionport.AssignmentLock = Store{}
 	_ executionport.Transactor     = Store{}
 	_ executionport.ExecutionStore = Store{}
+	_ executionport.CommandStore   = Store{}
 )
 
 // txKey carries the open transaction through the context handed to an assignment callback.
@@ -208,10 +211,33 @@ func (s Store) WithTransaction(ctx context.Context, fn func(ctx context.Context)
 	})
 }
 
-// FindOrInsert is not yet backed by agent_execution_commands.
-func (s Store) FindOrInsert(_ context.Context, _, _, _, _, _ string) (string, error) {
-	return "", errCommandStoreUnavailable
+// FindOrInsert records the command identity (scope, kind, key) once and returns the execution it points at.
+// The insert is conflict-tolerant so a concurrent or repeated identity reads the stored row instead of failing.
+// A stored identity with another fingerprint is ErrIdempotencyConflict. The write joins the caller's transaction.
+func (s Store) FindOrInsert(ctx context.Context, scope, kind, key, fingerprint, executionID string) (string, error) {
+	var found string
+	err := s.inTx(ctx, func(tx *gorm.DB) error {
+		model := CommandModel{
+			ID: uuid.NewString(), Scope: scope, CommandKind: kind, RequestKey: key,
+			Fingerprint: fingerprint, ExecutionID: executionID, CreatedAt: time.Now().UTC().Truncate(time.Millisecond),
+		}
+		result := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&model)
+		if result.Error != nil {
+			return classify(result.Error)
+		}
+		if result.RowsAffected == 1 {
+			found = executionID
+			return nil
+		}
+		var stored CommandModel
+		if err := tx.Where("scope = ? AND command_kind = ? AND request_key = ?", scope, kind, key).Take(&stored).Error; err != nil {
+			return err
+		}
+		if stored.Fingerprint != fingerprint {
+			return executionport.ErrIdempotencyConflict
+		}
+		found = stored.ExecutionID
+		return nil
+	})
+	return found, err
 }
-
-// errCommandStoreUnavailable reports that the command store has no PostgreSQL behavior yet.
-var errCommandStoreUnavailable = errors.New("execution command store is not implemented")

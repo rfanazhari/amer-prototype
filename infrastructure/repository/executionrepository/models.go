@@ -47,3 +47,17 @@ type PinModel struct {
 
 // TableName fixes the interview admission pin table used by GORM.
 func (PinModel) TableName() string { return "interview_executions" }
+
+// CommandModel maps one agent_execution_commands row, the idempotent identity of a caller command.
+type CommandModel struct {
+	ID          string    `gorm:"type:uuid;primaryKey"`
+	Scope       string    `gorm:"not null"`
+	CommandKind string    `gorm:"column:command_kind;not null"`
+	RequestKey  string    `gorm:"column:request_key;not null"`
+	Fingerprint string    `gorm:"column:intent_fingerprint;not null"`
+	ExecutionID string    `gorm:"column:execution_id;type:uuid;not null"`
+	CreatedAt   time.Time `gorm:"column:created_at;not null;autoCreateTime:false"`
+}
+
+// TableName fixes the command identity table used by GORM.
+func (CommandModel) TableName() string { return "agent_execution_commands" }

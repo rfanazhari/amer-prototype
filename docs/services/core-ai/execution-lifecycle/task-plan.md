@@ -72,7 +72,7 @@ T1 and T2 may proceed in parallel. They are not a request to run two agents.
 
 ### Proof
 
-- [ ] **T8. Prove locking, rollback, and idempotency on PostgreSQL** — Integration — L
+- [x] **T8. Prove locking, rollback, and idempotency on PostgreSQL** — Integration — L
   - Ticket: `CORE-EXL-008` — depends: T3, T4, T5, T6, T7 — ref: design §3 proof column, §5, §8; tactical-strategy §5.
   - DoD: on an authorized disposable database, `make test.integration` or `make test.docker` shows concurrent starts leave one execution, a lost-response retry returns it, a conflicting intent does not replace it, a callback failure rolls back both the shared row and the pin, completion versus cancellation leaves one terminal state, a later active revision does not change the stored binding, a version-7 pin upgrades to `CREATED`, and `Admit` can complete with no pin row. Record the exact command, pass or fail, and any skip. `go test` without the database variable is not this DoD. `make test` also passes.
 

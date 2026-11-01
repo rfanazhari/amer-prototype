@@ -3,17 +3,21 @@ package integration_test
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/rfanazhari/amer-prototype/application/dto"
+	"github.com/rfanazhari/amer-prototype/application/repository/agentconfigport"
 	"github.com/rfanazhari/amer-prototype/application/repository/executionport"
 	"github.com/rfanazhari/amer-prototype/application/service"
 	"github.com/rfanazhari/amer-prototype/application/usecase/executionusecase"
 	"github.com/rfanazhari/amer-prototype/domain/aggregate/execution"
+	"github.com/rfanazhari/amer-prototype/infrastructure/repository/agentconfigrepository"
 	"github.com/rfanazhari/amer-prototype/test/mocks"
+	"github.com/rfanazhari/amer-prototype/test/testdata"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
@@ -73,6 +77,7 @@ func (f executionFixture) admitInput(key string) executionusecase.AdmitInput {
 func (o lifecycleOps) runToProgress(t *testing.T, created *dto.ExecutionView) *dto.ExecutionView {
 	t.Helper()
 	ctx := context.Background()
+	progressRef := uuid.NewString()
 	running, err := o.activate.Execute(ctx, executionusecase.ActivateInput{
 		ExecutionID: created.ID, RequestKey: "act-" + created.ID[:8], ActorRef: lifecycleActor,
 		ExpectedVersion: created.StateVersion, OperationKey: "op-1", Generation: 1,
@@ -81,11 +86,11 @@ func (o lifecycleOps) runToProgress(t *testing.T, created *dto.ExecutionView) *d
 	require.Equal(t, string(execution.StateRunning), running.State)
 	progressed, err := o.progress.Execute(ctx, executionusecase.CommitProgressInput{
 		ExecutionID: created.ID, RequestKey: "prog-" + created.ID[:8], ActorRef: lifecycleActor,
-		ExpectedVersion: running.StateVersion, OperationKey: "op-1", Generation: 1, ProgressRef: "progress-1",
+		ExpectedVersion: running.StateVersion, OperationKey: "op-1", Generation: 1, ProgressRef: progressRef,
 	})
 	require.NoError(t, err)
 	require.Equal(t, string(execution.StateRunning), progressed.State)
-	require.Equal(t, "progress-1", progressed.ProgressRef)
+	require.Equal(t, progressRef, progressed.ProgressRef)
 	return progressed
 }
 
@@ -196,8 +201,9 @@ func (c failingCommands) FindOrInsert(ctx context.Context, scope, kind, key, fin
 
 // proveStartRollback fails after the execution, transition, pin and command writes and expects none to persist.
 func proveStartRollback(t *testing.T, f executionFixture, ops lifecycleOps) {
-	ops.start.Commands = failingCommands{CommandStore: f.store}
-	_, err := ops.start.Execute(context.Background(), f.startInput("rollback-1"))
+	failing := ops.start
+	failing.Commands = failingCommands{CommandStore: f.store}
+	_, err := failing.Execute(context.Background(), f.startInput("rollback-1"))
 	require.Error(t, err)
 	require.Zero(t, f.count(t, `SELECT count(*) FROM interview_executions WHERE assignment_id = ?`, f.assignmentID))
 	require.Zero(t, f.count(t, `SELECT count(*) FROM agent_executions WHERE instance_id = ?`, f.binding.InstanceID))
@@ -253,7 +259,7 @@ func proveFrozenBinding(t *testing.T, f executionFixture, ops lifecycleOps) {
 	secondValidation := insertOwnedValidation(t, configStore, f.binding.InstanceID, 2, true)
 	var accountID string
 	require.NoError(t, f.db.Raw(`SELECT created_by FROM candidates c JOIN interview_assignments a ON a.candidate_id = c.id WHERE a.id = ?`, f.assignmentID).Scan(&accountID).Error)
-	secondRevision := publishOwned(t, configStore, f.binding.InstanceID, secondValidation, accountID, uuid.NewString(), "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb2")
+	secondRevision := publishLaterDocument(t, configStore, f.binding.InstanceID, secondValidation, accountID, strings.Repeat("b", 63)+"2")
 	require.NotEqual(t, f.binding.RevisionID, secondRevision)
 
 	again, err := ops.start.Execute(context.Background(), f.startInput("frozen-1"))
@@ -304,4 +310,34 @@ func proveAccessEndedCancel(t *testing.T, f executionFixture, ops lifecycleOps) 
 	require.Equal(t, execution.StateCancelled, after.State)
 	require.Equal(t, version, after.StateVersion)
 	require.EqualValues(t, 1, f.count(t, `SELECT count(*) FROM agent_executions WHERE instance_id = ?`, f.binding.InstanceID))
+}
+
+// publishLaterDocument publishes the current Document draft after the replacement draft was written, moving the active pointer.
+func publishLaterDocument(t *testing.T, store agentconfigrepository.Store, instanceID, validationID, scope, fingerprint string) string {
+	t.Helper()
+	var revisionID string
+	require.NoError(t, store.WithinInstance(context.Background(), instanceID, func(tx agentconfigport.InstanceTx) error {
+		current, err := tx.Instance(context.Background())
+		if err != nil {
+			return err
+		}
+		loaded, err := tx.FindValidation(context.Background(), validationID)
+		if err != nil {
+			return err
+		}
+		published, err := current.Document.Publish(uuid.NewString(), loaded, testdata.Now().Add(3*time.Minute))
+		if err != nil {
+			return err
+		}
+		revisionID = published.Snapshot().Identity.ID
+		if err := tx.InsertRevision(context.Background(), agentconfigport.StoredRevision{Document: &published}); err != nil {
+			return err
+		}
+		if err := tx.SaveInstance(context.Background(), current); err != nil {
+			return err
+		}
+		return tx.InsertCommand(context.Background(), agentconfigport.CommandIdentity{Scope: scope, Kind: acpCommandKind, Key: uuid.NewString()},
+			agentconfigport.CommandResult{Fingerprint: fingerprint, InstanceID: instanceID, RevisionID: revisionID})
+	}))
+	return revisionID
 }

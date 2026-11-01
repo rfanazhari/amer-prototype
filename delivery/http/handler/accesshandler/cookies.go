@@ -41,6 +41,16 @@ func bindCredential(r *http.Request, token string) *http.Request {
 	return r.WithContext(service.WithAdministrativeCredential(r.Context(), token))
 }
 
+// ReadAdminCookie exposes the administrative cookie reader to sibling configuration routes.
+func ReadAdminCookie(r *http.Request, secure bool) (string, bool, bool) {
+	return readAdminCookie(r, secure)
+}
+
+// BindAdministrativeCredential exposes cookie-context binding to sibling configuration routes.
+func BindAdministrativeCredential(r *http.Request, token string) *http.Request {
+	return bindCredential(r, token)
+}
+
 // candidateCookieName selects the candidate cookie name for the configured transport.
 func candidateCookieName(secure bool) string {
 	if secure {

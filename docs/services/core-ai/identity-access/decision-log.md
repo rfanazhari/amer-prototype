@@ -2,7 +2,7 @@
 
 Technical decisions driven by the owner's business choices, approved in this conversation on 2026-11-01. Entries explain intended product behavior; none establishes implementation or test acceptance. Technical library and helper choices remain in technical-design.md.
 
-T1 (`CORE-IAM-001`) A–E administrative contracts are recorded in D7. Q1 is resolved. T10 (`CORE-IAM-010`) F–I candidate contracts are recorded in D9; Q2–Q4 are resolved as access contracts. Q5 remains open. D8 records the later owner-approved shift to manual migrations (Q6 resolved); its implementation is planned in T16–T20. T1–T9 Done statuses remain as recorded in task-plan.md; the migration review does not rerun their acceptance. Real Interview assignment persistence remains a T14 runtime obligation.
+T1 (`CORE-IAM-001`) A–E administrative contracts are recorded in D7. Q1 is resolved. T10 (`CORE-IAM-010`) F–I candidate contracts are recorded in D9; Q2–Q4 are resolved as access contracts. Q5 remains open. T21 (`CORE-IAM-021`) creator-scoped candidate listing is recorded in D10. D8 records the later owner-approved shift to manual migrations (Q6 resolved); its implementation is planned in T16–T20. T1–T9 Done statuses remain as recorded in task-plan.md; the migration review does not rerun their acceptance. Real Interview assignment persistence remains a T14 runtime obligation.
 
 ## D1: Account administration and HR operations have separate roles
 
@@ -104,4 +104,16 @@ T1 (`CORE-IAM-001`) A–E administrative contracts are recorded in D7. Q1 is res
 - **Assessment:** retain Candidate/Invitation/CandidateSession ownership in access; keep assignment facts as an Interview-owned port; T12 implements operations against mocks; T11 sqlmock covers Access SQL only.
 - **Closure:** Q2/Q3/Q4 resolved as executable access contracts; Q5 retention remains open; no candidate HTTP or Interview runtime is claimed.
 - **Revisit when:** product requests one-time invitations, email-based matching, device ejection on reissue, or Access-owned assignment storage.
+- **Status:** active.
+
+## D10: An HR lists only the candidates they created
+
+- **Ticket:** `CORE-IAM-021` / T21.
+- **Confirming actor/date:** approved HR list plan, 2026-11-02. No separate external sign-off is claimed.
+- **Business driver:** HR needs the people they recorded, without email search and without another HR's candidates appearing in that collection.
+- **Technical decision:** GET `/admin/candidates` uses the same origin and administrative-cookie rules as GET `/admin/candidates/{id}`, with no CSRF. Rows are those whose `created_by` equals the logged-in account, ordered by `created_at` descending then `id` descending. `data` is an array of `id`, `name`, `email`, `createdAt`, and `updatedAt`. An empty result is 200 with `[]`. ADMIN is 403 `IA_FORBIDDEN` before the read. A missing or candidate-cookie session is 401 `IA_UNAUTHENTICATED`. GET by id still returns any known candidate to any current HR. POST create is unchanged. Other methods on the exact path stay 405.
+- **What this means for the product:** Each HR sees their own candidate list. Knowing an id is still enough for any current HR to open that candidate. Email does not find or merge people.
+- **Alternatives considered:** Email search would invent matching that D9 forbids. Listing every candidate would ignore the existing creator column. Adding pagination or a new ownership column was not requested.
+- **Trade-offs accepted:** The collection cannot browse another HR's candidates. A known id remains readable by any current HR. There is no page size or search box on this route.
+- **Revisit when:** product requests cross-HR candidate browse, email lookup, or paged results.
 - **Status:** active.

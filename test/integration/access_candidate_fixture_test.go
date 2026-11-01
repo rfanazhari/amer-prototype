@@ -8,8 +8,11 @@ import (
 	"github.com/google/uuid"
 	"github.com/rfanazhari/amer-prototype/application/query/accessquery"
 	"github.com/rfanazhari/amer-prototype/application/usecase/accessusecase"
+	"github.com/rfanazhari/amer-prototype/application/usecase/agentbindingusecase"
 	"github.com/rfanazhari/amer-prototype/delivery/http/handler/accesshandler"
 	"github.com/rfanazhari/amer-prototype/infrastructure/repository/accessrepository"
+	"github.com/rfanazhari/amer-prototype/infrastructure/repository/agentbindingrepository"
+	"github.com/rfanazhari/amer-prototype/infrastructure/repository/agentconfigrepository"
 	"github.com/rfanazhari/amer-prototype/infrastructure/service/accessauthority"
 	"github.com/rfanazhari/amer-prototype/infrastructure/service/accesscredentials"
 	"github.com/stretchr/testify/require"
@@ -32,12 +35,17 @@ func newCandidateAccessHTTP(t *testing.T) accessHTTP {
 	candidateSessions := accessauthority.CandidateSessions{Store: candidateSecrets, Tokens: tokens, Clock: graph.clock}
 	graph.authority = accessauthority.Authority{Sessions: sessions, Clock: graph.clock}
 	graph.handler = accesshandler.Handler{
-		Login:            accessusecase.Login{Accounts: store, Issuance: store, Hasher: hasher, Tokens: tokens, Clock: graph.clock},
-		Current:          accessquery.CurrentSession{Current: sessions, CSRF: csrf, Clock: graph.clock},
-		Provision:        accessusecase.ProvisionHR{Accounts: store, Current: sessions, Hasher: hasher, Clock: graph.clock},
-		Logout:           accessusecase.Logout{Current: sessions, Sessions: store, Clock: graph.clock},
-		CreateCandidate:  accessusecase.CreateCandidate{Candidates: candidates, Current: sessions, Clock: graph.clock},
+		Login:           accessusecase.Login{Accounts: store, Issuance: store, Hasher: hasher, Tokens: tokens, Clock: graph.clock},
+		Current:         accessquery.CurrentSession{Current: sessions, CSRF: csrf, Clock: graph.clock},
+		Provision:       accessusecase.ProvisionHR{Accounts: store, Current: sessions, Hasher: hasher, Clock: graph.clock},
+		Logout:          accessusecase.Logout{Current: sessions, Sessions: store, Clock: graph.clock},
+		CreateCandidate: accessusecase.CreateCandidate{Candidates: candidates, Current: sessions, Clock: graph.clock},
+		CreateAssignment: agentbindingusecase.CreateAssignment{
+			Current: sessions, Clock: graph.clock, Candidates: candidates,
+			Instances: agentconfigrepository.Store{DB: graph.db}, Assignments: agentbindingrepository.Assignments{DB: graph.db},
+		},
 		Candidate:        accessquery.Candidate{Candidates: candidates, Current: sessions, Clock: graph.clock},
+		ListCandidates:   accessquery.ListCandidates{Candidates: candidates, Current: sessions, Clock: graph.clock},
 		IssueInvitation:  accessusecase.IssueInvitation{Assignments: store, Current: sessions, Tokens: tokens, Clock: graph.clock},
 		Exchange:         accessusecase.ExchangeInvitation{Invitations: invitations, Candidates: candidates, Assignments: store, Tokens: tokens, Clock: graph.clock},
 		CandidateSession: accessquery.CandidateSession{Current: candidateSessions, Candidates: candidates, Assignments: store, CSRF: csrf, Clock: graph.clock},
@@ -57,8 +65,8 @@ func installInterviewAssignmentFixture(t *testing.T, db *gorm.DB) {
 	t.Cleanup(func() {
 		require.NoError(t, db.Exec("DROP TABLE IF EXISTS candidate_sessions, interview_invitations, interview_assignments, candidates CASCADE").Error)
 	})
-	for _, file := range []string{"000003_candidates.up.sql", "000004_assignment_access.up.sql"} {
-		if file == "000004_assignment_access.up.sql" {
+	for _, file := range []string{"000004_candidates.up.sql", "000006_assignment_access.up.sql"} {
+		if file == "000006_assignment_access.up.sql" {
 			require.NoError(t, db.Exec(`CREATE TABLE interview_assignments (
     id uuid PRIMARY KEY, candidate_id uuid NOT NULL REFERENCES candidates(id) ON DELETE RESTRICT ON UPDATE RESTRICT,
     published_revision_id uuid NOT NULL, access_revoked_at timestamptz NULL, completed_at timestamptz NULL

@@ -2,7 +2,7 @@
 
 These entries explain technical consequences of the approved capability and platform decisions. They do not claim implementation or new owner approval of unresolved details. Technical library and package choices remain in [technical-design.md](technical-design.md).
 
-T1 (`CORE-ACP-001`) A–E approval is recorded in D5 below. Q1/Q3 are resolved. The administrative access prerequisite is satisfied by Identity and Access D1/D6/D7 and CORE-IAM-009; configuration-route proof remains ACP T8/T9. Schema installation follows Identity and Access D8, recorded here as D7. Q4/Q5 remain open. No configuration runtime implementation is claimed by this alignment.
+T1 (`CORE-ACP-001`) A–E approval is recorded in D5 below. Q1/Q3 are resolved. The administrative access prerequisite is satisfied by Identity and Access D1/D6/D7 and CORE-IAM-009; configuration-route proof remains ACP T8/T9. Schema installation follows Identity and Access D8, recorded here as D7. T10 (`CORE-ACP-010`) records historical deployment compatibility in D8 and resolves Q4. T11 (`CORE-ACP-011`) records assignment/execution pin consumers in D9 and resolves Q5. D10 adopts the T12 assignment-create contract. T13 mounts the route. D11 adopts the HR instance collection without creator ownership.
 
 ## D1: Published settings remain reliable while users prepare changes
 
@@ -69,7 +69,7 @@ T1 (`CORE-ACP-001`) A–E approval is recorded in D5 below. Q1/Q3 are resolved. 
 - **Alternatives considered:** A superuser ADMIN would contradict the selected responsibilities; creator-only configuration would obstruct the selected shared company scope; organization/workspace management is unnecessary for the current single-company target.
 - **Trade-offs accepted:** Account management and business operation require separate identities/roles under the approved single-role account model. Candidate and administrative sessions have separate authority checks. No role-management tables are introduced.
 - **Revisit when:** The owner requests combined roles, delegated configuration ownership, or multiple companies.
-- **Companion plan:** [Identity and Access D1–D7](../identity-access/decision-log.md). CORE-IAM-009 and [q2-access-evidence.md](q2-access-evidence.md) prove the administrative adapter. Configuration routes remain ACP T8/T9 work. D9 does not change this authority split.
+- **Companion plan:** [Identity and Access D1–D7](../identity-access/decision-log.md). CORE-IAM-009 and [q2-access-evidence.md](q2-access-evidence.md) prove the administrative adapter. ACP T9 records the same HR allow, ADMIN deny, and candidate/expired/revoked denial on the configuration routes. D9 does not change this authority split.
 - **Status:** active; supersedes D4's combined-role scope while preserving candidate exclusion. D5's payload, confidentiality, fingerprint and error contracts remain active.
 
 ## D7: Configuration tables are installed by an explicit database migration
@@ -80,4 +80,52 @@ T1 (`CORE-ACP-001`) A–E approval is recorded in D5 below. Q1/Q3 are resolved. 
 - **Alternatives considered:** Creating the tables automatically on startup would contradict the approved operational change. Putting configuration tables after the assignment-access migration would make HR configuration wait for an Interview table that does not exist yet.
 - **Trade-offs accepted:** Release procedure gains a migration step and a new accepted database version. If candidate or assignment SQL has already been applied in an environment, that environment needs a reviewed forward plan before configuration tables can be inserted at version 3.
 - **Revisit when:** Database ownership splits into separate services, or Interview's assignment migration is applied first and the version order must be replanned.
-- **Status:** active; applies Identity and Access D8 to this capability. D1–D6 remain active.
+- **Status:** active for the manual-migration rule. The 2026-11-01 statement that the Interview table does not exist yet is historical. The release stream now includes `000004_candidates`, `000005_interview_assignments`, `000006_assignment_access`, and `000007_interview_executions`. Startup accepts clean version 7 (`schema.ReleaseVersion`). There is no `000005_assignment_access` file. The public assignment create route is still absent; see D10.
+
+## D8: Historical template deployment compatibility is approved
+
+- **Ticket:** `CORE-ACP-010` / T10.
+- **Confirming actor/date:** user in this conversation, 2026-11-01; no separate external sign-off is claimed.
+- **Business driver:** BR-CORE-009/013 and platform lifecycle require published revisions and future bindings to remain readable without silently changing meaning when validators evolve.
+- **Approved contract:** retain-and-restrict deployment, restoration without current-creation reinterpretation, and explicit rejection of unsupported stored behavior versions; canonical in [technical-design §6.6](technical-design.md#66-historical-deployment-compatibility-approved-t10) and [t10-contract.md](t10-contract.md).
+- **Product consequences:** Operators must deploy a binary whose restoration catalog covers every stored template/behavior tuple before serving configuration traffic. Rolling back a binary without restoration support for persisted behavior versions is refused at startup rather than corrupting reads. Historical revisions restore without current-creation-policy reinterpretation; current assessors are not rerun on restore.
+- **Alternatives considered:** silently revalidating stored rows against today's publication rules would make historical revisions unreadable; unrestricted startup would allow partial interpretation of unsupported behavior tokens.
+- **Trade-offs accepted:** Each new behavior version requires an explicit restoration registration and coordinated rollout; sparse historical fixtures remain valid stored shapes even when current assessors would block new publication.
+- **Closure:** Q4 resolved as executable deployment policy; representative fixtures and sqlmock/adapter tests recorded in [t10-deployment.md](t10-deployment.md). T11 consumer proof is recorded in D9.
+- **Revisit when:** product retires a behavior version while stored rows or bindings still reference it; approve retirement/migration before removing restoration support.
+- **Status:** active.
+
+## D9: Assignment and execution consumers pin immutable published revisions
+
+- **Ticket:** `CORE-ACP-011` / T11.
+- **Confirming actor/date:** user in this conversation, 2026-11-01; exclusive T11 execution.
+- **Business driver:** BR-CORE-013 requires existing assignments and executions to keep the revision they bound, while new bindings may select the later active revision.
+- **Technical decision:** Thin Interview-shaped consumers persist `published_revision_id` on assignment and execution rows and restore requirements through `FindRevision`. They do not implement consent, voice, or provider admission. The 2026-11-01 exclusion of production Interview migrations is historical: versions 5 and 7 are now in the release stream. Those migrations do not add an HTTP create route.
+- **What this means for the product:** An assignment pinned before a later publication, and an execution started against that assignment, continue to use the original required fields. A new assignment after publication selects the new active revision.
+- **Alternatives considered:** An in-memory fake consumer would not prove SQL pins. Implementing the entire execution capability exceeds T11.
+- **Closure:** Q5 resolved as executable consumer proof with Mockery, sqlmock, and PostgreSQL evidence. Admin UI remains outside this slice. The consumers are not mounted on a public route; see D10.
+- **Status:** active for the pin rule.
+
+## D10: Publication does not create the interview assignment HR must pin
+
+- **Ticket:** `CORE-ACP-012` / T12 (contract). `CORE-ACP-013` / T13 mounts the route.
+- **Confirming actor/date:** user in this conversation, 2026-11-02; exclusive T12–T13 execution of the remaining assignment-create work.
+- **Business driver:** `BR-CORE-013` says a new binding may select the later active revision and an existing pin stays put. Sibling `BR-CORE-030` and `BR-CORE-031` say an invitation targets an existing assignment for an existing candidate. Identity and Access owns invitations and sessions. Interview owns `interview_assignments`. Access must not create that table or that row.
+- **Technical finding:** `POST /admin/interview-assignments/{id}/invitations` is live. `{id}` is an assignment id. When that id is a candidate id, the handler reaches `IssueInvitation`, the assignment lock finds no row, and the response is 404 `NOT_FOUND`. `agentbindingusecase.PinAssignment` can insert a pin to the current `active_revision_id`. Publication updates only the instance's active pointer.
+- **Approved contract:** [technical-design §11](technical-design.md#11-interview-assignment-create-contract-approved-t12). Body is `candidateId` and `instanceId`. The server mints the assignment id and copies the current `hr-interviewer` active revision. Document Analyzer instances are refused. Lost 201 creates another assignment. 201 returns `id`, `candidateId`, `instanceId`, and `publishedRevisionId` without timestamps. Errors use `IA_UNAUTHENTICATED`, `IA_FORBIDDEN`, `NOT_FOUND`, `IA_NO_ACTIVE_REVISION`, `IA_UNSUPPORTED_TEMPLATE`, and `IA_DEPENDENCY_UNAVAILABLE`.
+- **What this means for the product:** After HR creates a candidate, HR creates one assignment that names that candidate and the current published HR Interviewer revision. The invitation request must use that assignment id. Candidate email is contact, not a login. ADMIN cannot create the assignment.
+- **Alternatives considered:** Treating the candidate id as the assignment id would make one person unable to hold two interviews. Letting Access insert the assignment would break Identity and Access ownership. Letting HR name an older revision would contradict `BR-CORE-013` new-binding selection. Returning timestamps would expand the pin port. Idempotent create would need a new request-key store.
+- **Trade-offs accepted:** Duplicate assignments after a lost response. No GET/revoke/report in this step. Document Analyzer remains a later initiation binding.
+- **Closure:** Q6 resolved as the §11 contract. T12 edits documents only. T13 implements the route without new SQL.
+- **Status:** active for the create contract.
+
+## D11: HR lists every agent instance without creator ownership
+
+- **Ticket:** `CORE-ACP-014` / T14.
+- **Confirming actor/date:** approved HR list plan, 2026-11-02.
+- **Business driver:** Current HR needs the company instance collection. BR-CORE-023 says another HR's authorship does not exclude an otherwise permitted configuration operation.
+- **Technical decision:** `GET /admin/agent-instances` returns every instance. The list does not introduce creator ownership and does not narrow BR-CORE-023. There is no `created_by` column and no migration. Authorize once with `AgentConfigurationRead` and an empty resource. Each item is the existing filtered instance view. Empty `data` is `[]`. Order is `created_at DESC, id DESC`. There is no search or pagination.
+- **What this means for the product:** Any current HR sees every instance, including one created by a colleague. ADMIN stays forbidden. Salary reference contents stay off the response.
+- **Alternatives considered:** A creator column would make the collection personal and would narrow BR-CORE-023. Search and pagination are outside this slice.
+- **Closure:** T14 implements the route on the existing store and filtered instance view. Public OpenAPI, the endpoint document, and the API changelog stay with the contract update.
+- **Status:** active for the collection read.

@@ -123,7 +123,7 @@ func TestConcurrentMigratorsSerialize(t *testing.T) {
 	for i := 0; i < 2; i++ {
 		workers.Go(func() {
 			<-start
-			_, _, err := runner.Execute(context.Background(), schema.Options{Action: "up", Version: 2})
+			_, _, err := runner.Execute(context.Background(), schema.Options{Action: "up", Version: schema.ReleaseVersion})
 			results <- err
 		})
 	}
@@ -188,7 +188,7 @@ func TestMigrationRefusalsAndRecovery(t *testing.T) {
 		}, 2*time.Second, 10*time.Millisecond)
 		require.NoError(t, tx.Rollback())
 		require.Error(t, schema.RequireCompatible(context.Background(), db))
-		_, _, err = runner.Execute(context.Background(), schema.Options{Action: "up", Version: 2})
+		_, _, err = runner.Execute(context.Background(), schema.Options{Action: "up", Version: schema.ReleaseVersion})
 		require.Error(t, err)
 		// This injected down was transactional: catalog comparison must establish the actual state before clearing dirty.
 		catalog, err := os.ReadFile("catalog.sql")
@@ -204,9 +204,10 @@ func TestMigrationRefusalsAndRecovery(t *testing.T) {
 		affected, err := repaired.RowsAffected()
 		require.NoError(t, err)
 		require.Equal(t, int64(1), affected)
-		require.NoError(t, schema.RequireCompatible(context.Background(), db))
-		_, _, err = runner.Execute(context.Background(), schema.Options{Action: "up", Version: 2})
+		require.Error(t, schema.RequireCompatible(context.Background(), db))
+		_, _, err = runner.Execute(context.Background(), schema.Options{Action: "up", Version: schema.ReleaseVersion})
 		require.NoError(t, err)
+		require.NoError(t, schema.RequireCompatible(context.Background(), db))
 	})
 }
 

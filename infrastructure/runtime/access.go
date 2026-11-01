@@ -10,8 +10,11 @@ import (
 	"github.com/rfanazhari/amer-prototype/application/query/accessquery"
 	"github.com/rfanazhari/amer-prototype/application/service"
 	"github.com/rfanazhari/amer-prototype/application/usecase/accessusecase"
+	"github.com/rfanazhari/amer-prototype/application/usecase/agentbindingusecase"
 	"github.com/rfanazhari/amer-prototype/delivery/http/handler/accesshandler"
 	"github.com/rfanazhari/amer-prototype/infrastructure/repository/accessrepository"
+	"github.com/rfanazhari/amer-prototype/infrastructure/repository/agentbindingrepository"
+	"github.com/rfanazhari/amer-prototype/infrastructure/repository/agentconfigrepository"
 	"github.com/rfanazhari/amer-prototype/infrastructure/service/accessauthority"
 	"github.com/rfanazhari/amer-prototype/infrastructure/service/accesscredentials"
 	"github.com/rfanazhari/amer-prototype/infrastructure/service/clock"
@@ -81,16 +84,22 @@ func assembleAccess(db *gorm.DB, cfg Config, logs *logmanager.Application) acces
 		txn.End()
 	}
 	candidates := accessrepository.CandidateIdentities{Store: store}
+	configStore := agentconfigrepository.Store{DB: db}
+	assignmentPins := agentbindingrepository.Assignments{DB: db}
 	invitations := accessrepository.InvitationSecrets{Store: store}
 	candidateSecrets := accessrepository.CandidateSessionSecrets{Store: store}
 	candidateSessions := accessauthority.CandidateSessions{Store: candidateSecrets, Tokens: tokens, Clock: timer}
 	return accesshandler.Handler{
-		Login:            accessusecase.Login{Accounts: store, Issuance: store, Hasher: hasher, Tokens: tokens, Clock: timer},
-		Current:          accessquery.CurrentSession{Current: sessions, CSRF: csrf, Clock: timer},
-		Provision:        accessusecase.ProvisionHR{Accounts: store, Current: sessions, Hasher: hasher, Clock: timer},
-		Logout:           accessusecase.Logout{Current: sessions, Sessions: store, Clock: timer},
-		CreateCandidate:  accessusecase.CreateCandidate{Candidates: candidates, Current: sessions, Clock: timer},
+		Login:           accessusecase.Login{Accounts: store, Issuance: store, Hasher: hasher, Tokens: tokens, Clock: timer},
+		Current:         accessquery.CurrentSession{Current: sessions, CSRF: csrf, Clock: timer},
+		Provision:       accessusecase.ProvisionHR{Accounts: store, Current: sessions, Hasher: hasher, Clock: timer},
+		Logout:          accessusecase.Logout{Current: sessions, Sessions: store, Clock: timer},
+		CreateCandidate: accessusecase.CreateCandidate{Candidates: candidates, Current: sessions, Clock: timer},
+		CreateAssignment: agentbindingusecase.CreateAssignment{
+			Current: sessions, Clock: timer, Candidates: candidates, Instances: configStore, Assignments: assignmentPins,
+		},
 		Candidate:        accessquery.Candidate{Candidates: candidates, Current: sessions, Clock: timer},
+		ListCandidates:   accessquery.ListCandidates{Candidates: candidates, Current: sessions, Clock: timer},
 		IssueInvitation:  accessusecase.IssueInvitation{Assignments: store, Current: sessions, Tokens: tokens, Clock: timer},
 		Exchange:         accessusecase.ExchangeInvitation{Invitations: invitations, Candidates: candidates, Assignments: store, Tokens: tokens, Clock: timer},
 		CandidateSession: accessquery.CandidateSession{Current: candidateSessions, Candidates: candidates, Assignments: store, CSRF: csrf, Clock: timer},

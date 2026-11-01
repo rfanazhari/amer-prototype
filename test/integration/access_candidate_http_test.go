@@ -21,6 +21,67 @@ type candidateIntegrationCase struct {
 func TestCandidateAccessHTTPProvesAssignmentIsolationAndRecovery(t *testing.T) {
 	tests := []candidateIntegrationCase{
 		{
+			name: "hr lists only candidates created by that account",
+			run: func(t *testing.T, graph accessHTTP) {
+				adminEmail := "admin-" + uuid.NewString() + "@example.com"
+				hrEmail := "hr-" + uuid.NewString() + "@example.com"
+				otherEmail := "hr-" + uuid.NewString() + "@example.com"
+				bootstrapAdmin(t, graph.db, graph.clock, adminEmail)
+				adminCookie := loginAdmin(t, graph, adminEmail)
+				adminCSRF := currentCSRF(t, graph, adminCookie)
+				for _, email := range []string{hrEmail, otherEmail} {
+					provision := doJSON(t, graph.handler, http.MethodPost, "/admin/hr-accounts",
+						`{"name":"Sinta Wijaya","email":"`+email+`","password":"`+accessPass+`"}`, adminCSRF, []*http.Cookie{adminCookie})
+					require.Equal(t, http.StatusCreated, provision.Code, provision.Body.String())
+				}
+				hrCookie := loginAdmin(t, graph, hrEmail)
+				hrCSRF := currentCSRF(t, graph, hrCookie)
+				otherCookie := loginAdmin(t, graph, otherEmail)
+				otherCSRF := currentCSRF(t, graph, otherCookie)
+				empty := doJSON(t, graph.handler, http.MethodGet, "/admin/candidates", "", "", []*http.Cookie{hrCookie})
+				require.Equal(t, http.StatusOK, empty.Code, empty.Body.String())
+				require.JSONEq(t, `[]`, string(decodeAccess(t, empty).Data))
+				graph.clock.set(time.Date(2026, 11, 2, 1, 0, 0, 0, time.UTC))
+				first := createCandidate(t, graph, hrCookie, hrCSRF)
+				graph.clock.set(graph.clock.Now().Add(time.Second))
+				second := createCandidate(t, graph, hrCookie, hrCSRF)
+				otherID := createCandidate(t, graph, otherCookie, otherCSRF)
+				listed := doJSON(t, graph.handler, http.MethodGet, "/admin/candidates", "", "", []*http.Cookie{hrCookie})
+				require.Equal(t, http.StatusOK, listed.Code, listed.Body.String())
+				var rows []struct {
+					ID        string `json:"id"`
+					Name      string `json:"name"`
+					Email     string `json:"email"`
+					CreatedAt string `json:"createdAt"`
+					UpdatedAt string `json:"updatedAt"`
+				}
+				require.NoError(t, json.Unmarshal(decodeAccess(t, listed).Data, &rows))
+				require.Len(t, rows, 2)
+				require.Equal(t, second, rows[0].ID)
+				require.Equal(t, first, rows[1].ID)
+				require.NotEmpty(t, rows[0].Name)
+				require.NotEmpty(t, rows[0].Email)
+				require.NotEmpty(t, rows[0].CreatedAt)
+				require.NotEmpty(t, rows[0].UpdatedAt)
+				for _, row := range rows {
+					require.NotEqual(t, otherID, row.ID)
+				}
+				hidden := doJSON(t, graph.handler, http.MethodGet, "/admin/candidates", "", "", []*http.Cookie{otherCookie})
+				require.Equal(t, http.StatusOK, hidden.Code, hidden.Body.String())
+				var hiddenRows []struct {
+					ID string `json:"id"`
+				}
+				require.NoError(t, json.Unmarshal(decodeAccess(t, hidden).Data, &hiddenRows))
+				require.Len(t, hiddenRows, 1)
+				require.Equal(t, otherID, hiddenRows[0].ID)
+				shared := doJSON(t, graph.handler, http.MethodGet, "/admin/candidates/"+first, "", "", []*http.Cookie{otherCookie})
+				require.Equal(t, http.StatusOK, shared.Code, shared.Body.String())
+				denied := doJSON(t, graph.handler, http.MethodGet, "/admin/candidates", "", "", []*http.Cookie{adminCookie})
+				require.Equal(t, http.StatusForbidden, denied.Code, denied.Body.String())
+				require.Equal(t, errs.IAForbidden, decodeAccess(t, denied).Error.Code)
+			},
+		},
+		{
 			name: "one candidate two assignments keep isolated sessions",
 			run: func(t *testing.T, graph accessHTTP) {
 				hrCookie, csrf := loginHR(t, graph)

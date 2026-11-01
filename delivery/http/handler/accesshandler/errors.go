@@ -5,6 +5,8 @@ import (
 	"net/http"
 
 	"github.com/rfanazhari/amer-prototype/application/repository/accessport"
+	"github.com/rfanazhari/amer-prototype/application/repository/agentbindingport"
+	"github.com/rfanazhari/amer-prototype/application/repository/agentconfigport"
 	"github.com/rfanazhari/amer-prototype/application/service"
 	"github.com/rfanazhari/amer-prototype/pkg/errs"
 )
@@ -28,8 +30,12 @@ func (h Handler) sendError(w http.ResponseWriter, r *http.Request, err error) {
 		fail(w, r, http.StatusUnauthorized, errs.IAUnauthenticated)
 	case errors.Is(err, service.ErrCSRFMismatch), errors.Is(err, service.ErrForbidden):
 		fail(w, r, http.StatusForbidden, errs.IAForbidden)
-	case errors.Is(err, accessport.ErrNotFound):
+	case errors.Is(err, accessport.ErrNotFound), errors.Is(err, agentconfigport.ErrNotFound):
 		fail(w, r, http.StatusNotFound, errs.NotFound)
+	case errors.Is(err, agentbindingport.ErrNoActiveRevision):
+		fail(w, r, http.StatusConflict, errs.IANoActiveRevision)
+	case errors.Is(err, agentbindingport.ErrUnsupportedTemplate):
+		fail(w, r, http.StatusConflict, errs.IAUnsupportedTemplate)
 	case errors.Is(err, accessport.ErrInvitationUnavailable):
 		fail(w, r, http.StatusGone, errs.IAInvitationUnavailable)
 	case errors.As(err, &conflict):

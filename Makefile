@@ -39,7 +39,7 @@ docker.config:
 docker.up:
 	docker compose build app
 	docker compose up -d --wait database
-	@schema_status="$$(docker compose run --rm --no-deps migrate status)" && test "$$schema_status" = 'version=2 dirty=false' || (echo 'Prepare schema first: make docker.migrate MIGRATION_VERSION=2 (existing volumes: see database-migrations runbook)' >&2; exit 1)
+	@schema_status="$$(docker compose run --rm --no-deps migrate status)" && test "$$schema_status" = 'version=7 dirty=false' || (echo 'Prepare schema first: make docker.migrate MIGRATION_VERSION=7 (existing volumes: see database-migrations runbook)' >&2; exit 1)
 	docker compose up -d
 
 docker.down:

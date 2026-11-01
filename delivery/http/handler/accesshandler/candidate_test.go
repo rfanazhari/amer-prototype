@@ -1,6 +1,7 @@
 package accesshandler_test
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -17,6 +18,24 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
+
+// candidateListOperation is the mocked GET /admin/candidates operation.
+type candidateListOperation struct {
+	mock.Mock
+}
+
+// Execute returns the configured candidate collection or error.
+func (m *candidateListOperation) Execute(ctx context.Context) ([]dto.Candidate, error) {
+	ret := m.Called(ctx)
+	if len(ret) == 0 {
+		panic("no return value specified for Execute")
+	}
+	var rows []dto.Candidate
+	if ret.Get(0) != nil {
+		rows = ret.Get(0).([]dto.Candidate)
+	}
+	return rows, ret.Error(1)
+}
 
 const invitationTok = "invitation-secret"
 
@@ -145,6 +164,8 @@ func TestCandidateExchangeAndSessionHTTP(t *testing.T) {
 		{name: "get exchange is not an exchange", method: http.MethodGet, path: "/candidate/access/exchange", origin: httpOrigin, wantStatus: http.StatusMethodNotAllowed, wantCode: errs.MethodNotAllowed},
 		{name: "head exchange is not an exchange", method: http.MethodHead, path: "/candidate/access/exchange", origin: httpOrigin, wantStatus: http.StatusMethodNotAllowed, wantCode: errs.MethodNotAllowed},
 		{name: "current session refresh", method: http.MethodGet, path: "/candidate/session", origin: httpOrigin, cookie: candidateCookie(false, "candidate-session-secret"), callSession: true, wantStatus: http.StatusOK},
+		{name: "current session same-origin get omits origin", method: http.MethodGet, path: "http://localhost:8080/candidate/session", origin: "", cookie: candidateCookie(false, "candidate-session-secret"), callSession: true, wantStatus: http.StatusOK},
+		{name: "current session missing origin wrong host", method: http.MethodGet, path: "/candidate/session", origin: "", cookie: candidateCookie(false, "candidate-session-secret"), wantStatus: http.StatusBadRequest, wantCode: errs.InvalidInput},
 		{name: "admin cookie excluded from candidate session", method: http.MethodGet, path: "/candidate/session", origin: httpOrigin, cookie: adminCookie(false, sessionTok), wantStatus: http.StatusUnauthorized, wantCode: errs.IAUnauthenticated},
 		{name: "unbound candidate session", method: http.MethodGet, path: "/candidate/session", origin: httpOrigin, cookie: candidateCookie(false, "stale"), callSession: true, opErr: service.ErrCandidateSessionUnbound, wantStatus: http.StatusUnauthorized, wantCode: errs.IAUnauthenticated},
 	}
@@ -209,6 +230,94 @@ func TestCandidateExchangeAndSessionHTTP(t *testing.T) {
 				var data map[string]json.RawMessage
 				require.NoError(t, json.Unmarshal(view.Data, &data))
 				require.Contains(t, data, "csrfToken")
+			}
+		})
+	}
+}
+
+// listCandidatesHTTPCase names one exact /admin/candidates collection transport outcome.
+type listCandidatesHTTPCase struct {
+	name       string
+	method     string
+	origin     string
+	body       string
+	csrf       string
+	cookie     *http.Cookie
+	callList   bool
+	listRows   []dto.Candidate
+	listErr    error
+	callCreate bool
+	wantStatus int
+	wantCode   string
+	wantEmpty  bool
+	wantIDs    []string
+}
+
+// TestListCandidatesHTTP covers HR listing, an empty array, ADMIN denial, missing sessions, unchanged create, and other methods.
+func TestListCandidatesHTTP(t *testing.T) {
+	row := dto.FromCandidate(testdata.CandidateRecord(t))
+	tests := []listCandidatesHTTPCase{
+		{name: "hr lists own candidates", method: http.MethodGet, origin: httpOrigin, cookie: adminCookie(false, sessionTok), callList: true, listRows: []dto.Candidate{row}, wantStatus: http.StatusOK, wantIDs: []string{row.ID}},
+		{name: "hr empty list is an array", method: http.MethodGet, origin: httpOrigin, cookie: adminCookie(false, sessionTok), callList: true, listRows: []dto.Candidate{}, wantStatus: http.StatusOK, wantEmpty: true},
+		{name: "admin forbidden", method: http.MethodGet, origin: httpOrigin, cookie: adminCookie(false, sessionTok), callList: true, listErr: service.ErrForbidden, wantStatus: http.StatusForbidden, wantCode: errs.IAForbidden},
+		{name: "missing cookie", method: http.MethodGet, origin: httpOrigin, wantStatus: http.StatusUnauthorized, wantCode: errs.IAUnauthenticated},
+		{name: "candidate cookie", method: http.MethodGet, origin: httpOrigin, cookie: candidateCookie(false, sessionTok), wantStatus: http.StatusUnauthorized, wantCode: errs.IAUnauthenticated},
+		{name: "post create unchanged", method: http.MethodPost, origin: httpOrigin, body: `{"name":" Andi Pratama ","email":"Andi@Example.com"}`, csrf: csrfTok, cookie: adminCookie(false, sessionTok), callCreate: true, wantStatus: http.StatusCreated},
+		{name: "put is not allowed", method: http.MethodPut, origin: httpOrigin, cookie: adminCookie(false, sessionTok), wantStatus: http.StatusMethodNotAllowed, wantCode: errs.MethodNotAllowed},
+		{name: "delete is not allowed", method: http.MethodDelete, origin: httpOrigin, wantStatus: http.StatusMethodNotAllowed, wantCode: errs.MethodNotAllowed},
+		{name: "patch is not allowed", method: http.MethodPatch, origin: httpOrigin, wantStatus: http.StatusMethodNotAllowed, wantCode: errs.MethodNotAllowed},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			handler, create, _, _, _, _, csrf, sessions := newCandidateHandler(t, httpOrigin, false)
+			list := &candidateListOperation{}
+			list.Test(t)
+			t.Cleanup(func() { list.AssertExpectations(t) })
+			handler.ListCandidates = list
+			if tt.cookie != nil && tt.cookie.Name == "ia-admin" && tt.method == http.MethodPost {
+				sessions.On("Resolve", mock.Anything).Return(testdata.AdministrativeSessionRecord(t), testdata.AdministrativeAccountRecord(t), nil).Maybe()
+			}
+			if tt.csrf != "" {
+				csrf.On("Verify", service.CredentialAdministrative, testdata.SessionID, tt.csrf).Return(nil).Maybe()
+			}
+			if tt.callCreate {
+				create.On("Execute", mock.Anything, mock.Anything, mock.Anything).Return(&row, nil).Once()
+			}
+			if tt.callList {
+				list.On("Execute", mock.Anything).Return(tt.listRows, tt.listErr).Once()
+			}
+			rec := httptest.NewRecorder()
+			handler.ServeHTTP(rec, request(tt.method, "/admin/candidates", tt.origin, tt.body, tt.csrf, tt.cookie))
+			require.Equal(t, tt.wantStatus, rec.Code)
+			view := decodeEnvelope(t, rec)
+			if tt.wantCode != "" {
+				require.Equal(t, "error", view.Status)
+				require.Equal(t, tt.wantCode, view.Error.Code)
+				return
+			}
+			require.Equal(t, "success", view.Status)
+			require.NotEqual(t, "null", strings.TrimSpace(string(view.Data)))
+			if tt.wantEmpty {
+				require.Equal(t, "[]", strings.TrimSpace(string(view.Data)))
+				return
+			}
+			if tt.callList {
+				var rows []struct {
+					ID        string `json:"id"`
+					Name      string `json:"name"`
+					Email     string `json:"email"`
+					CreatedAt string `json:"createdAt"`
+					UpdatedAt string `json:"updatedAt"`
+				}
+				require.NoError(t, json.Unmarshal(view.Data, &rows))
+				require.Len(t, rows, len(tt.wantIDs))
+				for i, id := range tt.wantIDs {
+					require.Equal(t, id, rows[i].ID)
+					require.Equal(t, row.Name, rows[i].Name)
+					require.Equal(t, row.Email, rows[i].Email)
+					require.Equal(t, "2026-01-01T00:00:00.000Z", rows[i].CreatedAt)
+					require.Equal(t, "2026-01-01T00:00:00.000Z", rows[i].UpdatedAt)
+				}
 			}
 		})
 	}

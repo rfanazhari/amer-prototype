@@ -6,11 +6,13 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/SALT-Indonesia/salt-pkg/logmanager"
 	"github.com/rfanazhari/amer-prototype/delivery/http/candidatelanding"
 	"github.com/rfanazhari/amer-prototype/domain/event"
+	"github.com/rfanazhari/amer-prototype/infrastructure/database/schema"
 )
 
 // Config selects required resources and listener settings, with narrow readiness, shutdown and lifecycle seams for verification.
@@ -83,7 +85,7 @@ func Run(ctx context.Context, cfg Config, logs *logmanager.Application) (result 
 	if err != nil {
 		return err
 	}
-	logmanager.InfoWithContext(startupLogCtx, "database connected and schema compatible", map[string]string{"service": logs.Service(), "schema_version": "2"})
+	logmanager.InfoWithContext(startupLogCtx, "database connected and schema compatible", map[string]string{"service": logs.Service(), "schema_version": strconv.Itoa(schema.ReleaseVersion)})
 	defer func() {
 		beginShutdown()
 		cleanupCtx, cancel := context.WithDeadline(context.Background(), shutdownAt.Add(ShutdownBudget))
@@ -112,14 +114,14 @@ func Run(ctx context.Context, cfg Config, logs *logmanager.Application) (result 
 	logmanager.InfoWithContext(startupLogCtx, "administrative bootstrap complete", map[string]string{"service": logs.Service()})
 	taskHandler, queue := assembleTask(db, logs, cfg.TaskCompleted)
 	page, setup := assembleVoice(cfg, logs)
-	handler := Router{Page: page, Setup: setup, Task: taskHandler, Access: assembleAccess(db, cfg, logs), Landing: candidatelanding.Handler{}}
+	handler := Router{Page: page, Setup: setup, Task: taskHandler, Access: assembleAccess(db, cfg, logs), Landing: candidatelanding.Handler{}, Configuration: assembleAgentConfiguration(db, cfg, logs)}
 	transport := HTTPServer(handler, logs)
 	defer transport.cancel()
 	queue.Start()
 	serveErr := make(chan error, 1)
 	go func() { serveErr <- transport.server.Serve(listener) }()
 	logmanager.InfoWithContext(startupLogCtx, "http server ready", map[string]string{
-		"service": logs.Service(), "address": listener.Addr().String(), "schema_version": "2", "event_queue": "in_process",
+		"service": logs.Service(), "address": listener.Addr().String(), "schema_version": strconv.Itoa(schema.ReleaseVersion), "event_queue": "in_process",
 	})
 	startup.End()
 	startupComplete = true

@@ -17,13 +17,19 @@ const (
 	defaultRealtimeURL   = "https://api.openai.com/v1/realtime/calls"
 )
 
-// Router sends prototype voice paths to their handlers, administrative paths to access, and every other path to Task.
+// Router sends prototype voice paths to their handlers, configuration paths before access, administrative paths to access, and every other path to Task.
 type Router struct {
-	Page    http.Handler
-	Setup   http.Handler
-	Task    http.Handler
-	Access  http.Handler
-	Landing http.Handler
+	Page          http.Handler
+	Setup         http.Handler
+	Task          http.Handler
+	Access        http.Handler
+	Landing       http.Handler
+	Configuration http.Handler
+}
+
+// isAgentConfigurationPath reports the configuration collections that must precede the access catch-all.
+func isAgentConfigurationPath(path string) bool {
+	return path == "/admin/agent-templates" || path == "/admin/agent-instances" || strings.HasPrefix(path, "/admin/agent-instances/")
 }
 
 // firstNonEmpty returns value when it is set and fallback otherwise.
@@ -63,6 +69,10 @@ func (h Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	default:
 		if h.Landing != nil && r.URL.Path == "/candidate/access" {
 			h.Landing.ServeHTTP(w, r)
+			return
+		}
+		if h.Configuration != nil && isAgentConfigurationPath(r.URL.Path) {
+			h.Configuration.ServeHTTP(w, r)
 			return
 		}
 		if h.Access != nil && (strings.HasPrefix(r.URL.Path, "/admin/") || strings.HasPrefix(r.URL.Path, "/candidate/")) {

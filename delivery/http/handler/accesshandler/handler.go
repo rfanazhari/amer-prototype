@@ -8,6 +8,7 @@ import (
 	"github.com/rfanazhari/amer-prototype/application/query/accessquery"
 	"github.com/rfanazhari/amer-prototype/application/service"
 	"github.com/rfanazhari/amer-prototype/application/usecase/accessusecase"
+	"github.com/rfanazhari/amer-prototype/application/usecase/agentbindingusecase"
 	"github.com/rfanazhari/amer-prototype/pkg/errs"
 )
 
@@ -18,7 +19,9 @@ type Handler struct {
 	Provision        accessusecase.ProvisionHROperation
 	Logout           accessusecase.LogoutOperation
 	CreateCandidate  accessusecase.CreateCandidateOperation
+	CreateAssignment agentbindingusecase.CreateAssignmentOperation
 	Candidate        accessquery.CandidateOperation
+	ListCandidates   accessquery.ListCandidatesOperation
 	IssueInvitation  accessusecase.IssueInvitationOperation
 	Exchange         accessusecase.ExchangeInvitationOperation
 	CandidateSession accessquery.CandidateSessionOperation

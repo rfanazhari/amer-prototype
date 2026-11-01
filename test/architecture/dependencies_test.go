@@ -15,7 +15,7 @@ import (
 func TestDependencyDirections(t *testing.T) {
 	root := filepath.Join("..", "..")
 	const module = "github.com/rfanazhari/amer-prototype/"
-	domainStd := map[string]bool{"errors": true, "time": true, "strings": true, "unicode/utf8": true, "fmt": true}
+	domainStd := map[string]bool{"errors": true, "time": true, "strings": true, "unicode": true, "unicode/utf8": true, "fmt": true, "sort": true}
 	for _, layer := range []string{"domain", "application", "delivery", "infrastructure"} {
 		err := filepath.WalkDir(filepath.Join(root, layer), func(path string, entry fs.DirEntry, walkErr error) error {
 			if walkErr != nil {

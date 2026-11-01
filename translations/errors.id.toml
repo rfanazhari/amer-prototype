@@ -39,3 +39,63 @@ other = "terlalu banyak percobaan autentikasi"
 
 [IA_DEPENDENCY_UNAVAILABLE]
 other = "ketergantungan akses tidak tersedia"
+
+[IA_NO_ACTIVE_REVISION]
+other = "instans agen tidak memiliki revisi terbit yang aktif"
+
+[IA_UNSUPPORTED_TEMPLATE]
+other = "penugasan wawancara memerlukan instans pewawancara hr"
+
+[ACP_UNAUTHENTICATED]
+other = "sesi administratif hilang atau tidak lagi valid"
+
+[ACP_FORBIDDEN]
+other = "konfigurasi agen dilarang"
+
+[ACP_IDEMPOTENCY_CONFLICT]
+other = "identitas permintaan publikasi sudah digunakan dengan maksud berbeda"
+
+[ACP_DRAFT_CONFLICT]
+other = "versi draf tidak cocok dengan draf saat ini"
+
+[ACP_VALIDATION_CONFLICT]
+other = "validasi tidak cocok dengan draf saat ini"
+
+[ACP_PUBLICATION_BLOCKED]
+other = "publikasi diblokir; periksa hasil validasi yang diotorisasi"
+
+[ACP_DEPENDENCY_UNAVAILABLE]
+other = "ketergantungan konfigurasi yang diperlukan tidak tersedia"
+
+[ACP_PUBLICATION_UNCERTAIN]
+other = "hasil publikasi tidak pasti; coba lagi dengan kunci yang sama"
+
+[REQUIRED_VALUE]
+other = "nilai publikasi yang wajib belum diisi"
+
+[QUESTION_TEXT_REQUIRED]
+other = "pertanyaan wajib memerlukan teks yang tidak kosong"
+
+[QUESTION_STAGE_REQUIRED]
+other = "tahap wawancara yang wajib belum memiliki pertanyaan"
+
+[COMPETENCY_REQUIRED]
+other = "setidaknya satu topik kompetensi diperlukan"
+
+[STAGE_BUDGET_INVALID]
+other = "durasi tahap harus positif dan total 300 sampai 600 detik"
+
+[QUESTION_BUDGET_EXCEEDED]
+other = "durasi tahap tidak mencukupi pertanyaan wajib"
+
+[FOLLOWUP_BUDGET_REQUIRED]
+other = "penyaringan memerlukan sisa 30 detik untuk tindak lanjut"
+
+[REFERENCE_NOT_READY]
+other = "sumber referensi belum siap"
+
+[REQUIRED_FIELDS_EMPTY]
+other = "setidaknya satu bidang faktur wajib harus dipilih"
+
+[CURRENCY_NOT_REQUIRED]
+other = "total diwajibkan tanpa mata uang"

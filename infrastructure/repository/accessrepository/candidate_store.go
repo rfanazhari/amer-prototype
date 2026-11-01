@@ -33,6 +33,24 @@ func (s Store) FindCandidateByID(ctx context.Context, id string) (accessport.Can
 	return toCandidate(model)
 }
 
+// ListCandidatesByCreator returns candidates created by one account, newest identity first.
+func (s Store) ListCandidatesByCreator(ctx context.Context, createdBy string) ([]accessport.CandidateRecord, error) {
+	var models []CandidateModel
+	err := s.DB.WithContext(ctx).Where("created_by = ?", createdBy).Order("created_at DESC, id DESC").Find(&models).Error
+	if err != nil {
+		return nil, err
+	}
+	records := make([]accessport.CandidateRecord, 0, len(models))
+	for _, model := range models {
+		record, err := toCandidate(model)
+		if err != nil {
+			return nil, err
+		}
+		records = append(records, record)
+	}
+	return records, nil
+}
+
 // FindInvitationByTokenHash restores one invitation by digest or returns ErrNotFound.
 func (s Store) FindInvitationByTokenHash(ctx context.Context, tokenHash string) (accessport.InvitationRecord, error) {
 	var model InvitationModel

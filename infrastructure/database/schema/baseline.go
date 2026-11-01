@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"reflect"
+	"strings"
 )
 
 // catalogAssets freezes independently observed legacy catalog facts.
@@ -15,7 +16,7 @@ var catalogAssets embed.FS
 // preflight rejects foreign schemas/metadata before any tool-owned DDL.
 func (d *driver) preflight(adopting bool) error {
 	var foreign int
-	err := d.conn.QueryRowContext(d.ctx, `SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_name NOT IN ('tasks','administrative_accounts','administrative_sessions','schema_migrations')`).Scan(&foreign)
+	err := d.conn.QueryRowContext(d.ctx, `SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_name NOT IN (`+ownedTableList()+`)`).Scan(&foreign)
 	if err != nil {
 		return err
 	}
@@ -63,7 +64,7 @@ func (d *driver) matches(asset string, tables []string) error {
 	return nil
 }
 
-// baseline adopts only the observed Task-only or full three-table schema under the migration lock.
+// baseline adopts Task-only, full three-table, or already-installed configuration catalogs under the migration lock.
 func (d *driver) baseline() (int, bool, error) {
 	if err := d.matches("tasks.json", []string{"tasks"}); err != nil {
 		return 0, false, err
@@ -81,6 +82,25 @@ func (d *driver) baseline() (int, bool, error) {
 	} else if count != 0 {
 		return 0, false, errors.New("partial administrative schema")
 	}
+	var configuration int
+	if err := d.conn.QueryRowContext(d.ctx, `SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_name IN ('agent_instances','agent_drafts','agent_validations','agent_revisions','agent_publication_commands')`).Scan(&configuration); err != nil {
+		return 0, false, err
+	}
+	if configuration == 5 {
+		if v != 2 {
+			return 0, false, errors.New("configuration schema requires administrative tables")
+		}
+		v = 3
+	} else if configuration != 0 {
+		return 0, false, errors.New("partial configuration schema")
+	}
+	if v == 3 {
+		next, err := d.extendBaseline(v)
+		if err != nil {
+			return 0, false, err
+		}
+		v = next
+	}
 	tx, err := d.conn.BeginTx(d.ctx, nil)
 	if err != nil {
 		return 0, false, err
@@ -96,4 +116,65 @@ func (d *driver) baseline() (int, bool, error) {
 		return 0, false, err
 	}
 	return v, false, nil
+}
+
+// extendBaseline stamps versions 4–7 when later owned tables are already present.
+func (d *driver) extendBaseline(v int) (int, error) {
+	candidates, err := d.countNamedTables("candidates")
+	if err != nil {
+		return 0, err
+	}
+	if candidates == 1 {
+		v = 4
+	} else if candidates != 0 {
+		return 0, errors.New("partial candidate schema")
+	}
+	assignments, err := d.countNamedTables("interview_assignments")
+	if err != nil {
+		return 0, err
+	}
+	if assignments == 1 {
+		if v != 4 {
+			return 0, errors.New("assignment schema requires candidates")
+		}
+		v = 5
+	} else if assignments != 0 {
+		return 0, errors.New("partial assignment schema")
+	}
+	access, err := d.countNamedTables("interview_invitations", "candidate_sessions")
+	if err != nil {
+		return 0, err
+	}
+	if access == 2 {
+		if v != 5 {
+			return 0, errors.New("assignment access schema requires interview_assignments")
+		}
+		v = 6
+	} else if access != 0 {
+		return 0, errors.New("partial assignment access schema")
+	}
+	executions, err := d.countNamedTables("interview_executions")
+	if err != nil {
+		return 0, err
+	}
+	if executions == 1 {
+		if v != 6 {
+			return 0, errors.New("execution schema requires assignment access")
+		}
+		v = 7
+	} else if executions != 0 {
+		return 0, errors.New("partial execution schema")
+	}
+	return v, nil
+}
+
+// countNamedTables counts matching public tables from the supplied names.
+func (d *driver) countNamedTables(names ...string) (int, error) {
+	quoted := make([]string, len(names))
+	for i, name := range names {
+		quoted[i] = "'" + name + "'"
+	}
+	var count int
+	err := d.conn.QueryRowContext(d.ctx, `SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_name IN (`+strings.Join(quoted, ",")+`)`).Scan(&count)
+	return count, err
 }

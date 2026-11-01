@@ -81,6 +81,35 @@ packages:
       CurrentSessionOperation:
       CandidateOperation:
       CandidateSessionOperation:
+  github.com/rfanazhari/amer-prototype/application/usecase/agentbindingusecase:
+    config:
+      dir: test/mocks
+      outpkg: mocks
+      filename: 'agent_binding_{{.InterfaceName | snakecase}}.go'
+    interfaces:
+      CreateAssignmentOperation:
+  github.com/rfanazhari/amer-prototype/application/usecase/agentconfigusecase:
+    config:
+      dir: test/mocks
+      outpkg: mocks
+      filename: 'agent_config_{{.InterfaceName | snakecase}}.go'
+      mockname: 'AgentConfig{{.InterfaceName}}'
+    interfaces:
+      CreateOperation:
+      ReplaceOperation:
+      ValidateOperation:
+      PublishOperation:
+  github.com/rfanazhari/amer-prototype/application/query/agentconfigquery:
+    config:
+      dir: test/mocks
+      outpkg: mocks
+      filename: 'agent_config_{{.InterfaceName | snakecase}}.go'
+      mockname: 'AgentConfig{{.InterfaceName}}'
+    interfaces:
+      CatalogOperation:
+      InstanceOperation:
+      RevisionOperation:
+      ListInstancesOperation:
   github.com/rfanazhari/amer-prototype/application/usecase/voicesession:
     config:
       dir: test/mocks
@@ -99,3 +128,12 @@ packages:
       ReplayReader:
       Mutation:
       Transaction:
+      InstanceLister:
+  github.com/rfanazhari/amer-prototype/application/repository/agentbindingport:
+    config:
+      dir: test/mocks
+      outpkg: mocks
+      filename: 'agent_binding_{{.InterfaceName | snakecase}}.go'
+    interfaces:
+      Assignments:
+      Executions:

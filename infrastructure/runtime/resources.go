@@ -108,6 +108,9 @@ func openDatabase(ctx context.Context, url string, beginCleanup func()) (_ *gorm
 	if err = schema.RequireCompatible(ctx, resources.pool); err != nil {
 		return nil, resources, fmt.Errorf("database schema: %w", err)
 	}
+	if err = schema.RequireAgentConfigurationDeploymentCompatible(ctx, resources.pool); err != nil {
+		return nil, resources, fmt.Errorf("agent configuration deployment: %w", err)
+	}
 	if err = ctx.Err(); err != nil {
 		return nil, resources, err
 	}

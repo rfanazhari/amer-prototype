@@ -39,3 +39,63 @@ other = "too many authentication attempts"
 
 [IA_DEPENDENCY_UNAVAILABLE]
 other = "access dependency is unavailable"
+
+[IA_NO_ACTIVE_REVISION]
+other = "agent instance has no active published revision"
+
+[IA_UNSUPPORTED_TEMPLATE]
+other = "interview assignment requires an hr interviewer instance"
+
+[ACP_UNAUTHENTICATED]
+other = "administrative session is missing or no longer valid"
+
+[ACP_FORBIDDEN]
+other = "agent configuration is forbidden"
+
+[ACP_IDEMPOTENCY_CONFLICT]
+other = "publication request identity is already used with a different intent"
+
+[ACP_DRAFT_CONFLICT]
+other = "draft version does not match the current draft"
+
+[ACP_VALIDATION_CONFLICT]
+other = "validation does not match the current draft"
+
+[ACP_PUBLICATION_BLOCKED]
+other = "publication is blocked; inspect the authorized validation result"
+
+[ACP_DEPENDENCY_UNAVAILABLE]
+other = "a required configuration dependency is unavailable"
+
+[ACP_PUBLICATION_UNCERTAIN]
+other = "publication outcome is uncertain; retry with the same key"
+
+[REQUIRED_VALUE]
+other = "a required publication value is missing"
+
+[QUESTION_TEXT_REQUIRED]
+other = "a mandatory question needs nonempty text"
+
+[QUESTION_STAGE_REQUIRED]
+other = "a required interview stage is missing a nonempty question"
+
+[COMPETENCY_REQUIRED]
+other = "at least one competency topic is required"
+
+[STAGE_BUDGET_INVALID]
+other = "stage duration must be positive and total 300 to 600 seconds"
+
+[QUESTION_BUDGET_EXCEEDED]
+other = "stage duration cannot cover the mandatory questions"
+
+[FOLLOWUP_BUDGET_REQUIRED]
+other = "screening needs 30 seconds spare for a follow-up"
+
+[REFERENCE_NOT_READY]
+other = "a referenced resource is not ready"
+
+[REQUIRED_FIELDS_EMPTY]
+other = "at least one required invoice field must be selected"
+
+[CURRENCY_NOT_REQUIRED]
+other = "total is required without currency"

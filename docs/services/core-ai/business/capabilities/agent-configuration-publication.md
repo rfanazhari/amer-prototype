@@ -3,7 +3,7 @@ id: agent-configuration-publication
 service: core-ai
 status: planned
 rules: BR-CORE-001..BR-CORE-014
-updated: 2026-11-01
+updated: 2026-11-02
 implementation:
 ---
 
@@ -33,6 +33,7 @@ The shared definitions of **Agent Template**, **Agent Instance**, **Published Re
 | Request validation | Authorized HR user | Assess one exact draft and template version and expose validation findings. |
 | Request publication | Authorized HR user | Publish the eligible validated draft as a new immutable active revision. |
 | Repeat a publication request after an uncertain response | Authorized HR user | Resolve the original logical publication without creating a duplicate revision. |
+| Assign one existing candidate to the current published revision | Authorized HR user | Create one interview assignment that pins the current HR Interviewer active revision. A later publication does not move the pin. Issuing an invitation is a separate access action and needs the new assignment id. |
 
 The current delivery slice may expose these actions through admin APIs. The final MVP still requires the non-developer configuration journey; this document does not claim that an admin UI exists.
 
@@ -164,6 +165,7 @@ The current delivery slice may expose these actions through admin APIs. The fina
 | A retry for revision 2 arrives after revision 3 became active | Return the revision-2 publication result; revision 3 stays active. | `BR-CORE-011` |
 | A publication request identity is reused for another draft | Reject as conflicting intent. | `BR-CORE-012` |
 | An assignment pins revision 1, then revision 2 is published before interview start | The assignment remains bound to revision 1. | `BR-CORE-013` |
+| HR issues an invitation with a candidate id and no assignment exists | Do not create an assignment. The invitation can target only an existing assignment. | sibling `BR-CORE-030`, `BR-CORE-031` |
 | A provider is unavailable while a locally valid draft is being published | Provider availability alone does not invalidate the configuration; activation checks availability later. | `BR-CORE-014` |
 | Access is revoked after publication | Publication does not override the current restriction. | `BR-CORE-014` |
 
@@ -181,7 +183,9 @@ The current delivery slice may expose these actions through admin APIs. The fina
 
 ## Known gaps
 
-Not yet implemented — verify against code after implementation.
+The assignment-create contract is approved in the Agent Configuration technical design, section 11, and T13 mounts `POST /admin/interview-assignments`. Calling the invitation path with a candidate id still returns not found.
+
+Consent, execution start, a provider session, voice binding, Document Analyzer jobs, brokers, GET/revoke/report assignment routes, and a job-description CMS stay outside this capability.
 
 ## Open questions
 
@@ -191,12 +195,14 @@ Not yet implemented — verify against code after implementation.
 
 ## Related
 
-- Sibling capability: [Identity and Access](./identity-access.md), BR-CORE-020..039 — owner-approved ADMIN/HR separation, current session authority, shared company scope and candidate exclusion.
+- Sibling capability: [Identity and Access](./identity-access.md), BR-CORE-020..039 — owner-approved ADMIN/HR separation, current session authority, shared company scope, candidate exclusion, and invitation targeting an existing assignment (`BR-CORE-030`, `BR-CORE-031`).
+- Source document: [Agent Configuration technical design, section 11](../../agent-configuration-publication/technical-design.md#11-interview-assignment-create-contract-approved-t12) — approved interview-assignment create contract. T13 implements the route without new SQL.
 
 - Source document: [Core AI Agent Runtime — Design Direction v0.1](../../../../design/core-ai/core_ai_agent_runtime_v0.1.md) — reusable runtime direction and separation from agent-specific behavior.
 - Source document: [Shared AI Agent Execution Platform — Architecture Design v0.1](../../../../design/core-ai/shared_ai_agent_platform_architecture_design_v0.1.md) — shared terminology and configuration lifecycle; later explicit decisions take precedence where amended.
 - Source document: [Consolidated Architecture & MVP Scope Freeze v0.1](../../../../design/core-ai/shared_ai_agent_platform_consolidated_architecture_mvp_scope_freeze_v0.1.md) — sections 4.1 and 7.1 establish publication semantics and P-01–P-05 acceptance targets.
 - Source document: [Technical Design v0.1](../../../../design/core-ai/technical-design.md) — sections 3–5 refine draft versions, validation, publication identity, configuration binding, and transactional consistency; sections 9–10 define administrative access direction.
-- Sibling capabilities: None documented yet for `core-ai`. Execution admission/lifecycle, HR access/interview/reporting, and invoice analysis remain separate documentation candidates.
+- Sibling capability: [Execution Lifecycle](./execution-lifecycle.md), `BR-CORE-050`..`BR-CORE-059` — shared execution identity and terminal outcomes.
+- Sibling capability: [Candidate Interview](./candidate-interview.md), [Interview Runtime](./interview-runtime.md), and [Interview Reporting](./interview-reporting.md) — the interview that follows publication. Invoice analysis remains a separate documentation candidate.
 
 The approved numbering block is `BR-CORE-001..BR-CORE-014`, covering configuration and publication. These rules describe intended behavior; the source designs and acceptance targets do not establish implementation evidence.

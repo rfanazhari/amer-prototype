@@ -62,6 +62,9 @@ const CandidateID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1"
 // AssignmentID is a distinct interview assignment identity used by access tests.
 const AssignmentID = "dddddddd-dddd-4ddd-8ddd-ddddddddddd1"
 
+// ExecutionID is a distinct interview execution identity used by configuration-binding tests.
+const ExecutionID = "ffffffff-ffff-4fff-8fff-fffffffffff1"
+
 // InvitationID is a distinct invitation identity used by access tests.
 const InvitationID = "cccccccc-cccc-4ccc-8ccc-ccccccccccc1"
 

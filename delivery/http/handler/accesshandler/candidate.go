@@ -12,6 +12,7 @@ import (
 const (
 	candidatesPath       = "/admin/candidates"
 	invitationsPath      = "/invitations"
+	assignmentsPath      = "/admin/interview-assignments"
 	assignmentsRoot      = "/admin/interview-assignments/"
 	exchangePath         = "/candidate/access/exchange"
 	candidateSessionPath = "/candidate/session"
@@ -21,10 +22,13 @@ const (
 func (h Handler) dispatchCandidateRoutes(w http.ResponseWriter, r *http.Request) bool {
 	switch {
 	case r.URL.Path == candidatesPath:
-		h.createCandidate(w, r)
+		h.dispatchCandidates(w, r)
 		return true
 	case strings.HasPrefix(r.URL.Path, candidatesPath+"/"):
 		h.readCandidate(w, r)
+		return true
+	case r.URL.Path == assignmentsPath:
+		h.createAssignment(w, r)
 		return true
 	case strings.HasPrefix(r.URL.Path, assignmentsRoot) && strings.HasSuffix(r.URL.Path, invitationsPath):
 		h.issueInvitation(w, r)
@@ -38,6 +42,48 @@ func (h Handler) dispatchCandidateRoutes(w http.ResponseWriter, r *http.Request)
 	default:
 		return false
 	}
+}
+
+// dispatchCandidates serves the exact candidate collection: GET lists and POST creates.
+func (h Handler) dispatchCandidates(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		h.listCandidates(w, r)
+	case http.MethodPost:
+		h.createCandidate(w, r)
+	default:
+		fail(w, r, http.StatusMethodNotAllowed, errs.MethodNotAllowed)
+	}
+}
+
+// listCandidates returns candidates created by the logged-in HR account.
+func (h Handler) listCandidates(w http.ResponseWriter, r *http.Request) {
+	if err := requireOrigin(r, h.Origin); err != nil {
+		h.sendError(w, r, err)
+		return
+	}
+	r, ok := h.authenticate(w, r)
+	if !ok {
+		return
+	}
+	result, err := h.ListCandidates.Execute(r.Context())
+	if err != nil {
+		h.sendError(w, r, err)
+		return
+	}
+	respond(w, http.StatusOK, envelope{Status: "success", Data: candidateListBody(result)})
+}
+
+// candidateListBody copies candidate views into a JSON array that stays empty rather than null.
+func candidateListBody(result []dto.Candidate) []candidateBody {
+	body := make([]candidateBody, 0, len(result))
+	for _, item := range result {
+		body = append(body, candidateBody{
+			ID: item.ID, Name: item.Name, Email: item.Email,
+			CreatedAt: formatted(item.CreatedAt), UpdatedAt: formatted(item.UpdatedAt),
+		})
+	}
+	return body
 }
 
 // createCandidate records a reusable candidate identity under current HR authority.
@@ -101,6 +147,39 @@ func (h Handler) readCandidate(w http.ResponseWriter, r *http.Request) {
 	respond(w, http.StatusOK, envelope{Status: "success", Data: candidateBody{
 		ID: result.ID, Name: result.Name, Email: result.Email,
 		CreatedAt: formatted(result.CreatedAt), UpdatedAt: formatted(result.UpdatedAt),
+	}})
+}
+
+// createAssignment pins an existing candidate to the current HR Interviewer active revision.
+func (h Handler) createAssignment(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		fail(w, r, http.StatusMethodNotAllowed, errs.MethodNotAllowed)
+		return
+	}
+	if err := requireOrigin(r, h.Origin); err != nil {
+		h.sendError(w, r, err)
+		return
+	}
+	if err := requireJSONContentType(r, true); err != nil {
+		h.sendError(w, r, err)
+		return
+	}
+	var req assignmentRequest
+	if err := readJSON(r, &req, false); err != nil {
+		h.sendError(w, r, err)
+		return
+	}
+	r, ok := h.verifyCSRF(w, r)
+	if !ok {
+		return
+	}
+	result, err := h.CreateAssignment.Execute(r.Context(), req.CandidateID, req.InstanceID)
+	if err != nil {
+		h.sendError(w, r, err)
+		return
+	}
+	respond(w, http.StatusCreated, envelope{Status: "success", Data: assignmentBody{
+		ID: result.ID, CandidateID: result.CandidateID, InstanceID: result.InstanceID, PublishedRevisionID: result.PublishedRevisionID,
 	}})
 }
 

@@ -75,6 +75,14 @@ func FromCandidate(record accessport.CandidateRecord) Candidate {
 	}
 }
 
+// Assignment is the detached interview assignment pin returned after create.
+type Assignment struct {
+	ID                  string
+	CandidateID         string
+	InstanceID          string
+	PublishedRevisionID string
+}
+
 // IssuedInvitation is the detached invitation view including the plaintext token shown once.
 type IssuedInvitation struct {
 	ID           string

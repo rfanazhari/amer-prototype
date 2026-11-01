@@ -123,6 +123,11 @@ Execution T18–T20: Done on disposable PostgreSQL and the isolated packaged sta
   - Ticket: `CORE-IAM-021` — depends: T12, T13 — ref: design §2, §6.6–6.8; decision-log D10.
   - DoD: GET `/admin/candidates` returns only rows whose `created_by` is the logged-in HR account, ordered `created_at DESC, id DESC`, as an array of `id`, `name`, `email`, `createdAt`, `updatedAt`. Empty is 200 with `[]`. ADMIN is 403 before the read. A missing or candidate-cookie session is 401. POST create and GET by id stay as they are, including GET by id for any current HR. Other methods on the exact path stay 405. No email search or pagination. Application, mocked HTTP, and sqlmock coverage pass. The existing candidate integration HTTP case covers creator scope when `TEST_DATABASE_URL` is set; a skip is not database proof. Publish the route in OpenAPI, `docs/api/identity-access.md`, and `docs/api/CHANGELOG.md` before treating the public contract as current.
 
+- [ ] **T22. Revoke assignment access and cancel a nonterminal execution** — Application/delivery/infrastructure — L
+  - Ticket: `CORE-IAM-022` — depends: T12, T13, and the existing Execution Lifecycle `CancelNonterminal` (`CORE-EXL-007`) — ref: design §2, §5, §6.10; decision-log D11.
+  - Blocked by: none. Q7 (in-interview session expiry) is outside this task.
+  - DoD: `POST /admin/interview-assignments/{id}/revocation` follows design §6.10. Current HR, origin, JSON, and CSRF match invitation issue. The body is empty. ADMIN is 403 before the assignment read. A missing or candidate session is 401. A malformed id or unknown field is 400 before the lock. A missing assignment is 404 and does not call lifecycle. The access transaction sets `access_revoked_at` from the trusted clock only while it is null, with an explicit column update, and does not change `completed_at` or invitation rows. After that commit, the operation calls `CancelNonterminal` with reason `access_revoked` and the HR account id as actor, including on a repeat and when no execution exists. Success is 200 `{ "id", "accessRevokedAt" }` only after that call returns nil, with no execution body. A lifecycle failure after the marker commit is 503 without a success body. A repeat keeps the original timestamp. `IssueInvitation` does not call `CancelNonterminal`. Candidate `401` does not call it. No migration, seed, HR page, or `authority_expired` path. Application tests use mocks. HTTP tests mock the operation. PostgreSQL, through `make test.integration` or `make test.docker`, shows a nonterminal execution becoming `CANCELLED`, a repeat not reopening it, reissue not cancelling it, and revocation with no execution succeeding. A skipped database suite is not that proof. Publish the route in OpenAPI, `docs/api/identity-access.md`, and `docs/api/CHANGELOG.md` with the implementation. `make test`, `make test.contract`, `make test.architecture`, and `make lint` pass. This task does not close Execution Lifecycle T10; that task proves the same command from the lifecycle side after this one is Done.
+
 ## Dependency Graph
 
 ```text
@@ -147,6 +152,8 @@ T5 + T8 + T10 + T11 + T12 + UI/harness → T13
 T9 + T10 + T11 + T12 + T13 + actual Interview consumers → T14
 T10 + T11 + Q5 → T15
 T12 + T13 → T21 (creator-scoped GET `/admin/candidates`)
+T12 + T13 + existing CancelNonterminal → T22 (HR assignment revocation)
+CORE-IAM-022 → execution-lifecycle T10 (that plan stays blocked until T22 is Done)
 ```
 
 ## Revision History
@@ -170,3 +177,4 @@ T12 + T13 → T21 (creator-scoped GET `/admin/candidates`)
 | v1.14 | 2026-11-01 | Mark T18–T20 Done for explicit startup/test migration ownership, PostgreSQL acceptance, populated backup/adoption/restore and compatible-image rollback rehearsal; publish runbook/checksums and bounded evidence |
 | v1.15 | 2026-11-01 | ACP T4 reallocated unpublished candidate/assignment SQL to 000004/000005 and inserted configuration version 3 |
 | v1.16 | 2026-11-02 | Add T21 / `CORE-IAM-021` for the logged-in HR candidate list; public OpenAPI and endpoint docs remain outstanding |
+| v1.17 | 2026-11-02 | Add T22 / `CORE-IAM-022` for HR assignment revocation. Documents only; Execution Lifecycle T10 stays blocked until T22 is Done |

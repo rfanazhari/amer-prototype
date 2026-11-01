@@ -60,7 +60,7 @@ T1 (`CORE-IAM-001`) A–E administrative contracts are recorded in D7. Q1 is res
 - **Technical decision:** Check invitation validity at exchange, then check candidate session and assignment validity for ongoing access. Reissue revokes the old invitation credential, not automatically every session originating from it.
 - **What this means for the product:** HR can replace an entry link without unexpectedly interrupting an interview already underway. Revoking the assignment remains the action that removes ongoing interview access.
 - **Alternatives considered:** Checking the source invitation's revoked flag on every session action would interrupt active sessions on reissue; ignoring assignment revocation would leave withdrawn access usable.
-- **Trade-offs accepted:** Invitation provenance and current session authority have different lifecycles. Actual execution cancellation needs the Interview capability and cannot be claimed from request denial alone.
+- **Trade-offs accepted:** Invitation provenance and current session authority have different lifecycles. Request denial is not cancellation. D11 assigns the HR revocation command to this capability; D6 itself stays the rule that replacing an invitation does not end the interview.
 - **Revisit when:** Product requests that replacing an invitation also eject current devices, with explicit cancellation and recovery behavior.
 - **Status:** active.
 
@@ -116,4 +116,16 @@ T1 (`CORE-IAM-001`) A–E administrative contracts are recorded in D7. Q1 is res
 - **Alternatives considered:** Email search would invent matching that D9 forbids. Listing every candidate would ignore the existing creator column. Adding pagination or a new ownership column was not requested.
 - **Trade-offs accepted:** The collection cannot browse another HR's candidates. A known id remains readable by any current HR. There is no page size or search box on this route.
 - **Revisit when:** product requests cross-HR candidate browse, email lookup, or paged results.
+- **Status:** active.
+
+## D11: HR revokes assignment access, and that command cancels a live interview
+
+- **Ticket:** `CORE-IAM-022` / T22.
+- **Confirming actor/date:** user in this conversation, 2026-11-02, approving the plan to add this command in Identity and Access and to leave Execution Lifecycle T10 blocked until it exists.
+- **Business driver:** BR-CORE-038 removes candidate access when the assignment is revoked. BR-CORE-055 says a nonterminal interview then ends as cancelled. Replacing an invitation remains a different action (D6). A candidate refusal is not that cancellation.
+- **Technical decision:** Current HR calls `POST /admin/interview-assignments/{id}/revocation`. The command stores `access_revoked_at` when it is still empty, then asks Execution Lifecycle to cancel a nonterminal run for the reason `access_revoked`. The lifecycle operation keeps its current signature and performs its own lock. Success is returned only after that cancellation commit. There is no new HR screen. A session that expires during a live interview is not part of this command (technical-design Q7).
+- **What this means for the product:** HR can withdraw an assignment without a new page. The candidate can no longer continue, and an interview that had not finished becomes cancelled. Replacing the entry link still leaves an interview underway. A later click that is only told "not signed in" does not, by itself, cancel the interview.
+- **Alternatives considered:** Leaving the command inside Execution Lifecycle T10 would make the lifecycle own an HR access action. Putting it in Candidate Interview would ask the candidate screen to perform an HR action. Treating the candidate's 401 as the cancellation would record a refusal as a finished outcome. One shared database transaction would require changing the lifecycle lock, which already commits the access change first.
+- **Trade-offs accepted:** The access marker and the cancellation are two commits. If the second fails, access is already withdrawn and the command returns an error; repeating it cancels the interview and keeps the original withdrawal time. Until Q7 is decided, an interview can remain open after the candidate's session clock runs out unless HR revokes the assignment.
+- **Revisit when:** product decides how an expired session during a live interview is noticed, or asks for an HR page to perform this action.
 - **Status:** active.

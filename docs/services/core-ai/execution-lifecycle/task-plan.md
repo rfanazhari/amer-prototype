@@ -82,11 +82,11 @@ T1 and T2 may proceed in parallel. They are not a request to run two agents.
 
 ### Blocked / Deferred
 
-- [ ] **T10. Connect a real revocation or in-interview expiry to cancellation** — Application integration — M
-  - Ticket: `CORE-EXL-010` — depends: T7, T8 — ref: design §9 Q1; decision-log D7.
-  - Blocked by: no production command writes `access_revoked_at` or decides that candidate authority expired during a run. The only observed writer is `revokeAssignment` in the access integration fixture.
-  - Ready when: Identity and Access or Candidate Interview supplies that command and it calls `CancelNonterminal` in the assignment-first transaction. The design's operation signature still matches.
-  - DoD: an end-to-end case on PostgreSQL shows the real command cancelling a nonterminal execution, a repeat not reopening it, and invitation reissue still not cancelling it. `make test.integration` or `make test.docker` covers that case. Fixture-only proof remains T7/T8 and does not close this task.
+- [ ] **T10. Prove the HR revocation command cancels a nonterminal execution** — Application integration — M
+  - Ticket: `CORE-EXL-010` — depends: T7, T8, and Identity and Access T22 — ref: design §9 Q1; decision-log D7, D8.
+  - Blocked by: `CORE-IAM-022` is not Done. No production command writes `access_revoked_at`. The only observed writer is `revokeAssignment` in the access integration fixture. In-interview session expiry stays Identity and Access Q7 and is not this task.
+  - Ready when: `CORE-IAM-022` is Done and `CancelNonterminal` still accepts assignment id, actor, and reason `access_revoked` without reading the revocation marker.
+  - DoD: an end-to-end case on PostgreSQL calls the real `POST /admin/interview-assignments/{id}/revocation` command and shows a nonterminal execution becoming `CANCELLED`, a repeat not reopening it, and invitation reissue still not cancelling it. `make test.integration` or `make test.docker` covers that case. Fixture-only proof remains T7/T8 and does not close this task. This task does not add the route, the marker write, or an `authority_expired` detector.
 
 - [ ] **T11. Run a non-interview agent on this kernel** — Later capability — L
   - Ticket: `CORE-EXL-011` — depends: T8, T9 — ref: design §9 Q5; decision-log D6.
@@ -106,12 +106,14 @@ T7 → T9
 T4 → T9
 T8 → T11
 T9 → T11
+Identity and Access T22 (`CORE-IAM-022`) → T10
 ```
 
-T1 is parallel with T2. T5 is parallel with T3 and T4 once T1 and T2 are done. T9 is parallel with T8 once T4, T6, and T7 are done. T10 and T11 stay blocked while their readiness conditions are open.
+T1 is parallel with T2. T5 is parallel with T3 and T4 once T1 and T2 are done. T9 is parallel with T8 once T4, T6, and T7 are done. T10 stays blocked until `CORE-IAM-022` is Done. T11 stays blocked on its own readiness condition.
 
 ## Revision History
 
 | Version | Date | Change | Reason |
 |---|---|---|---|
 | v1 | 2026-11-02 | Initial plan, all tasks Todo | Mode A. No historical Done status copied. |
+| v1.1 | 2026-11-02 | T10 waits on Identity and Access T22. In-interview expiry stays out of T10 | Owner approved the HR revocation command as `CORE-IAM-022`. Documents only |

@@ -325,7 +325,7 @@ These are requirements on other capabilities. T11 now binds the lifecycle interf
 | Read | Assignment id from the session | The execution above or a not-found that this slice renders as `execution: null`. |
 | Hard deadline | While `RUNNING` | `hardDeadline = runningStartedAt + 15 minutes`, stable across restart. |
 | Cancel | Execution id, expected version, reason `candidate_early_stop` | Committed `CANCELLED`, or conflict when the version is stale or the execution is already terminal. The first terminal commit wins. |
-| Access ended during a non-terminal interview | Revocation or session expiry | Lifecycle commits `CANCELLED` (BR-CORE-055). This slice only refuses further candidate commands. Refusal is not that cancellation. |
+| Access ended during a non-terminal interview | Revocation or session expiry | Lifecycle commits `CANCELLED` (BR-CORE-055). This slice only refuses further candidate commands. Refusal is not that cancellation. The HR revocation command is Identity and Access `CORE-IAM-022`, not a task in this plan. Session expiry during a run remains Identity and Access Q7. |
 
 **Interview Runtime** must provide:
 
@@ -388,5 +388,6 @@ Implementation risks: the exact schema floor makes version 8 and version 9 binar
 |---|---|---|---|
 | v1 | 2026-11-02 | Initial design | Mode A plan for BR-CORE-040..047. Rules are not enforced. |
 | v2 | 2026-11-02 | Assign `000009_candidate_interview` and clean floor 9 | assign a unique migration version after the parallel tripack collision on 000008 |
+| v2.1 | 2026-11-02 | Point the access-ended cancellation caller at Identity and Access `CORE-IAM-022` | Owner approved that command outside this slice. No new candidate-interview task |
 
 T11 execution update (2026-11-02): the production composition binds lifecycle start/read/cancel. Candidate intent uses a fixed `candidate-start` command key per assignment and typed SHA-256 references for the client idempotency key and consent id, preserving the 128-character API key within lifecycle's 64-character token limit. A call-local minted execution id identifies a successful first commit; replay and race reconciliation report `created=false`. A store decorator refuses terminal cancel inside the existing locked callback; the lifecycle operation still performs the transition and commits. Interview credential reads join assignment revocation without changing access routes. PostgreSQL and mocked evidence, assessment and limits are in [t11-execution.md](t11-execution.md). T12 progress/fencing and T13 remain pending. No business decision changed.

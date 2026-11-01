@@ -26,7 +26,7 @@ Paths were inspected. Fit is limited to the pattern named in the last column.
 | `LoadRequirements` | `application/usecase/agentbindingusecase/requirements.go` | Not used | It reads document required fields. Calling it would put invoice-shaped data on the kernel path. |
 | `Clock` | `application/service/ports.go`, `infrastructure/service/clock/clock.go` | Trusted UTC time | Application truncates to milliseconds. Reuse the port. |
 | `schema.RequireCompatible`, `ReleaseVersion` | `infrastructure/database/schema/compatible.go`, `version.go` | Read-only startup gate | Today the constant is 7 and the error text says version 7. T3 moves both to 8. Startup still runs no DDL. |
-| `revokeAssignment` | `test/integration/access_candidate_fixture_test.go` | Only observed writer of `access_revoked_at` | A fixture, not a product command. T10 stays blocked on a real caller. |
+| `revokeAssignment` | `test/integration/access_candidate_fixture_test.go` | Only observed writer of `access_revoked_at` | A fixture, not a product command. The approved product writer is Identity and Access T22, which is not built. T10 stays blocked on that task. |
 | Error catalog | `pkg/errs/codes.go`, `translations/errors.en.toml`, `translations/errors.id.toml` | Code and EN/ID message pattern | Add the execution codes. Do not reuse ACP publication codes for execution conflicts. |
 | Declaration and import tests | `test/architecture/documentation_test.go`, `dependencies_test.go` | Documentation and the domain import allowlist | New declarations must be commented. Domain stays on the allowlist. |
 | Mockery | `.mockery.yml`, `make mocks` | Generate port mocks | Register new interfaces. Do not hand-write mocks. |
@@ -69,7 +69,7 @@ Recommended review order. This does not authorize a branch, a commit, or a pull 
 4. PostgreSQL proof (T8) after the adapter and operations agree.
 5. Static gates (T9): architecture, contract, lint, and the runtime non-mount check.
 
-One commit per task when implementation is requested. Do not start T10 or T11 under this plan.
+One commit per task when implementation is requested. Do not start T10 until Identity and Access T22 (`CORE-IAM-022`) is Done, and do not implement that route in this capability. Do not start T11 under this plan. Do not add an `authority_expired` detector here.
 
 ## 5. Testing Strategy
 

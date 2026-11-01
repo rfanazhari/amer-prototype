@@ -42,6 +42,9 @@ packages:
       CSRFTokens:
       CurrentAdministrativeSession:
       CurrentCandidateSession:
+      NoticeCatalog:
+      ExecutionLifecycle:
+      InterviewProgress:
   github.com/rfanazhari/amer-prototype/application/usecase/taskusecase:
     config:
       dir: test/mocks
@@ -173,3 +176,30 @@ packages:
     interfaces:
       FindOperation:
       FindByAssignmentOperation:
+  github.com/rfanazhari/amer-prototype/application/repository/candidateinterviewport:
+    config:
+      dir: test/mocks
+      outpkg: mocks
+      filename: 'candidate_interview_{{.InterfaceName | snakecase}}.go'
+    interfaces:
+      ConsentTransaction:
+      Consents:
+      Controllers:
+  github.com/rfanazhari/amer-prototype/application/usecase/candidateinterviewusecase:
+    config:
+      dir: test/mocks
+      outpkg: mocks
+      filename: 'candidate_interview_{{.InterfaceName | snakecase}}.go'
+    interfaces:
+      AcceptNoticeOperation:
+      StartInterviewOperation:
+      TakeoverOperation:
+      CancelInterviewOperation:
+  github.com/rfanazhari/amer-prototype/application/query/candidateinterviewquery:
+    config:
+      dir: test/mocks
+      outpkg: mocks
+      filename: 'candidate_interview_{{.InterfaceName | snakecase}}.go'
+    interfaces:
+      GetInterviewOperation:
+      GetExecutionOperation:

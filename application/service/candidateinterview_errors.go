@@ -1,5 +1,7 @@
 package service
 
+import "errors"
+
 // InterviewErrorKind classifies a candidate-interview failure so delivery can map it without string matching.
 type InterviewErrorKind string
 
@@ -21,21 +23,30 @@ type InterviewError struct {
 }
 
 // Error returns the kind only, so logs and wrapped errors never carry request data.
-func (e *InterviewError) Error() string { return "" }
+func (e *InterviewError) Error() string { return string(e.Kind) }
 
 // Is reports whether target is a candidate-interview error of the same kind.
-func (e *InterviewError) Is(target error) bool { return false }
+func (e *InterviewError) Is(target error) bool {
+	other, ok := target.(*InterviewError)
+	return ok && other.Kind == e.Kind
+}
 
 var (
 	// ErrInterviewNotFound reports an absent consent, controller or execution.
-	ErrInterviewNotFound = &InterviewError{}
+	ErrInterviewNotFound = &InterviewError{Kind: InterviewNotFound}
 	// ErrInterviewConflict reports a stale version, a reused idempotency intent or a lost takeover race.
-	ErrInterviewConflict = &InterviewError{}
+	ErrInterviewConflict = &InterviewError{Kind: InterviewConflict}
 	// ErrInterviewCoverage reports a session that does not cover the interview budget.
-	ErrInterviewCoverage = &InterviewError{}
+	ErrInterviewCoverage = &InterviewError{Kind: InterviewCoverage}
 	// ErrInterviewDependencyUnavailable reports an unbound or failing sibling port.
-	ErrInterviewDependencyUnavailable = &InterviewError{}
+	ErrInterviewDependencyUnavailable = &InterviewError{Kind: InterviewDependencyUnavailable}
 )
 
 // InterviewErrorKindOf returns the kind of the first candidate-interview error in err's chain.
-func InterviewErrorKindOf(err error) (InterviewErrorKind, bool) { return "", false }
+func InterviewErrorKindOf(err error) (InterviewErrorKind, bool) {
+	var classified *InterviewError
+	if errors.As(err, &classified) {
+		return classified.Kind, true
+	}
+	return "", false
+}

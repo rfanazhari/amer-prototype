@@ -39,9 +39,10 @@ Companion plans: [Identity and Access](../identity-access/task-plan.md) owns the
   - Evidence: `domain/aggregate/candidateinterview` with public `_test` package tests (100% statement coverage). `make test`, `make test.architecture`, and `make lint` pass. No HTTP, SQL, or stage workflow.
   - DoD: public `_test` package tests cover current-version acceptance, restoration of a retired version, copied acceptance time, coverage equality refusal, takeover increment, and stale-version refusal. `NoticeVersion` and `ControllerID` are distinct. The 15-minute budget is the platform §10 constant, not an HR stage-second field. `make test` and `make test.architecture` pass, including `test/architecture/documentation_test.go`. No HTTP, SQL, or stage workflow.
 
-- [ ] **T3. Define operations and sibling ports** — Application — M
+- [x] **T3. Define operations and sibling ports** — Application — M
   - Ticket ID: `CORE-CIN-003`
   - depends: none — ref: design §2–4, §6.3.
+  - Evidence: `application/service` holds `NoticeCatalog`, `ExecutionLifecycle`, `InterviewProgress`, and the classified `InterviewError` sentinels (not found, conflict, coverage, dependency). `application/repository/candidateinterviewport` holds `ConsentTransaction`, `Consents`, `Controllers`. Operation interfaces are in `candidateinterviewusecase` and `candidateinterviewquery`, with detached `application/dto/candidateinterview.go`. `.mockery.yml` lists all 12 interfaces and `make mocks` generated `test/mocks/`. `make test`, `make test.all`, `make test.contract`, `make test.architecture`, and `make lint` pass. No implementations, SQL, or HTTP yet; `CIN_` public codes are T6.
   - DoD: narrow operation interfaces, consent and controller repository contracts, `NoticeCatalog`, `ExecutionLifecycle`, and `InterviewProgress`. Interfaces carry no GORM type. Classified errors distinguish not-found, conflict, coverage, and dependency failure. `.mockery.yml` lists the interfaces and `make mocks` regenerates `test/mocks/`. Every interface method is commented. `make test.architecture` passes.
 
 ### Sequential persistence and consent HTTP

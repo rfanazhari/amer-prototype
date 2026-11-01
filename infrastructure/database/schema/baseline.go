@@ -63,7 +63,7 @@ func (d *driver) matches(asset string, tables []string) error {
 	return nil
 }
 
-// baseline adopts only the observed Task-only or full three-table schema under the migration lock.
+// baseline adopts Task-only, full three-table, or already-installed configuration catalogs under the migration lock.
 func (d *driver) baseline() (int, bool, error) {
 	if err := d.matches("tasks.json", []string{"tasks"}); err != nil {
 		return 0, false, err
@@ -80,6 +80,18 @@ func (d *driver) baseline() (int, bool, error) {
 		v = 2
 	} else if count != 0 {
 		return 0, false, errors.New("partial administrative schema")
+	}
+	var configuration int
+	if err := d.conn.QueryRowContext(d.ctx, `SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_name IN ('agent_instances','agent_drafts','agent_validations','agent_revisions','agent_publication_commands')`).Scan(&configuration); err != nil {
+		return 0, false, err
+	}
+	if configuration == 5 {
+		if v != 2 {
+			return 0, false, errors.New("configuration schema requires administrative tables")
+		}
+		v = 3
+	} else if configuration != 0 {
+		return 0, false, errors.New("partial configuration schema")
 	}
 	tx, err := d.conn.BeginTx(d.ctx, nil)
 	if err != nil {

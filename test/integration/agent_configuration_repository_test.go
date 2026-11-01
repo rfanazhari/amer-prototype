@@ -168,7 +168,7 @@ func proveValidationRace(t *testing.T, store agentconfigrepository.Store, _ *gor
 		if current.HR.Snapshot().DraftVersion.Number() != 1 {
 			return aggregate.ErrStale
 		}
-		return tx.InsertValidation(ctx, mustACPValidation(t, uuid.NewString(), id, 1, true))
+		return tx.InsertValidation(ctx, mustACPValidation(t, uuid.NewString(), id, 1, true, current.HR.Snapshot().Template))
 	})
 	require.ErrorIs(t, err, aggregate.ErrStale)
 }
@@ -366,7 +366,7 @@ func proveCorruptRestoration(t *testing.T, store agentconfigrepository.Store, db
 	ctx := context.Background()
 	instance := persistHR(t, store, uuid.NewString(), mustACPValidHR(t), 1)
 	id := instance.HR.Snapshot().ID
-	require.NoError(t, db.Exec("UPDATE agent_drafts SET configuration = 'null' WHERE instance_id = ?", id).Error)
+	require.NoError(t, db.Exec("UPDATE agent_drafts SET configuration = '[]'::jsonb WHERE instance_id = ?", id).Error)
 	_, err := store.FindInstance(ctx, id)
 	var technical errs.Technical
 	require.ErrorAs(t, err, &technical)

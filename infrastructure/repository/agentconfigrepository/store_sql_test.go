@@ -34,8 +34,9 @@ func TestConfigurationPersistenceSQL(t *testing.T) {
 			name: "create writes instance and draft without publication",
 			run: func(t *testing.T, store agentconfigrepository.Store, mock sqlmock.Sqlmock) {
 				mock.ExpectBegin()
-				mock.ExpectQuery(`(?i)INSERT INTO ["']?agent_instances["']?`).WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(instanceID))
-				mock.ExpectQuery(`(?i)INSERT INTO ["']?agent_drafts["']?`).WillReturnRows(sqlmock.NewRows([]string{"instance_id"}).AddRow(instanceID))
+				mock.ExpectExec(`(?i)SET CONSTRAINTS ALL DEFERRED`).WillReturnResult(sqlmock.NewResult(0, 0))
+				mock.ExpectExec(`(?i)INSERT INTO ["']?agent_instances["']?`).WillReturnResult(sqlmock.NewResult(1, 1))
+				mock.ExpectExec(`(?i)INSERT INTO ["']?agent_drafts["']?`).WillReturnResult(sqlmock.NewResult(1, 1))
 				mock.ExpectCommit()
 				require.NoError(t, store.Create(ctx, valid))
 			},
@@ -44,19 +45,39 @@ func TestConfigurationPersistenceSQL(t *testing.T) {
 			name: "create callback failure rolls back both writes",
 			run: func(t *testing.T, store agentconfigrepository.Store, mock sqlmock.Sqlmock) {
 				mock.ExpectBegin()
-				mock.ExpectQuery(`(?i)INSERT INTO ["']?agent_instances["']?`).WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(instanceID))
-				mock.ExpectQuery(`(?i)INSERT INTO ["']?agent_drafts["']?`).WillReturnError(assert.AnError)
+				mock.ExpectExec(`(?i)SET CONSTRAINTS ALL DEFERRED`).WillReturnResult(sqlmock.NewResult(0, 0))
+				mock.ExpectExec(`(?i)INSERT INTO ["']?agent_instances["']?`).WillReturnResult(sqlmock.NewResult(1, 1))
+				mock.ExpectExec(`(?i)INSERT INTO ["']?agent_drafts["']?`).WillReturnError(assert.AnError)
 				mock.ExpectRollback()
 				require.Error(t, store.Create(ctx, valid))
+			},
+		},
+		{
+			name: "replacement inserts a new draft version instead of mutating the locked row",
+			run: func(t *testing.T, store agentconfigrepository.Store, mock sqlmock.Sqlmock) {
+				replaced := storedHR(t, instanceID, 2, mustHR(t, valueobject.HRInput{}), nil)
+				expectLockedInstance(mock, instanceID, 1, false)
+				mock.ExpectExec(`(?i)INSERT INTO ["']?agent_drafts["']?`).
+					WithArgs(instanceID, int64(2), []byte(emptyHRJSON), testdata.Now(), testdata.Now()).
+					WillReturnResult(sqlmock.NewResult(1, 1))
+				mock.ExpectExec(`(?i)UPDATE ["']?agent_instances["']? SET .*current_draft_version`).
+					WithArgs(instanceName, catalogTemplateHR(), catalogVersion(), catalogBehavior(), int64(2), nil, testdata.Now(), instanceID).
+					WillReturnResult(sqlmock.NewResult(0, 1))
+				mock.ExpectCommit()
+				err := store.WithinInstance(ctx, instanceID, func(tx agentconfigport.InstanceTx) error {
+					current, err := tx.Instance(ctx)
+					require.NoError(t, err)
+					require.NotNil(t, current.HR)
+					return tx.SaveInstance(ctx, replaced)
+				})
+				require.NoError(t, err)
 			},
 		},
 		{
 			name: "save instance writes null active revision and empty configuration json",
 			run: func(t *testing.T, store agentconfigrepository.Store, mock sqlmock.Sqlmock) {
 				expectLockedInstance(mock, instanceID, 1, false)
-				mock.ExpectExec(`(?i)UPDATE ["']?agent_drafts["']? SET .*configuration`).
-					WithArgs(int64(1), []byte(emptyHRJSON), testdata.Now(), instanceID).
-					WillReturnResult(sqlmock.NewResult(0, 1))
+				mock.ExpectExec(`(?i)UPDATE ["']?agent_drafts["']? SET .*configuration`).WillReturnResult(sqlmock.NewResult(0, 1))
 				mock.ExpectExec(`(?i)UPDATE ["']?agent_instances["']? SET .*active_revision_id`).
 					WithArgs(instanceName, catalogTemplateHR(), catalogVersion(), catalogBehavior(), int64(1), nil, testdata.Now(), instanceID).
 					WillReturnResult(sqlmock.NewResult(0, 1))
@@ -71,9 +92,9 @@ func TestConfigurationPersistenceSQL(t *testing.T) {
 			name: "insert validation writes explicit ineligible false and empty findings",
 			run: func(t *testing.T, store agentconfigrepository.Store, mock sqlmock.Sqlmock) {
 				expectLockedInstance(mock, instanceID, 1, false)
-				mock.ExpectQuery(`(?i)INSERT INTO ["']?agent_validations["']?`).
+				mock.ExpectExec(`(?i)INSERT INTO ["']?agent_validations["']?`).
 					WithArgs(validationID, instanceID, int64(1), catalogTemplateHR(), catalogVersion(), catalogBehavior(), false, []byte(emptyFindings), testdata.Now()).
-					WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(validationID))
+					WillReturnResult(sqlmock.NewResult(1, 1))
 				mock.ExpectCommit()
 				err := store.WithinInstance(ctx, instanceID, func(tx agentconfigport.InstanceTx) error {
 					return tx.InsertValidation(ctx, eligibleValidation(t, validationID, instanceID, 1, false))
@@ -85,9 +106,10 @@ func TestConfigurationPersistenceSQL(t *testing.T) {
 			name: "duplicate command identity rolls back and classifies unique loser",
 			run: func(t *testing.T, store agentconfigrepository.Store, mock sqlmock.Sqlmock) {
 				expectLockedInstance(mock, instanceID, 1, false)
-				mock.ExpectQuery(`(?i)INSERT INTO ["']?agent_revisions["']?`).WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(revisionID))
+				mock.ExpectExec(`(?i)INSERT INTO ["']?agent_revisions["']?`).WillReturnResult(sqlmock.NewResult(1, 1))
+				mock.ExpectExec(`(?i)UPDATE ["']?agent_drafts["']? SET .*configuration`).WillReturnResult(sqlmock.NewResult(0, 1))
 				mock.ExpectExec(`(?i)UPDATE ["']?agent_instances["']? SET .*active_revision_id`).WillReturnResult(sqlmock.NewResult(0, 1))
-				mock.ExpectQuery(`(?i)INSERT INTO ["']?agent_publication_commands["']?`).
+				mock.ExpectExec(`(?i)INSERT INTO ["']?agent_publication_commands["']?`).
 					WillReturnError(&pgconn.PgError{Code: "23505", ConstraintName: "agent_publication_commands_pkey"})
 				mock.ExpectRollback()
 				err := store.WithinInstance(ctx, instanceID, func(tx agentconfigport.InstanceTx) error {
@@ -108,7 +130,7 @@ func TestConfigurationPersistenceSQL(t *testing.T) {
 				rows := sqlmock.NewRows([]string{"scope", "command_kind", "request_key", "intent_fingerprint", "resulting_revision_id", "instance_id"}).
 					AddRow(testdata.ID, commandKind, publishKey, fingerprint(), revisionID, instanceID)
 				mock.ExpectQuery(`(?i)SELECT .* FROM ["']?agent_publication_commands["']?`).
-					WithArgs(testdata.ID, commandKind, publishKey).
+					WithArgs(testdata.ID, commandKind, publishKey, 1).
 					WillReturnRows(rows)
 				got, found, err := store.FindCommand(ctx, commandIdentity())
 				require.NoError(t, err)
@@ -122,7 +144,7 @@ func TestConfigurationPersistenceSQL(t *testing.T) {
 			name: "revision insert failure rolls back without command or active pointer",
 			run: func(t *testing.T, store agentconfigrepository.Store, mock sqlmock.Sqlmock) {
 				expectLockedInstance(mock, instanceID, 1, false)
-				mock.ExpectQuery(`(?i)INSERT INTO ["']?agent_revisions["']?`).WillReturnError(assert.AnError)
+				mock.ExpectExec(`(?i)INSERT INTO ["']?agent_revisions["']?`).WillReturnError(assert.AnError)
 				mock.ExpectRollback()
 				err := store.WithinInstance(ctx, instanceID, func(tx agentconfigport.InstanceTx) error {
 					return tx.InsertRevision(ctx, revision)
@@ -134,7 +156,8 @@ func TestConfigurationPersistenceSQL(t *testing.T) {
 			name: "active pointer update failure rolls back revision insert",
 			run: func(t *testing.T, store agentconfigrepository.Store, mock sqlmock.Sqlmock) {
 				expectLockedInstance(mock, instanceID, 1, false)
-				mock.ExpectQuery(`(?i)INSERT INTO ["']?agent_revisions["']?`).WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(revisionID))
+				mock.ExpectExec(`(?i)INSERT INTO ["']?agent_revisions["']?`).WillReturnResult(sqlmock.NewResult(1, 1))
+				mock.ExpectExec(`(?i)UPDATE ["']?agent_drafts["']? SET .*configuration`).WillReturnResult(sqlmock.NewResult(0, 1))
 				mock.ExpectExec(`(?i)UPDATE ["']?agent_instances["']? SET .*active_revision_id`).WillReturnError(assert.AnError)
 				mock.ExpectRollback()
 				err := store.WithinInstance(ctx, instanceID, func(tx agentconfigport.InstanceTx) error {
@@ -150,9 +173,10 @@ func TestConfigurationPersistenceSQL(t *testing.T) {
 			name: "commit failure after successful writes is uncertain",
 			run: func(t *testing.T, store agentconfigrepository.Store, mock sqlmock.Sqlmock) {
 				expectLockedInstance(mock, instanceID, 1, false)
-				mock.ExpectQuery(`(?i)INSERT INTO ["']?agent_revisions["']?`).WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(revisionID))
+				mock.ExpectExec(`(?i)INSERT INTO ["']?agent_revisions["']?`).WillReturnResult(sqlmock.NewResult(1, 1))
+				mock.ExpectExec(`(?i)UPDATE ["']?agent_drafts["']? SET .*configuration`).WillReturnResult(sqlmock.NewResult(0, 1))
 				mock.ExpectExec(`(?i)UPDATE ["']?agent_instances["']? SET .*active_revision_id`).WillReturnResult(sqlmock.NewResult(0, 1))
-				mock.ExpectQuery(`(?i)INSERT INTO ["']?agent_publication_commands["']?`).WillReturnRows(sqlmock.NewRows([]string{"scope"}).AddRow(testdata.ID))
+				mock.ExpectExec(`(?i)INSERT INTO ["']?agent_publication_commands["']?`).WillReturnResult(sqlmock.NewResult(1, 1))
 				mock.ExpectCommit().WillReturnError(assert.AnError)
 				err := store.WithinInstance(ctx, instanceID, func(tx agentconfigport.InstanceTx) error {
 					require.NoError(t, tx.InsertRevision(ctx, revision))
@@ -248,6 +272,7 @@ func expectLockedInstance(mock sqlmock.Sqlmock, id string, version int64, withAc
 	draftRows := sqlmock.NewRows([]string{"instance_id", "version", "configuration", "created_at", "updated_at"}).
 		AddRow(id, version, []byte(emptyHRJSON), testdata.Now(), testdata.Now())
 	mock.ExpectBegin()
+	mock.ExpectExec(`(?i)SET CONSTRAINTS ALL DEFERRED`).WillReturnResult(sqlmock.NewResult(0, 0))
 	mock.ExpectQuery(`(?i)SELECT .* FROM ["']?agent_instances["']? .*FOR UPDATE`).WillReturnRows(instanceRows)
 	mock.ExpectQuery(`(?i)SELECT .* FROM ["']?agent_drafts["']?`).WillReturnRows(draftRows)
 }

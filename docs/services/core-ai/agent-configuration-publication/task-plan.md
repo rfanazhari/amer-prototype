@@ -1,6 +1,6 @@
 # Task Plan: Agent Configuration and Publication
 
-Planning baseline: 2026-11-01, Mode C. T1–T6 are implemented. T7–T11 remain Todo.
+Planning baseline: 2026-11-01, Mode C. T1–T7 are implemented. T8–T11 remain Todo.
 
 ## Ticket Identity
 
@@ -73,10 +73,11 @@ T2 and T3 are independent work streams, not instructions to spawn agents. Change
   - Evidence: Mockery-generated authority, repository, reference-reader, and delivery-operation mocks; HR allow/ADMIN deny/candidate deny; exact-version validation race; replay-before-eligibility; mismatched intent; no result before commit; ambiguous-commit reconciliation; old-command replay after later publication; command scope is the account UUID. RED `63069e9` then GREEN. sqlmock is not applicable because T6 authors no SQL.
   - DoD: create, replace, validate, publish, and read operations call `AgentConfigurationAuthority` with the existing operation names. Exact-version validation recording rejects an edit race; replay precedes current-draft eligibility; mismatched intent conflicts; trusted UTC time and detached outputs are used. Generated mock tests cover HR allow, ADMIN deny, candidate deny, reference failures, no result before commit, ambiguous-commit reconciliation, and old-command replay after later publication. Scope stored for a command is the account UUID. No assumption that mocks establish SQL or cookie/CSRF correctness.
 
-- [ ] **T7. Implement PostgreSQL publication transactions and repository proof** — Infrastructure — L
+- [x] **T7. Implement PostgreSQL publication transactions and repository proof** — Infrastructure — L
   - Ticket ID: `CORE-ACP-007`
   - depends: T1, T2, T3, T4, T5, T6 — ref: design §3, §5–7.
   - decision gate: Q1/Q3 resolved.
+  - Evidence: sqlmock adapter tests plus version-3 PostgreSQL repository proof; RED `2c92d8e` then GREEN. Isolated `TestAgentConfigurationPublicationRepository` skips without `TEST_DATABASE_URL`.
   - DoD: real PostgreSQL tests apply the version-3 migration and cover exact-version replacement/validation/publication races, all write/commit rollback points, duplicate keys with same/different intent, cross-instance constraint checks, replay after new active revision, corrupted restoration, and null/zero mapping. Unique-constraint loser resolves in a fresh transaction. Restart retains revisions. Immutable read-by-ID supports future binding; do not claim full BR-CORE-013 consumer proof. Use isolated Docker or an explicitly authorized integration database. Do not call AutoMigrate.
 
 T4 and T5 may proceed independently once their shared prerequisites are complete. T6 can use generated repository mocks while T4 is prepared; T7 integrates the finalized application contract.

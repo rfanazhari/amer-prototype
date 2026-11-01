@@ -153,3 +153,33 @@ INSERT INTO administrative_accounts(id,name,email,password_hash,role,status,crea
 		})
 	}
 }
+
+// TestPopulatedVersionThreeBaselinesWithoutRewrite adopts a restored configuration catalog as clean version 3.
+func TestPopulatedVersionThreeBaselinesWithoutRewrite(t *testing.T) {
+	target := os.Getenv("TEST_MIGRATION_DATABASE_URL")
+	if target == "" {
+		t.Skip("TEST_MIGRATION_DATABASE_URL absent; configuration migration proof skipped")
+	}
+	db, err := sql.Open("pgx", target)
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, db.Close()) })
+	directory, err := filepath.Abs("../../../migrations/pgsql")
+	require.NoError(t, err)
+	runner := schema.Runner{DB: db, Directory: directory}
+	_, err = db.ExecContext(context.Background(), "DROP SCHEMA public CASCADE; CREATE SCHEMA public;")
+	require.NoError(t, err)
+	version, dirty, err := runner.Execute(context.Background(), schema.Options{Action: "up", Version: 3})
+	require.NoError(t, err)
+	require.Equal(t, 3, version)
+	require.False(t, dirty)
+	_, err = db.ExecContext(context.Background(), "DROP TABLE schema_migrations")
+	require.NoError(t, err)
+	version, dirty, err = runner.Execute(context.Background(), schema.Options{Action: "baseline"})
+	require.NoError(t, err)
+	require.Equal(t, 3, version)
+	require.False(t, dirty)
+	version, dirty, err = runner.Execute(context.Background(), schema.Options{Action: "up", Version: 3})
+	require.NoError(t, err)
+	require.Equal(t, 3, version)
+	require.False(t, dirty)
+}

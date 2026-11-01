@@ -72,7 +72,7 @@ ALTER TABLE ONLY public.agent_instances
     ADD CONSTRAINT agent_instances_pkey PRIMARY KEY (id);
 
 ALTER TABLE ONLY public.agent_drafts
-    ADD CONSTRAINT agent_drafts_pkey PRIMARY KEY (instance_id);
+    ADD CONSTRAINT agent_drafts_pkey PRIMARY KEY (instance_id, version);
 
 ALTER TABLE ONLY public.agent_drafts
     ADD CONSTRAINT agent_drafts_instance_id_version_key UNIQUE (instance_id, version);

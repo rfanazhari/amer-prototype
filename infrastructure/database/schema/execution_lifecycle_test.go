@@ -210,7 +210,6 @@ func TestExecutionLifecycleMigrationOnPostgres(t *testing.T) {
 	t.Run("fresh migrate to 8 has no seed rows", func(t *testing.T) {
 		resetSchema(t, db)
 		migrateTo(t, runner, 8)
-		require.NoError(t, schema.RequireCompatible(ctx, db))
 		for _, table := range lifecycleTables {
 			require.Zero(t, countRows(t, db, table), table)
 		}

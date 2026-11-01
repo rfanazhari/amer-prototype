@@ -47,9 +47,10 @@ Companion plans: [Identity and Access](../identity-access/task-plan.md) owns the
 
 ### Sequential persistence and consent HTTP
 
-- [ ] **T4. Register SQL version 9** — Infrastructure / schema — M
+- [x] **T4. Register SQL version 9** — Infrastructure / schema — M
   - Ticket ID: `CORE-CIN-004`
   - depends: T2 — ref: design §3 migration, §8.
+  - Evidence: `migrations/pgsql/000009_candidate_interview.{up,down}.sql` create only `interview_consents` and `interview_controllers`; `schema.ReleaseVersion` is 9, with owned/grant tables, `checksums.json`, the SHA-256 manifest, baseline adoption (`extendBaseline` 8→9), Makefile, README, `scripts/verify_compose.py`, and `docs/design/database-migrations.md` aligned. Schema tests use sqlmock for the floor messages and a disposable PostgreSQL 16 container for clean 8→9, constraints, down/up, baseline, and a floor-8 build refusing version 9. `make test`, `make test.all`, `make test.contract`, `make test.architecture`, `make lint`, and `make test.security` pass. `make test.integration` on the disposable database has the same five failing tests at the pre-change commit (fixture schema conflicts, unrelated to version 9). `make test.docker` was not run. No Go behavior beyond the schema package; consent persistence is T5.
   - DoD: `migrations/pgsql/000009_candidate_interview.up.sql` and `.down.sql` create only `interview_consents` and `interview_controllers` with the FKs, checks, and unique pair in §3. No notice seed, no execution state column, no `AutoMigrate`. `schema.ReleaseVersion` is 9. Checksums, runtime grants, and `docs/design/database-migrations.md` match. A disposable database migrates from clean 8 to clean 9, refuses the floor-8 binary, and down/up is demonstrated only on that disposable database. `make test.architecture` passes. Versions 1–8 are unmodified.
 
 - [ ] **T5. Persist consent and the interview read** — Application / infrastructure — L

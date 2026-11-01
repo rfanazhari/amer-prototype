@@ -191,9 +191,10 @@ func TestCandidateInterviewMigrationOnPostgres(t *testing.T) {
 		t.Helper()
 		seedVersionSevenPin(t, db)
 		_, err := db.ExecContext(ctx, `INSERT INTO interview_invitations(id,assignment_id,token_hash,created_by,created_at,expires_at) VALUES
-('00000000-0000-0000-0000-0000000000a8',$1,repeat('b',64),$2,'2026-01-02Z','2026-01-09Z');
-INSERT INTO candidate_sessions(id,assignment_id,invitation_id,token_hash,created_at,expires_at) VALUES
-($3,$1,'00000000-0000-0000-0000-0000000000a8',repeat('a',64),'2026-01-02Z','2026-01-02T02:00:00Z')`, fixtureAssignment, fixtureAccount, session)
+('00000000-0000-0000-0000-0000000000a8',$1,repeat('b',64),$2,'2026-01-02Z','2026-01-09Z')`, fixtureAssignment, fixtureAccount)
+		require.NoError(t, err)
+		_, err = db.ExecContext(ctx, `INSERT INTO candidate_sessions(id,assignment_id,invitation_id,token_hash,created_at,expires_at) VALUES
+($1,$2,'00000000-0000-0000-0000-0000000000a8',repeat('a',64),'2026-01-02Z','2026-01-02T02:00:00Z')`, session, fixtureAssignment)
 		require.NoError(t, err)
 	}
 	insertConsent := func(id, version string) error {
@@ -218,8 +219,9 @@ VALUES ($1,$2,$3,'2026-01-02T00:05:00Z',$4)`, id, fixtureAssignment, version, se
 
 	t.Run("consent constraints", func(t *testing.T) {
 		resetSchema(t, db)
-		migrateTo(t, runner, 8)
+		migrateTo(t, runner, 7)
 		seedSession(t)
+		migrateTo(t, runner, 8)
 		migrateTo(t, runner, 9)
 		require.NoError(t, insertConsent(consent, "notice-261102"))
 		require.ErrorContains(t, insertConsent(secondRow, "notice-261102"), "interview_consents_assignment_id_notice_version_key", "one acceptance per assignment and version")
@@ -235,8 +237,9 @@ VALUES ($1,$2,$3,'2026-01-02T00:05:00Z',$4)`, id, fixtureAssignment, version, se
 
 	t.Run("controller constraints", func(t *testing.T) {
 		resetSchema(t, db)
-		migrateTo(t, runner, 8)
+		migrateTo(t, runner, 7)
 		seedSession(t)
+		migrateTo(t, runner, 8)
 		migrateTo(t, runner, 9)
 		insert := func(assignment, execution, controller string, version int) error {
 			_, err := db.ExecContext(ctx, `INSERT INTO interview_controllers(assignment_id,execution_id,controller_id,version,updated_at)
@@ -256,8 +259,9 @@ VALUES ($1,$2,$3,$4,'2026-01-02T00:06:00Z')`, assignment, execution, controller,
 
 	t.Run("disposable down keeps earlier tables and up recreates", func(t *testing.T) {
 		resetSchema(t, db)
-		migrateTo(t, runner, 8)
+		migrateTo(t, runner, 7)
 		seedSession(t)
+		migrateTo(t, runner, 8)
 		migrateTo(t, runner, 9)
 		got, dirty, err := runner.Execute(ctx, schema.Options{Action: "down", Steps: 1, Disposable: true})
 		require.NoError(t, err)

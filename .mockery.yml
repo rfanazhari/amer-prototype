@@ -19,6 +19,8 @@ packages:
       Clock:
       EventQueue:
       Reservation:
+      AgentConfigurationAuthority:
+      AgentReferenceReader:
   github.com/rfanazhari/amer-prototype/application/usecase/taskusecase:
     config:
       dir: test/mocks
@@ -44,3 +46,13 @@ packages:
     interfaces:
       NegotiateOperation:
       Negotiator:
+  github.com/rfanazhari/amer-prototype/application/repository/agentconfigport:
+    config:
+      dir: test/mocks
+      outpkg: mocks
+      filename: 'agent_config_{{.InterfaceName | snakecase}}.go'
+    interfaces:
+      Reader:
+      ReplayReader:
+      Mutation:
+      Transaction:

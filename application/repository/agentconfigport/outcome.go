@@ -11,4 +11,4 @@ type CommitUncertainError struct {
 func (e *CommitUncertainError) Error() string { return "publication commit outcome uncertain" }
 
 // Unwrap preserves the technical cause for internal classification.
-func (e *CommitUncertainError) Unwrap() error { return nil }
+func (e *CommitUncertainError) Unwrap() error { return e.Cause }

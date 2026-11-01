@@ -2,7 +2,7 @@
 
 These entries explain technical consequences of the approved capability and platform decisions. They do not claim implementation or new owner approval of unresolved details. Technical library and package choices remain in [technical-design.md](technical-design.md).
 
-T1 (`CORE-ACP-001`) A–E approval is recorded in D5 below. Q1/Q3 are resolved. The administrative access prerequisite is satisfied by Identity and Access D1/D6/D7 and CORE-IAM-009; configuration-route proof remains ACP T8/T9. Schema installation follows Identity and Access D8, recorded here as D7. Q4/Q5 remain open. No configuration runtime implementation is claimed by this alignment.
+T1 (`CORE-ACP-001`) A–E approval is recorded in D5 below. Q1/Q3 are resolved. The administrative access prerequisite is satisfied by Identity and Access D1/D6/D7 and CORE-IAM-009; configuration-route proof remains ACP T8/T9. Schema installation follows Identity and Access D8, recorded here as D7. T10 (`CORE-ACP-010`) records historical deployment compatibility in D8 and resolves Q4. Q5 remains open.
 
 ## D1: Published settings remain reliable while users prepare changes
 
@@ -81,3 +81,16 @@ T1 (`CORE-ACP-001`) A–E approval is recorded in D5 below. Q1/Q3 are resolved. 
 - **Trade-offs accepted:** Release procedure gains a migration step and a new accepted database version. If candidate or assignment SQL has already been applied in an environment, that environment needs a reviewed forward plan before configuration tables can be inserted at version 3.
 - **Revisit when:** Database ownership splits into separate services, or Interview's assignment migration is applied first and the version order must be replanned.
 - **Status:** active; applies Identity and Access D8 to this capability. D1–D6 remain active.
+
+## D8: Historical template deployment compatibility is approved
+
+- **Ticket:** `CORE-ACP-010` / T10.
+- **Confirming actor/date:** user in this conversation, 2026-11-01; no separate external sign-off is claimed.
+- **Business driver:** BR-CORE-009/013 and platform lifecycle require published revisions and future bindings to remain readable without silently changing meaning when validators evolve.
+- **Approved contract:** retain-and-restrict deployment, restoration without current-creation reinterpretation, and explicit rejection of unsupported stored behavior versions; canonical in [technical-design §6.6](technical-design.md#66-historical-deployment-compatibility-approved-t10) and [t10-contract.md](t10-contract.md).
+- **Product consequences:** Operators must deploy a binary whose restoration catalog covers every stored template/behavior tuple before serving configuration traffic. Rolling back a binary without restoration support for persisted behavior versions is refused at startup rather than corrupting reads. Historical revisions restore without current-creation-policy reinterpretation; current assessors are not rerun on restore.
+- **Alternatives considered:** silently revalidating stored rows against today's publication rules would make historical revisions unreadable; unrestricted startup would allow partial interpretation of unsupported behavior tokens.
+- **Trade-offs accepted:** Each new behavior version requires an explicit restoration registration and coordinated rollout; sparse historical fixtures remain valid stored shapes even when current assessors would block new publication.
+- **Closure:** Q4 resolved as executable deployment policy; representative fixtures and sqlmock/adapter tests recorded in [t10-deployment.md](t10-deployment.md). T11 external consumer proof remains open.
+- **Revisit when:** product retires a behavior version while stored rows or bindings still reference it; approve retirement/migration before removing restoration support.
+- **Status:** active.

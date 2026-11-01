@@ -395,6 +395,16 @@ Safe messages: conflicts describe stale input or reused identity without values;
 instructs retry with the same key. No database causes, salary references/values,
 configuration bodies or cross-scope resource identities are returned or logged.
 
+### 6.6 Historical deployment compatibility (approved T10)
+
+Q4 is **Resolved 2026-11-01 (T10):** Q4. Approval evidence: [t10-contract.md](t10-contract.md) and decision D8.
+
+**Policy A — Retain-and-restrict deployment:** Each release embeds `SupportedRestoration()` catalog entries (currently both templates at template version `1` behavior `1`). Before serving configuration traffic, startup calls `RequireAgentConfigurationDeploymentCompatible` to union stored `(template_id, template_version, behavior_version)` tuples from `agent_instances`, `agent_revisions`, and `agent_validations`. Any tuple outside the restoration catalog prevents startup with an explicit incompatible-deployment error. Operators register restoration support before persisting a new behavior version, or roll back the binary only while every stored tuple remains readable.
+
+**Policy B — Restoration without reinterpretation:** Adapter restoration decodes stored JSON and applies domain `Restore*` only. It does not rerun `AssessHR`, `AssessDocument`, or publication eligibility against today's rules. Stored sparse historical shapes remain readable when still within storage bounds.
+
+**Representative fixtures:** `test/testdata/agentconfig/historical_hr_revision_v1_sparse.json` (supported historical HR revision) and behavior `2` rows (unsupported until explicitly registered).
+
 ### Creation, restoration, and transition contracts
 
 | Path | Accepted inputs/states and normalization | Errors/order and failure timing | Side effects and compatibility | Proof plan |
@@ -427,7 +437,7 @@ Design constraints below were verified at T9 closure. Assignment/execution consu
 - [x] Explicit SQL migration to the new clean configuration version; startup performs no DDL, keeps the existing startup and shutdown budgets, and still refuses a dirty or unexpected version. Existing Task and administrative data survive the upgrade.
 - [x] OpenAPI, endpoint document, changelog, public codes, and translations synchronized during implementation.
 
-T9 (`CORE-ACP-009`) records `TestAgentConfigurationHTTPAcceptance` and the repository checks named in the task plan. BR-CORE-013 local immutable read is covered. Q4 and Q5 stay open.
+T9 (`CORE-ACP-009`) records `TestAgentConfigurationHTTPAcceptance` and the repository checks named in the task plan. BR-CORE-013 local immutable read is covered. T10 resolves Q4; Q5 stays open.
 
 ## 9. Risks & Open Questions
 
@@ -436,7 +446,7 @@ T9 (`CORE-ACP-009`) records `TestAgentConfigurationHTTPAcceptance` and the repos
 | Q1 | **Resolved 2026-11-01:** user approved A–E for T1; exact schemas, defaults, normalization, validation/publication statuses, intent and error precedence are in §6 | T1 Done; contract prerequisite met for T4–T9 | Approval recorded in decision-log; implementation and other dependencies remain pending |
 | Q2 | **Access prerequisite satisfied 2026-11-01:** `accessauthority.Authority` resolves `administrative_accounts.id`, allows current HR, denies ADMIN, and rejects candidate, expired, revoked, and disabled sessions. Evidence: [q2-access-evidence.md](q2-access-evidence.md) and CORE-IAM-009. T9 proved the same outcomes on the configuration routes | T8/T9 secured configuration exposure with that adapter. T2–T7 do not wait on another access decision | Configuration-route proof is `TestAgentConfigurationHTTPAcceptance`. No permissive stub. ACP error codes stay §6.5 |
 | Q3 | **Resolved 2026-11-01:** informational warnings without acknowledgment; only v1 warning is `CURRENCY_NOT_REQUIRED`; §6.2 | T1 Done; implement/prove in T5–T9 | Approval recorded in decision-log; warnings retained and errors block publication |
-| Q4 | Platform/template owners: supported historical behavior versions and deployment compatibility | T10 multi-version deployment gate | Version support/restriction policy and restoration fixtures approved; first-version publication work may proceed independently |
+| Q4 | **Resolved 2026-11-01 (T10):** retain-and-restrict deployment; `SupportedRestoration`/`RequireAgentConfigurationDeploymentCompatible`; restoration without current assessor reinterpretation — §6.6 | T10 Done; multi-version rollout gate | Policy and fixtures approved in [t10-contract.md](t10-contract.md); first-version publication work proceeded independently |
 | Q5 | Future assignment/execution capability owners: end-to-end pinned binding proof needs absent consumers. Identity and Access D9 does not supply those consumers | T11 external integration evidence | Real consumers bind immutable revision IDs and pass publication-during-run/assignment tests |
 
 No live database was inspected and no runtime tests were run for this planning task. Exact SQL constraints must be exercised on the project's selected versions, not assumed from a generic ORM recipe. Sensitive HR configuration also needs response-filtering tests even for authorized views; confidentiality is not satisfied by route protection alone.

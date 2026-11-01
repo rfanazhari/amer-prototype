@@ -30,6 +30,14 @@ func technical(err error) error {
 	return errs.Technical{Cause: err}
 }
 
+// ensureRestorationSupported rejects stored identities outside the deployed restoration catalog.
+func ensureRestorationSupported(ref aggregate.TemplateRef) error {
+	if !catalog.RestorationSupported(ref) {
+		return technical(catalog.ErrUnsupportedStoredTemplate)
+	}
+	return nil
+}
+
 // fromStoredInstance maps a detached instance onto instance and draft rows.
 func fromStoredInstance(stored agentconfigport.StoredInstance) (InstanceModel, DraftModel, error) {
 	switch {
@@ -73,6 +81,9 @@ func draftRow(id string, version uint64, body JSONDocument, created, updated tim
 // toStoredInstance restores a template-tagged instance from instance, draft and optional active revision rows.
 func toStoredInstance(instance InstanceModel, draft DraftModel, active *RevisionModel) (agentconfigport.StoredInstance, error) {
 	template := aggregate.TemplateRef{Template: instance.TemplateID, Version: instance.TemplateVersion, Behavior: instance.BehaviorVersion}
+	if err := ensureRestorationSupported(template); err != nil {
+		return agentconfigport.StoredInstance{}, err
+	}
 	version, err := aggregate.NewDraftVersion(uint64(instance.CurrentDraftVersion))
 	if err != nil {
 		return agentconfigport.StoredInstance{}, technical(err)
@@ -168,6 +179,10 @@ func revisionRow(identity aggregate.RevisionIdentity, validationID string, body 
 
 // toStoredRevision restores a template-tagged revision from one row.
 func toStoredRevision(model RevisionModel) (agentconfigport.StoredRevision, error) {
+	template := aggregate.TemplateRef{Template: model.TemplateID, Version: model.TemplateVersion, Behavior: model.BehaviorVersion}
+	if err := ensureRestorationSupported(template); err != nil {
+		return agentconfigport.StoredRevision{}, err
+	}
 	draft, err := aggregate.NewDraftVersion(uint64(model.SourceDraftVersion))
 	if err != nil {
 		return agentconfigport.StoredRevision{}, technical(err)
@@ -222,6 +237,10 @@ func fromValidation(validation aggregate.Validation) (ValidationModel, error) {
 
 // toValidation restores an assessment from one row.
 func toValidation(model ValidationModel) (aggregate.Validation, error) {
+	template := aggregate.TemplateRef{Template: model.TemplateID, Version: model.TemplateVersion, Behavior: model.BehaviorVersion}
+	if err := ensureRestorationSupported(template); err != nil {
+		return aggregate.Validation{}, err
+	}
 	draft, err := aggregate.NewDraftVersion(uint64(model.DraftVersion))
 	if err != nil {
 		return aggregate.Validation{}, technical(err)

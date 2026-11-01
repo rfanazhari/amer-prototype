@@ -1,6 +1,6 @@
 # Task Plan: Agent Configuration and Publication
 
-Planning baseline: 2026-11-01, Mode C. T1–T9 are implemented. T10–T11 remain Todo.
+Planning baseline: 2026-11-01, Mode C. T1–T10 are implemented. T11 remains Todo.
 
 ## Ticket Identity
 
@@ -100,11 +100,10 @@ T4 and T5 may proceed independently once their shared prerequisites are complete
 
 ### Blocked / deferred
 
-- [ ] **T10. Establish historical template deployment compatibility** — Platform/domain/infrastructure — M
+- [x] **T10. Establish historical template deployment compatibility** — Platform/domain/infrastructure — M
   - Ticket ID: `CORE-ACP-010`
   - depends: T1, T3, T4, T5 — ref: design §3 restoration, §6, §9 Q4.
-  - blocked by: platform/template owner choice of retained behavior support versus deployment restriction.
-  - ready when: version compatibility and rollback policy are recorded with representative old/new fixtures.
+  - Evidence: domain `RestorationSupported`, sqlmock `TestRequireAgentConfigurationDeploymentCompatible`, adapter historical/sparse restoration and unsupported-behavior rejection; architecture contract test; RED `9e6762c` then GREEN. See [t10-deployment.md](t10-deployment.md) and [t10-contract.md](t10-contract.md).
   - DoD: supported historical revisions restore without current-creation-policy reinterpretation; unsupported deployments are prevented or rejected explicitly under approved policy; rollback rehearsal preserves readable data. Must pass before multi-version rollout; not a blocker for isolated first-version development.
 
 - [ ] **T11. Prove binding preservation with actual assignment/execution consumers** — Cross-capability integration — M
@@ -146,4 +145,4 @@ T9 + Q5 consumers [and T10 for multiple behavior versions] → T11
 | v1.7 | 2026-11-01 | Mark T4 Done for configuration SQL version 3, unpublished candidate/assignment reallocation, and clean-version-3 startup |
 | v1.8 | 2026-11-01 | Mark T5 Done for versioned catalogs, typed drafts, deterministic validators, and exact reference resolution |
 | v1.9 | 2026-11-01 | Mark T6 Done for authorized configuration commands, detached queries, and Mockery-generated application tests |
-| v1.10 | 2026-11-01 | Mark T9 Done for real HTTP/PostgreSQL configuration acceptance; UI and T11 remain open |
+| v1.11 | 2026-11-01 | Mark T10 Done; resolve Q4 with retain-and-restrict deployment and restoration fixtures |

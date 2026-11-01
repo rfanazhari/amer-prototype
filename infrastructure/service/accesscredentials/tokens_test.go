@@ -68,7 +68,9 @@ func TestTokensDigestRejectsMalformedSecrets(t *testing.T) {
 			assert.Equal(t, tt.wantErr, err != nil)
 			require.ErrorIs(t, err, service.ErrMalformedCredential)
 			assert.Empty(t, digest)
-			assert.NotContains(t, err.Error(), tt.token)
+			if tt.token != "" {
+				assert.NotContains(t, err.Error(), tt.token)
+			}
 		})
 	}
 }

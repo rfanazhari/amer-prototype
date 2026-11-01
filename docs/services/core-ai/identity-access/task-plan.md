@@ -1,6 +1,6 @@
 # Task Plan: Identity and Access
 
-Mode A; planning date 2026-11-01. T1–T4 are Done (Q1 resolved). Remaining tasks are Todo. Candidate access runtime is not claimed.
+Mode A; planning date 2026-11-01. T1–T5 are Done (Q1 resolved). Remaining tasks are Todo. Candidate access runtime is not claimed.
 
 ## Legend
 
@@ -28,7 +28,7 @@ Mode A; planning date 2026-11-01. T1–T4 are Done (Q1 resolved). Remaining task
   - Ticket: `CORE-IAM-003` — depends: none — ref: design §2–4.
   - DoD: application-owned transaction/read/credential/authority contracts express commit timing, current session/account binding, classified failures and assignment-first collaboration without GORM; preserve existing ACP authority shape. Register and generate mocks using `make mocks`; document all interface methods. Candidate integration port readiness is explicitly Q2-dependent.
 
-- [ ] **T5. Implement password, token and CSRF primitives** — Infrastructure service — M
+- [x] **T5. Implement password, token and CSRF primitives** — Infrastructure service — M
   - Ticket: `CORE-IAM-005` — depends: T3 — ref: design §4 security adapter choices.
   - DoD: hash/verify and encoded-parameter validation use assessed Argon2id baseline, random secrets/digests are independent by credential kind, CSRF values bind to session/type, malformed hashes and concurrency are bounded; tests prove mismatch/collision/error paths and no secret output. Benchmark target hardware and record limits; no candidate exchange reuse or password acceptance policy is inferred. HTTP enforcement depends on T1/T8.
 
@@ -117,3 +117,4 @@ T10 + T11 + Q5 → T15
 | v1.2 | 2026-11-01 | Mark T2 Done for domain role, account and session lifetime invariants; T3–T15 remain Todo |
 | v1.3 | 2026-11-01 | Mark T4 Done for two administrative tables, uniqueness transactions and additive AutoMigrate; T3 and T5–T15 remain Todo |
 | v1.4 | 2026-11-01 | Mark T3 Done for purpose-specific access ports, classified failures and operation boundaries; T5–T15 remain Todo |
+| v1.5 | 2026-11-01 | Mark T5 Done for Argon2id, kind-scoped token digests and session-bound CSRF; T6–T15 remain Todo |

@@ -49,8 +49,12 @@ func TestPasswordsHashAndVerify(t *testing.T) {
 			assert.Less(t, time.Since(started), 800*time.Millisecond)
 			if tt.wantErr {
 				require.ErrorIs(t, err, tt.class)
-				assert.NotContains(t, err.Error(), tt.password)
-				assert.NotContains(t, err.Error(), tt.verify)
+				if tt.password != "" {
+					assert.NotContains(t, err.Error(), tt.password)
+				}
+				if tt.verify != "" {
+					assert.NotContains(t, err.Error(), tt.verify)
+				}
 				assert.NotContains(t, err.Error(), encoded)
 				return
 			}

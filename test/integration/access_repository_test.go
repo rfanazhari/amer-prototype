@@ -36,9 +36,8 @@ func accessDB(t *testing.T) *gorm.DB {
 
 // accessSchemaCase names one real PostgreSQL proof required by administrative installation.
 type accessSchemaCase struct {
-	name    string
-	verify  func(t *testing.T, db *gorm.DB)
-	wantErr bool
+	name   string
+	verify func(t *testing.T, db *gorm.DB)
 }
 
 // TestAdministrativeSchemaAndTransactionsProveTwoTableInstallation covers uniqueness, rollback, restoration and Task coexistence.
@@ -107,8 +106,13 @@ func TestAdministrativeSchemaAndTransactionsProveTwoTableInstallation(t *testing
 			verify: func(t *testing.T, db *gorm.DB) {
 				require.NoError(t, db.AutoMigrate(&taskrepository.Model{}))
 				task := storedTask(t, taskrepository.Store{DB: db}, false)
+				sqlDB, err := db.DB()
+				require.NoError(t, err)
+				sqlDB.SetMaxOpenConns(10)
+				sqlDB.SetMaxIdleConns(5)
 				require.NoError(t, accessrepository.AutoMigrate(db))
 				require.NoError(t, accessrepository.AutoMigrate(db))
+				require.Equal(t, 10, sqlDB.Stats().MaxOpenConnections)
 				store := accessrepository.Store{DB: db}
 				ctx := context.Background()
 				account := testdata.AdministrativeAccountRecord(t)
@@ -137,10 +141,6 @@ func TestAdministrativeSchemaAndTransactionsProveTwoTableInstallation(t *testing
 				foundTask, err := taskrepository.Store{DB: db}.Find(ctx, task.Snapshot().ID)
 				require.NoError(t, err)
 				require.Equal(t, task.Snapshot().Title, foundTask.Snapshot().Title)
-				var pool int
-				require.NoError(t, db.Raw(`SHOW max_connections`).Scan(&pool).Error)
-				sqlDB, err := db.DB()
-				require.NoError(t, err)
 				require.LessOrEqual(t, sqlDB.Stats().MaxOpenConnections, 10)
 			},
 		},

@@ -4,13 +4,13 @@ import "time"
 
 // AccountModel maps administrative_accounts independently of domain and API types.
 type AccountModel struct {
-	ID           string `gorm:"type:uuid;primaryKey"`
-	Name         string `gorm:"type:text;not null"`
-	Email        string `gorm:"type:text;not null"`
-	PasswordHash string `gorm:"column:password_hash;type:text;not null"`
-	Role         string `gorm:"type:text;not null"`
-	Status       string `gorm:"type:text;not null"`
-	CreatedBy    *string
+	ID           string    `gorm:"type:uuid;primaryKey"`
+	Name         string    `gorm:"type:text;not null"`
+	Email        string    `gorm:"type:text;not null"`
+	PasswordHash string    `gorm:"column:password_hash;type:text;not null"`
+	Role         string    `gorm:"type:text;not null"`
+	Status       string    `gorm:"type:text;not null"`
+	CreatedBy    *string   `gorm:"type:uuid"`
 	CreatedAt    time.Time `gorm:"not null;autoCreateTime:false"`
 	UpdatedAt    time.Time `gorm:"not null;autoUpdateTime:false"`
 }

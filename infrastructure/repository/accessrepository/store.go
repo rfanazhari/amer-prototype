@@ -2,9 +2,11 @@ package accessrepository
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/rfanazhari/amer-prototype/application/repository/accessport"
 	"gorm.io/gorm"
 )
@@ -12,55 +14,132 @@ import (
 // Store implements administrative account and session persistence through a runtime-owned GORM pool.
 type Store struct{ DB *gorm.DB }
 
-// accountTx is an inert uniqueness-transaction handle reserved for GREEN persistence.
-type accountTx struct{}
+// accountTx holds the serialized uniqueness transaction for bootstrap and HR provision.
+type accountTx struct{ tx *gorm.DB }
 
-// AutoMigrate installs the two administrative tables. RED leaves schema installation unimplemented.
-func AutoMigrate(db *gorm.DB) error {
-	if db == nil {
-		return errors.New("database is required")
+// classifyUnique maps a PostgreSQL unique-violation onto a classified access conflict.
+func classifyUnique(err error, conflict error) error {
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+		return conflict
 	}
-	return errors.New("administrative schema is not installed")
+	return err
 }
 
-// WithinAccounts invokes the callback without a database transaction or uniqueness enforcement.
+// notFoundOrError translates GORM absence into ErrNotFound while preserving other storage failures.
+func notFoundOrError(err error) error {
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return accessport.ErrNotFound
+	}
+	return err
+}
+
+// WithinAccounts serializes account writes with an exclusive table lock and rolls back on callback failure.
 func (s Store) WithinAccounts(ctx context.Context, fn func(accessport.AccountTx) error) error {
-	return fn(accountTx{})
+	return s.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Exec("LOCK TABLE administrative_accounts IN EXCLUSIVE MODE").Error; err != nil {
+			return err
+		}
+		return fn(accountTx{tx: tx})
+	})
 }
 
-// FindByID returns not found until GREEN restoration is implemented.
-func (s Store) FindByID(context.Context, string) (accessport.AccountRecord, error) {
-	return accessport.AccountRecord{}, accessport.ErrNotFound
+// FindByID restores one account by identity or returns ErrNotFound.
+func (s Store) FindByID(ctx context.Context, id string) (accessport.AccountRecord, error) {
+	var model AccountModel
+	if err := s.DB.WithContext(ctx).Where("id = ?", id).Take(&model).Error; err != nil {
+		return accessport.AccountRecord{}, notFoundOrError(err)
+	}
+	return toAccount(model)
 }
 
-// FindByEmail returns not found until GREEN restoration is implemented.
-func (s Store) FindByEmail(context.Context, string) (accessport.AccountRecord, error) {
-	return accessport.AccountRecord{}, accessport.ErrNotFound
+// FindByEmail restores one account by canonical email or returns ErrNotFound.
+func (s Store) FindByEmail(ctx context.Context, email string) (accessport.AccountRecord, error) {
+	var model AccountModel
+	if err := s.DB.WithContext(ctx).Where("email = ?", email).Take(&model).Error; err != nil {
+		return accessport.AccountRecord{}, notFoundOrError(err)
+	}
+	return toAccount(model)
 }
 
-// Insert accepts the record without writing uniqueness-protected rows.
-func (accountTx) Insert(context.Context, accessport.AccountRecord) error { return nil }
-
-// Count reports an empty store until GREEN persistence is implemented.
-func (accountTx) Count(context.Context) (int64, error) { return 0, nil }
-
-// FindByEmail reports absence until GREEN restoration is implemented.
-func (accountTx) FindByEmail(context.Context, string) (accessport.AccountRecord, bool, error) {
-	return accessport.AccountRecord{}, false, nil
+// Insert stores a new account or classifies a duplicate canonical email as AccountConflictError.
+func (t accountTx) Insert(ctx context.Context, record accessport.AccountRecord) error {
+	model := fromAccount(record)
+	if err := t.tx.WithContext(ctx).Create(&model).Error; err != nil {
+		return classifyUnique(err, accessport.AccountConflictError{})
+	}
+	return nil
 }
 
-// Insert accepts the session without writing a unique digest.
-func (s Store) Insert(context.Context, accessport.SessionRecord) error { return nil }
-
-// FindByTokenHash returns not found until GREEN restoration is implemented.
-func (s Store) FindByTokenHash(context.Context, string) (accessport.SessionRecord, error) {
-	return accessport.SessionRecord{}, accessport.ErrNotFound
+// Count returns the number of administrative accounts currently stored.
+func (t accountTx) Count(ctx context.Context) (int64, error) {
+	var n int64
+	err := t.tx.WithContext(ctx).Model(&AccountModel{}).Count(&n).Error
+	return n, err
 }
 
-// FindWithAccountByTokenHash returns not found until GREEN joined restoration is implemented.
-func (s Store) FindWithAccountByTokenHash(context.Context, string) (accessport.SessionRecord, accessport.AccountRecord, error) {
-	return accessport.SessionRecord{}, accessport.AccountRecord{}, accessport.ErrNotFound
+// FindByEmail restores a matching account without treating absence as an error.
+func (t accountTx) FindByEmail(ctx context.Context, email string) (accessport.AccountRecord, bool, error) {
+	var model AccountModel
+	err := t.tx.WithContext(ctx).Where("email = ?", email).Take(&model).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return accessport.AccountRecord{}, false, nil
+	}
+	if err != nil {
+		return accessport.AccountRecord{}, false, err
+	}
+	record, err := toAccount(model)
+	return record, err == nil, err
 }
 
-// UpdateRevocation accepts an explicit revocation write without issuing SQL.
-func (s Store) UpdateRevocation(context.Context, string, *time.Time) error { return nil }
+// Insert stores a new session inside a transaction or classifies a duplicate digest as TokenConflictError.
+func (s Store) Insert(ctx context.Context, record accessport.SessionRecord) error {
+	return s.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		model := fromSession(record)
+		if err := tx.Create(&model).Error; err != nil {
+			return classifyUnique(err, accessport.TokenConflictError{})
+		}
+		return nil
+	})
+}
+
+// FindByTokenHash restores one session by digest or returns ErrNotFound.
+func (s Store) FindByTokenHash(ctx context.Context, tokenHash string) (accessport.SessionRecord, error) {
+	var model SessionModel
+	if err := s.DB.WithContext(ctx).Where("token_hash = ?", tokenHash).Take(&model).Error; err != nil {
+		return accessport.SessionRecord{}, notFoundOrError(err)
+	}
+	return toSession(model)
+}
+
+// FindWithAccountByTokenHash restores the session and bound account in one joined read or returns ErrNotFound.
+func (s Store) FindWithAccountByTokenHash(ctx context.Context, tokenHash string) (accessport.SessionRecord, accessport.AccountRecord, error) {
+	var session SessionModel
+	var account AccountModel
+	err := s.DB.WithContext(ctx).Table("administrative_sessions AS s").
+		Select("s.id, s.account_id, s.token_hash, s.created_at, s.expires_at, s.revoked_at, a.id AS account_pk, a.name, a.email, a.password_hash, a.role, a.status, a.created_by, a.created_at AS account_created_at, a.updated_at").
+		Joins("JOIN administrative_accounts AS a ON a.id = s.account_id").
+		Where("s.token_hash = ?", tokenHash).
+		Row().
+		Scan(
+			&session.ID, &session.AccountID, &session.TokenHash, &session.CreatedAt, &session.ExpiresAt, &session.RevokedAt,
+			&account.ID, &account.Name, &account.Email, &account.PasswordHash, &account.Role, &account.Status, &account.CreatedBy, &account.CreatedAt, &account.UpdatedAt,
+		)
+	if errors.Is(err, gorm.ErrRecordNotFound) || errors.Is(err, sql.ErrNoRows) {
+		return accessport.SessionRecord{}, accessport.AccountRecord{}, accessport.ErrNotFound
+	}
+	if err != nil {
+		return accessport.SessionRecord{}, accessport.AccountRecord{}, err
+	}
+	sessionRecord, err := toSession(session)
+	if err != nil {
+		return accessport.SessionRecord{}, accessport.AccountRecord{}, err
+	}
+	accountRecord, err := toAccount(account)
+	return sessionRecord, accountRecord, err
+}
+
+// UpdateRevocation writes revoked_at explicitly, including a SQL NULL when the pointer is nil.
+func (s Store) UpdateRevocation(ctx context.Context, id string, revokedAt *time.Time) error {
+	return s.DB.WithContext(ctx).Model(&SessionModel{}).Where("id = ?", id).Select("revoked_at").Updates(map[string]any{"revoked_at": copyTime(revokedAt)}).Error
+}

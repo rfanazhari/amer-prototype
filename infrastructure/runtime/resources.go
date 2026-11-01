@@ -11,6 +11,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/stdlib"
+	"github.com/rfanazhari/amer-prototype/infrastructure/repository/accessrepository"
 	"github.com/rfanazhari/amer-prototype/infrastructure/repository/taskrepository"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -106,6 +107,9 @@ func openDatabase(ctx context.Context, url string, beginCleanup func()) (_ *gorm
 		return nil, resources, fmt.Errorf("database ping: %w", err)
 	}
 	if err = db.WithContext(ctx).AutoMigrate(&taskrepository.Model{}); err != nil {
+		return nil, resources, fmt.Errorf("database migration: %w", err)
+	}
+	if err = accessrepository.AutoMigrate(db.WithContext(ctx)); err != nil {
 		return nil, resources, fmt.Errorf("database migration: %w", err)
 	}
 	if err = ctx.Err(); err != nil {

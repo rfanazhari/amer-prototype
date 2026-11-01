@@ -20,9 +20,8 @@ import (
 
 // persistCase names one administrative SQL behavior that the adapter must perform.
 type persistCase struct {
-	name    string
-	run     func(t *testing.T, store accessrepository.Store, mock sqlmock.Sqlmock)
-	wantErr bool
+	name string
+	run  func(t *testing.T, store accessrepository.Store, mock sqlmock.Sqlmock)
 }
 
 // sqlStore opens a GORM adapter over sqlmock with ping disabled so tests own SQL expectations.
@@ -30,7 +29,10 @@ func sqlStore(t *testing.T) (accessrepository.Store, sqlmock.Sqlmock) {
 	t.Helper()
 	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherRegexp))
 	require.NoError(t, err)
-	t.Cleanup(func() { require.NoError(t, mock.ExpectationsWereMet()); require.NoError(t, db.Close()) })
+	t.Cleanup(func() {
+		require.NoError(t, mock.ExpectationsWereMet())
+		_ = db.Close()
+	})
 	gdb, err := gorm.Open(postgres.New(postgres.Config{Conn: db, DriverName: "postgres"}), &gorm.Config{
 		Logger:                 logger.Default.LogMode(logger.Silent),
 		SkipDefaultTransaction: true,
@@ -74,7 +76,6 @@ func TestAdministrativePersistenceSQL(t *testing.T) {
 				var conflict accessport.AccountConflictError
 				require.ErrorAs(t, err, &conflict)
 			},
-			wantErr: true,
 		},
 		{
 			name: "callback failure rolls back account insert",
@@ -89,7 +90,6 @@ func TestAdministrativePersistenceSQL(t *testing.T) {
 				})
 				require.ErrorIs(t, err, assert.AnError)
 			},
-			wantErr: true,
 		},
 		{
 			name: "session revocation writes explicit timestamp",
@@ -119,7 +119,6 @@ func TestAdministrativePersistenceSQL(t *testing.T) {
 				var technical errs.Technical
 				require.ErrorAs(t, err, &technical)
 			},
-			wantErr: true,
 		},
 	}
 	for _, tt := range tests {

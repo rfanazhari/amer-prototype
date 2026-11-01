@@ -1,6 +1,6 @@
 # Task Plan: Identity and Access
 
-Mode A; planning date 2026-11-01. T1–T2 are Done (Q1 resolved). Remaining tasks are Todo. No access runtime implementation or verification is claimed.
+Mode A; planning date 2026-11-01. T1–T2 and T4 are Done (Q1 resolved). Remaining tasks are Todo. Candidate access runtime and T3 credential/assignment ports are not claimed.
 
 ## Legend
 
@@ -34,7 +34,7 @@ Mode A; planning date 2026-11-01. T1–T2 are Done (Q1 resolved). Remaining task
 
 ### Administrative implementation after Q1
 
-- [ ] **T4. Add administrative models, constraints and repository transactions** — Infrastructure/runtime — M
+- [x] **T4. Add administrative models, constraints and repository transactions** — Infrastructure/runtime — M
   - Ticket: `CORE-IAM-004` — depends: T1, T2, T3 — ref: design §3.
   - Blocked by: none for Q1; Q1 resolved in T1. Ordinary dependencies remain.
   - DoD: exactly two administrative tables installed additively, with role/status/time/email/digest/creator constraints and explicit null updates. Real PostgreSQL tests prove bootstrap/provision uniqueness and rollback, stored restoration, restart and upgrade with Task data. Existing resource budgets preserved; no candidate assignment stub installed.
@@ -115,3 +115,4 @@ T10 + T11 + Q5 → T15
 | v1 | 2026-11-01 | Initial remaining-work plan from assessed Mode A design; all implementation Todo, administrative and assignment-dependent candidate readiness separated |
 | v1.1 | 2026-11-01 | Mark T1 Done and record Q1 resolved in T1; T2–T15 remain Todo |
 | v1.2 | 2026-11-01 | Mark T2 Done for domain role, account and session lifetime invariants; T3–T15 remain Todo |
+| v1.3 | 2026-11-01 | Mark T4 Done for two administrative tables, uniqueness transactions and additive AutoMigrate; T3 and T5–T15 remain Todo |

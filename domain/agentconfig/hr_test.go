@@ -76,34 +76,38 @@ func TestAssessHRCoversPublicationFieldMatrix(t *testing.T) {
 	tests := []hrFindingCase{
 		{name: "valid example", refs: ready, eligible: true},
 		{name: "empty draft", change: func(in *valueobject.HRInput) { *in = valueobject.HRInput{} }, eligible: false, findings: []aggregate.Finding{
+			finding(enum.FindingError, catalog.CodeRequiredValue, "/compensationPolicy", "a required publication value is missing"),
+			finding(enum.FindingError, catalog.CodeCompetencyRequired, "/competencyTopics", "at least one competency topic is required"),
 			finding(enum.FindingError, catalog.CodeRequiredValue, "/jobDescriptionRef", "a required publication value is missing"),
 			finding(enum.FindingError, catalog.CodeQuestionStageRequired, "/mandatoryQuestions", "a required interview stage is missing a nonempty question"),
-			finding(enum.FindingError, catalog.CodeCompetencyRequired, "/competencyTopics", "at least one competency topic is required"),
 			finding(enum.FindingError, catalog.CodeRequiredValue, "/stageSeconds", "a required publication value is missing"),
-			finding(enum.FindingError, catalog.CodeRequiredValue, "/compensationPolicy", "a required publication value is missing"),
 		}},
 		{name: "zero screening budget", change: func(in *valueobject.HRInput) { in.StageSeconds.Screening = 0 }, refs: ready, findings: []aggregate.Finding{
+			finding(enum.FindingError, catalog.CodeStageBudgetInvalid, "/stageSeconds", "stage duration must be positive and total 300 to 600 seconds"),
 			finding(enum.FindingError, catalog.CodeFollowupBudgetRequired, "/stageSeconds/screening", "screening needs 30 seconds spare for a follow-up"),
 			finding(enum.FindingError, catalog.CodeQuestionBudgetExceeded, "/stageSeconds/screening", "stage duration cannot cover the mandatory questions"),
 			finding(enum.FindingError, catalog.CodeStageBudgetInvalid, "/stageSeconds/screening", "stage duration must be positive and total 300 to 600 seconds"),
-			finding(enum.FindingError, catalog.CodeStageBudgetInvalid, "/stageSeconds", "stage duration must be positive and total 300 to 600 seconds"),
 		}},
 		{name: "total below 300", change: func(in *valueobject.HRInput) { in.StageSeconds.Screening = 119 }, refs: ready, findings: []aggregate.Finding{
 			finding(enum.FindingError, catalog.CodeStageBudgetInvalid, "/stageSeconds", "stage duration must be positive and total 300 to 600 seconds"),
 		}},
-		{name: "follow-up spare missing", change: func(in *valueobject.HRInput) { in.StageSeconds.Screening = 59 }, refs: ready, findings: []aggregate.Finding{
+		{name: "follow-up spare missing", change: func(in *valueobject.HRInput) {
+			in.StageSeconds.Screening = 59
+			in.StageSeconds.Compensation = 151
+		}, refs: ready, findings: []aggregate.Finding{
 			finding(enum.FindingError, catalog.CodeFollowupBudgetRequired, "/stageSeconds/screening", "screening needs 30 seconds spare for a follow-up"),
 		}},
 		{name: "question capacity exceeded", change: func(in *valueobject.HRInput) {
 			in.MandatoryQuestions = append(in.MandatoryQuestions, valueobject.QuestionInput{ID: "screen-2", Stage: "screening", Text: "Describe locking."})
 			in.StageSeconds.Screening = 50
+			in.StageSeconds.Compensation = 260
 		}, refs: ready, findings: []aggregate.Finding{
 			finding(enum.FindingError, catalog.CodeFollowupBudgetRequired, "/stageSeconds/screening", "screening needs 30 seconds spare for a follow-up"),
 			finding(enum.FindingError, catalog.CodeQuestionBudgetExceeded, "/stageSeconds/screening", "stage duration cannot cover the mandatory questions"),
 		}},
 		{name: "empty question text", change: func(in *valueobject.HRInput) { in.MandatoryQuestions[0].Text = " " }, refs: ready, findings: []aggregate.Finding{
-			finding(enum.FindingError, catalog.CodeQuestionTextRequired, "/mandatoryQuestions/0/text", "a mandatory question needs nonempty text"),
 			finding(enum.FindingError, catalog.CodeQuestionStageRequired, "/mandatoryQuestions", "a required interview stage is missing a nonempty question"),
+			finding(enum.FindingError, catalog.CodeQuestionTextRequired, "/mandatoryQuestions/0/text", "a mandatory question needs nonempty text"),
 		}},
 		{name: "job description not ready", refs: missingJD, findings: []aggregate.Finding{
 			finding(enum.FindingError, catalog.CodeReferenceNotReady, "/jobDescriptionRef", "a referenced resource is not ready"),

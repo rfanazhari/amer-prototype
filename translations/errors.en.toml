@@ -39,3 +39,33 @@ other = "too many authentication attempts"
 
 [IA_DEPENDENCY_UNAVAILABLE]
 other = "access dependency is unavailable"
+
+[REQUIRED_VALUE]
+other = "a required publication value is missing"
+
+[QUESTION_TEXT_REQUIRED]
+other = "a mandatory question needs nonempty text"
+
+[QUESTION_STAGE_REQUIRED]
+other = "a required interview stage is missing a nonempty question"
+
+[COMPETENCY_REQUIRED]
+other = "at least one competency topic is required"
+
+[STAGE_BUDGET_INVALID]
+other = "stage duration must be positive and total 300 to 600 seconds"
+
+[QUESTION_BUDGET_EXCEEDED]
+other = "stage duration cannot cover the mandatory questions"
+
+[FOLLOWUP_BUDGET_REQUIRED]
+other = "screening needs 30 seconds spare for a follow-up"
+
+[REFERENCE_NOT_READY]
+other = "a referenced resource is not ready"
+
+[REQUIRED_FIELDS_EMPTY]
+other = "at least one required invoice field must be selected"
+
+[CURRENCY_NOT_REQUIRED]
+other = "total is required without currency"

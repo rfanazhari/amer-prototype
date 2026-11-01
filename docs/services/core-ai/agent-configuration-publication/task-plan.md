@@ -1,6 +1,6 @@
 # Task Plan: Agent Configuration and Publication
 
-Planning baseline: 2026-11-01, Mode C. T1–T4 are implemented. T5–T11 remain Todo.
+Planning baseline: 2026-11-01, Mode C. T1–T5 are implemented. T6–T11 remain Todo.
 
 ## Ticket Identity
 
@@ -60,10 +60,10 @@ T2 and T3 are independent work streams, not instructions to spawn agents. Change
   - Evidence: sqlmock compatibility/option tests and artifact/upgrade coverage; RED `d7fd755` then GREEN. Isolated `TestAgentConfigurationVersionUpgrade` skips without `TEST_MIGRATION_DATABASE_URL`.
   - DoD: five configuration tables, ownership and uniqueness constraints, the account-scope foreign key, and explicit zero/null update mappings are reviewable in `migrations/pgsql/000003_agent_configuration.{up,down}.sql`. Unpublished `000003_candidates` became `000004_candidates` and `000004_assignment_access` became `000005_assignment_access`, with Identity and Access design and task references synchronized. `schema.RequireCompatible`, the checksum manifest, runtime grants, and the migration operations document accept clean version 3. Startup still performs no DDL and architecture checks still reject `AutoMigrate`. An isolated database test covers fresh migrate-to-3 and upgrade from version 2 with existing Task and administrative rows. No publication adapter behavior is assumed from the SQL file.
 
-- [ ] **T5. Implement both concrete catalogs and deterministic validators** — Domain/application reference resolution — L
+- [x] **T5. Implement both concrete catalogs and deterministic validators** — Domain/application reference resolution — L
   - Ticket ID: `CORE-ACP-005`
   - depends: T1, T3 — ref: design §3–4, §6.
-  - decision gate: Q1/Q3 resolved in T1; implementation remains Todo.
+  - Evidence: catalog lookup, HR/Document field-bound construction, deterministic findings, warning eligibility, and Mockery `AgentReferenceReader` exact-version tests; RED `7653be6` then GREEN. sqlmock is not applicable because T5 authors no SQL.
   - DoD: both versioned templates discoverable; full supported field/boundary matrix tested; editable incomplete drafts yield correct findings; warning policy tested; exact reference versions preserved; no model/provider calls. BR-CORE-001/002/006/007/014 local proof captured.
 
 - [ ] **T6. Implement configuration commands and detached queries** — Application — L
@@ -140,3 +140,4 @@ T9 + Q5 consumers [and T10 for multiple behavior versions] → T11
 | v1.5 | 2026-11-01 | Link CORE-IAM-009 administrative evidence to Q2/T8/T9 without changing stable task IDs or status |
 | v1.6 | 2026-11-01 | Replace T4 AutoMigrate with SQL version 3 and remove the absent-session block from T8; T4–T11 stay Todo |
 | v1.7 | 2026-11-01 | Mark T4 Done for configuration SQL version 3, unpublished candidate/assignment reallocation, and clean-version-3 startup |
+| v1.8 | 2026-11-01 | Mark T5 Done for versioned catalogs, typed drafts, deterministic validators, and exact reference resolution |

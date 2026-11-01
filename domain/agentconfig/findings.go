@@ -1,6 +1,11 @@
 package agentconfig
 
-import "github.com/rfanazhari/amer-prototype/domain/aggregate/agentconfig"
+import (
+	"sort"
+
+	aggregate "github.com/rfanazhari/amer-prototype/domain/aggregate/agentconfig"
+	"github.com/rfanazhari/amer-prototype/domain/enum"
+)
 
 const (
 	CodeRequiredValue          = "REQUIRED_VALUE"
@@ -29,7 +34,14 @@ const (
 )
 
 // Eligible reports whether findings contain no publication-blocking errors.
-func Eligible(findings []agentconfig.Finding) bool { return true }
+func Eligible(findings []aggregate.Finding) bool {
+	for _, finding := range findings {
+		if finding.Severity == enum.FindingError {
+			return false
+		}
+	}
+	return true
+}
 
 // FindingCodes returns the stable validation finding codes that require EN/ID messages.
 func FindingCodes() []string {
@@ -38,4 +50,28 @@ func FindingCodes() []string {
 		CodeStageBudgetInvalid, CodeQuestionBudgetExceeded, CodeFollowupBudgetRequired, CodeReferenceNotReady,
 		CodeRequiredFieldsEmpty, CodeCurrencyNotRequired,
 	}
+}
+
+// errorFinding constructs a publication-blocking assessment fact.
+func errorFinding(code, path, message string) aggregate.Finding {
+	return aggregate.Finding{Severity: enum.FindingError, Code: code, Path: path, Message: message}
+}
+
+// warningFinding constructs an informational assessment fact that does not block publication.
+func warningFinding(code, path, message string) aggregate.Finding {
+	return aggregate.Finding{Severity: enum.FindingWarning, Code: code, Path: path, Message: message}
+}
+
+// sortFindings orders by path, error-before-warning severity, then code.
+func sortFindings(findings []aggregate.Finding) {
+	sort.SliceStable(findings, func(i, j int) bool {
+		a, b := findings[i], findings[j]
+		if a.Path != b.Path {
+			return a.Path < b.Path
+		}
+		if a.Severity != b.Severity {
+			return a.Severity == enum.FindingError
+		}
+		return a.Code < b.Code
+	})
 }

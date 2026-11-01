@@ -23,7 +23,7 @@ type AgentConfigurationAuthority interface {
 }
 
 // AgentReference identifies an immutable reference version, not a latest alias.
-// Its concrete kinds and accepted identity formats remain T1/T5 decisions.
+// Kind is ReferenceKindJobDescription or ReferenceKindCompensationPolicy.
 type AgentReference struct {
 	Kind    string
 	ID      string
@@ -31,8 +31,8 @@ type AgentReference struct {
 }
 
 // AgentReferenceReader resolves stable facts outside the publication transaction.
-// F is the typed immutable fact model settled by T5. No provider/model readiness,
-// execution initiation, or volatile availability promise belongs to this port.
+// F is AgentReferenceFact. No provider/model readiness, execution initiation, or
+// volatile availability promise belongs to this port.
 type AgentReferenceReader[F any] interface {
 	// Resolve returns detached facts for exactly the requested immutable version.
 	// Missing is (zero, false, nil); dependency failure is an error, not a validation

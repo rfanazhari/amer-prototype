@@ -70,6 +70,36 @@ other = "ketergantungan konfigurasi yang diperlukan tidak tersedia"
 [ACP_PUBLICATION_UNCERTAIN]
 other = "hasil publikasi tidak pasti; coba lagi dengan kunci yang sama"
 
+[EXL_NOT_FOUND]
+other = "eksekusi atau penugasan tidak ditemukan"
+
+[EXL_ASSIGNMENT_UNAVAILABLE]
+other = "penugasan tidak lagi tersedia untuk wawancara"
+
+[EXL_IDEMPOTENCY_CONFLICT]
+other = "identitas permintaan mulai sudah digunakan dengan maksud berbeda"
+
+[EXL_INVALID_TRANSITION]
+other = "status eksekusi tidak mengizinkan tindakan ini"
+
+[EXL_STALE_VERSION]
+other = "versi status eksekusi sudah usang"
+
+[EXL_STALE_ATTEMPT]
+other = "percobaan sudah usang atau batas waktunya telah lewat"
+
+[EXL_PROGRESS_REQUIRED]
+other = "penyelesaian memerlukan kemajuan yang sudah tersimpan"
+
+[EXL_TERMINAL_CONFLICT]
+other = "hasil akhir yang berbeda sudah tersimpan"
+
+[EXL_DEPENDENCY_UNAVAILABLE]
+other = "dependensi eksekusi tidak tersedia"
+
+[EXL_UNCERTAIN_COMMIT]
+other = "hasil eksekusi tidak pasti; coba lagi dengan kunci yang sama"
+
 [REQUIRED_VALUE]
 other = "nilai publikasi yang wajib belum diisi"
 

@@ -25,6 +25,17 @@ const (
 	ACPPublicationBlocked    = "ACP_PUBLICATION_BLOCKED"
 	ACPDependencyUnavailable = "ACP_DEPENDENCY_UNAVAILABLE"
 	ACPPublicationUncertain  = "ACP_PUBLICATION_UNCERTAIN"
+
+	EXLNotFound              = "EXL_NOT_FOUND"
+	EXLAssignmentUnavailable = "EXL_ASSIGNMENT_UNAVAILABLE"
+	EXLIdempotencyConflict   = "EXL_IDEMPOTENCY_CONFLICT"
+	EXLInvalidTransition     = "EXL_INVALID_TRANSITION"
+	EXLStaleVersion          = "EXL_STALE_VERSION"
+	EXLStaleAttempt          = "EXL_STALE_ATTEMPT"
+	EXLProgressRequired      = "EXL_PROGRESS_REQUIRED"
+	EXLTerminalConflict      = "EXL_TERMINAL_CONFLICT"
+	EXLDependencyUnavailable = "EXL_DEPENDENCY_UNAVAILABLE"
+	EXLUncertainCommit       = "EXL_UNCERTAIN_COMMIT"
 )
 
 // Technical preserves diagnostic causes while preventing business error mapping.

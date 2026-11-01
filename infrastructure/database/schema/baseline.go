@@ -118,7 +118,7 @@ func (d *driver) baseline() (int, bool, error) {
 	return v, false, nil
 }
 
-// extendBaseline stamps versions 4–7 when later owned tables are already present.
+// extendBaseline stamps versions 4–8 when later owned tables are already present.
 func (d *driver) extendBaseline(v int) (int, error) {
 	candidates, err := d.countNamedTables("candidates")
 	if err != nil {
@@ -164,6 +164,18 @@ func (d *driver) extendBaseline(v int) (int, error) {
 		v = 7
 	} else if executions != 0 {
 		return 0, errors.New("partial execution schema")
+	}
+	lifecycle, err := d.countNamedTables("agent_executions", "agent_execution_commands", "agent_execution_operations", "agent_execution_attempts", "agent_execution_transitions")
+	if err != nil {
+		return 0, err
+	}
+	if lifecycle == 5 {
+		if v != 7 {
+			return 0, errors.New("execution lifecycle schema requires execution pins")
+		}
+		v = 8
+	} else if lifecycle != 0 {
+		return 0, errors.New("partial execution lifecycle schema")
 	}
 	return v, nil
 }

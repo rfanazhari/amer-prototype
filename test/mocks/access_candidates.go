@@ -76,8 +76,10 @@ func (_m *Candidates) ListByCreator(ctx context.Context, createdBy string) ([]ac
 	}
 	if rf, ok := ret.Get(0).(func(context.Context, string) []accessport.CandidateRecord); ok {
 		r0 = rf(ctx, createdBy)
-	} else if ret.Get(0) != nil {
-		r0 = ret.Get(0).([]accessport.CandidateRecord)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]accessport.CandidateRecord)
+		}
 	}
 
 	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {

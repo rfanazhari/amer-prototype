@@ -5,6 +5,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/golang-migrate/migrate/v4"
@@ -39,7 +40,7 @@ func (r Runner) Execute(ctx context.Context, o Options) (version int, dirty bool
 		return v, dirty, err
 	case "up":
 		if o.Version < 1 || o.Version > ReleaseVersion {
-			return 0, false, errors.New("explicit supported target 1 through 7 required")
+			return 0, false, fmt.Errorf("explicit supported target 1 through %d required", ReleaseVersion)
 		}
 	case "down":
 		if o.Steps < 1 || o.Steps > ReleaseVersion || !o.Disposable {

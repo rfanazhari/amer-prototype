@@ -70,6 +70,36 @@ other = "a required configuration dependency is unavailable"
 [ACP_PUBLICATION_UNCERTAIN]
 other = "publication outcome is uncertain; retry with the same key"
 
+[EXL_NOT_FOUND]
+other = "execution or assignment not found"
+
+[EXL_ASSIGNMENT_UNAVAILABLE]
+other = "assignment is no longer available for an interview"
+
+[EXL_IDEMPOTENCY_CONFLICT]
+other = "start request identity is already used with a different intent"
+
+[EXL_INVALID_TRANSITION]
+other = "execution state does not allow this action"
+
+[EXL_STALE_VERSION]
+other = "execution state version is stale"
+
+[EXL_STALE_ATTEMPT]
+other = "attempt is stale or its deadline has passed"
+
+[EXL_PROGRESS_REQUIRED]
+other = "completion requires committed progress"
+
+[EXL_TERMINAL_CONFLICT]
+other = "a different final outcome is already committed"
+
+[EXL_DEPENDENCY_UNAVAILABLE]
+other = "execution dependency is unavailable"
+
+[EXL_UNCERTAIN_COMMIT]
+other = "execution outcome is uncertain; retry with the same key"
+
 [REQUIRED_VALUE]
 other = "a required publication value is missing"
 

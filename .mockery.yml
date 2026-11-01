@@ -137,3 +137,39 @@ packages:
     interfaces:
       Assignments:
       Executions:
+  github.com/rfanazhari/amer-prototype/application/repository/executionport:
+    config:
+      dir: test/mocks
+      outpkg: mocks
+      filename: 'execution_{{.InterfaceName | snakecase}}.go'
+    interfaces:
+      AssignmentLock:
+      Transactor:
+      ExecutionStore:
+      CommandStore:
+      ProgressCommitment:
+  github.com/rfanazhari/amer-prototype/application/usecase/executionusecase:
+    config:
+      dir: test/mocks
+      outpkg: mocks
+      filename: 'execution_{{.InterfaceName | snakecase}}.go'
+      mockname: 'Execution{{.InterfaceName}}'
+    interfaces:
+      StartOperation:
+      AdmitOperation:
+      ActivateOperation:
+      RecordAttemptOperation:
+      CommitProgressOperation:
+      CompleteOperation:
+      FailOperation:
+      CancelOperation:
+      CancelNonterminalOperation:
+  github.com/rfanazhari/amer-prototype/application/query/executionquery:
+    config:
+      dir: test/mocks
+      outpkg: mocks
+      filename: 'execution_{{.InterfaceName | snakecase}}.go'
+      mockname: 'Execution{{.InterfaceName}}'
+    interfaces:
+      FindOperation:
+      FindByAssignmentOperation:

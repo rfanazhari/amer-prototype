@@ -38,11 +38,11 @@ func (r Runner) Execute(ctx context.Context, o Options) (version int, dirty bool
 		err := r.DB.QueryRowContext(ctx, "SELECT version, dirty FROM public.schema_migrations").Scan(&v, &dirty)
 		return v, dirty, err
 	case "up":
-		if o.Version < 1 || o.Version > 2 {
-			return 0, false, errors.New("explicit supported target 1 or 2 required")
+		if o.Version < 1 || o.Version > 3 {
+			return 0, false, errors.New("explicit supported target 1, 2 or 3 required")
 		}
 	case "down":
-		if o.Steps < 1 || o.Steps > 2 || !o.Disposable {
+		if o.Steps < 1 || o.Steps > 3 || !o.Disposable {
 			return 0, false, errors.New("down requires steps and disposable confirmation")
 		}
 	case "baseline":
@@ -85,7 +85,7 @@ func (r Runner) Execute(ctx context.Context, o Options) (version int, dirty bool
 	if err != nil {
 		return v, dirty, err
 	}
-	if dirty || v > 2 || v == 0 || v < -1 {
+	if dirty || v > 3 || v == 0 || v < -1 {
 		return v, dirty, errors.New("dirty or unsupported version")
 	}
 	if o.Action == "up" {

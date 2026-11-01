@@ -1,6 +1,6 @@
 # Task Plan: Agent Configuration and Publication
 
-Planning baseline: 2026-11-01, Mode C. T1 contracts are approved and Done; T2 and T3 are implemented. T4–T11 remain Todo. This revision changes documents only.
+Planning baseline: 2026-11-01, Mode C. T1–T4 are implemented. T5–T11 remain Todo.
 
 ## Ticket Identity
 
@@ -23,7 +23,7 @@ Companion dependency: [Identity and Access task plan](../identity-access/task-pl
 
 Documents-only Mode C revision: preserve T1/T2/T3 Done and all task IDs. No configuration code exists to repair. T6 mocks HR allow, ADMIN deny, candidate deny, and current-authority replay through the existing port and operation names. T8/T9 prove the same behavior on real configuration routes, including HR access to another HR's company configuration. ADMIN account management never implies configuration authority. Publication scope remains the stable account UUID.
 
-T4 does not call AutoMigrate. It inserts `migrations/pgsql/000003_agent_configuration.{up,down}.sql` and shifts the unpublished `000003_candidates` and `000004_assignment_access` files forward, then raises the startup floor from clean version 2 to clean version 3. T4 stops if version 3 or higher has already been applied. T8 is no longer waiting for an absent admin session; it still waits for T4–T7. Q4 and Q5 remain open.
+T4 registered `migrations/pgsql/000003_agent_configuration.{up,down}.sql`, shifted unpublished candidate/assignment SQL to versions 4–5, and raised the startup floor to clean version 3. T8 still waits for T5–T7. Q4 and Q5 remain open.
 
 ## Tasks
 
@@ -54,11 +54,11 @@ T2 and T3 are independent work streams, not instructions to spawn agents. Change
 
 ### Sequential implementation after contracts are resolved
 
-- [ ] **T4. Specify and register the configuration SQL version** — Infrastructure/database schema — M
+- [x] **T4. Specify and register the configuration SQL version** — Infrastructure/database schema — M
   - Ticket ID: `CORE-ACP-004`
   - depends: T1, T3 — ref: design §3–4; Identity and Access D8.
-  - Ready when: `infrastructure/database/schema/checksums.json` still pins only versions 1–2 and `docs/design/database-migrations.md` still targets clean version 2. If version 3 or higher has been applied, stop; do not rename applied files.
-  - DoD: five configuration tables, ownership and uniqueness constraints, the account-scope foreign key, and explicit zero/null update mappings are reviewable in `migrations/pgsql/000003_agent_configuration.{up,down}.sql`. Unpublished `000003_candidates` becomes `000004_candidates` and `000004_assignment_access` becomes `000005_assignment_access`, with Identity and Access design and task references synchronized. `schema.RequireCompatible`, the checksum manifest, runtime grants, and the migration operations document accept clean version 3. Startup still performs no DDL and architecture checks still reject `AutoMigrate`. An isolated database test proves fresh migrate-to-3 and upgrade from version 2 with existing Task and administrative rows. No publication adapter behavior is assumed from the SQL file.
+  - Evidence: sqlmock compatibility/option tests and artifact/upgrade coverage; RED `d7fd755` then GREEN. Isolated `TestAgentConfigurationVersionUpgrade` skips without `TEST_MIGRATION_DATABASE_URL`.
+  - DoD: five configuration tables, ownership and uniqueness constraints, the account-scope foreign key, and explicit zero/null update mappings are reviewable in `migrations/pgsql/000003_agent_configuration.{up,down}.sql`. Unpublished `000003_candidates` became `000004_candidates` and `000004_assignment_access` became `000005_assignment_access`, with Identity and Access design and task references synchronized. `schema.RequireCompatible`, the checksum manifest, runtime grants, and the migration operations document accept clean version 3. Startup still performs no DDL and architecture checks still reject `AutoMigrate`. An isolated database test covers fresh migrate-to-3 and upgrade from version 2 with existing Task and administrative rows. No publication adapter behavior is assumed from the SQL file.
 
 - [ ] **T5. Implement both concrete catalogs and deterministic validators** — Domain/application reference resolution — L
   - Ticket ID: `CORE-ACP-005`
@@ -139,3 +139,4 @@ T9 + Q5 consumers [and T10 for multiple behavior versions] → T11
 
 | v1.5 | 2026-11-01 | Link CORE-IAM-009 administrative evidence to Q2/T8/T9 without changing stable task IDs or status |
 | v1.6 | 2026-11-01 | Replace T4 AutoMigrate with SQL version 3 and remove the absent-session block from T8; T4–T11 stay Todo |
+| v1.7 | 2026-11-01 | Mark T4 Done for configuration SQL version 3, unpublished candidate/assignment reallocation, and clean-version-3 startup |

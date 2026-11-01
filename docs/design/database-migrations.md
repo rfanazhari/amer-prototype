@@ -1,6 +1,6 @@
 # PostgreSQL migration operations
 
-Release target: **clean version 2 only**. Tickets: CORE-IAM-018–020; policy: Identity Access D8.
+Release target: **clean version 3 only**. Tickets: CORE-IAM-018–020 and CORE-ACP-004; policy: Identity Access D8.
 The migration-aware application reads version/dirty metadata before binding HTTP or bootstrapping ADMIN. It never installs tables or metadata. Missing, empty, unreadable, dirty, older or newer metadata fails startup and closes acquired connections. Startup remains bounded to ten seconds; process shutdown to five seconds.
 
 ## Credentials and artifacts
@@ -8,27 +8,27 @@ The migration-aware application reads version/dirty metadata before binding HTTP
 Supply secrets through environment configuration, without echoing URLs or putting them in arguments/history:
 
 - `MIGRATION_DATABASE_URL`: authorized PostgreSQL owner/DDL connection, used only by `cmd/migrate`.
-- `DATABASE_URL`: application login with CONNECT, schema USAGE, CRUD on `tasks`, `administrative_accounts`, `administrative_sessions`, and SELECT on `schema_migrations`. It must not own these objects or inherit CREATE/owner privileges. No sequence grants are needed for UUID keys. The operator provisions this role; startup does not.
+- `DATABASE_URL`: application login with CONNECT, schema USAGE, CRUD on `tasks`, `administrative_accounts`, `administrative_sessions`, `agent_instances`, `agent_drafts`, `agent_validations`, `agent_revisions`, `agent_publication_commands`, and SELECT on `schema_migrations`. It must not own these objects or inherit CREATE/owner privileges. No sequence grants are needed for UUID keys. The operator provisions this role; startup does not.
 - `TEST_DATABASE_URL`: explicitly authorized disposable integration database.
 - `TEST_MIGRATION_DATABASE_URL`: separately authorized disposable database; acceptance tests **drop its public schema**. Never point it at retained data.
 
-The image includes `/migrate` and `/migrations/pgsql`; its working directory is `/`. The app entrypoint stays `/amer-prototype`. Versions 1–2 are immutable and checked against the [release SHA-256 manifest](database-migration-checksums.sha256), also enforced by the runner's embedded `checksums.json`. Version/dirty metadata does not establish artifact integrity. Candidate SQL 3–4 is packaged but excluded from this release target and is not accepted as an Interview installation.
+The image includes `/migrate` and `/migrations/pgsql`; its working directory is `/`. The app entrypoint stays `/amer-prototype`. Versions 1–3 are immutable and checked against the [release SHA-256 manifest](database-migration-checksums.sha256), also enforced by the runner's embedded `checksums.json`. Version/dirty metadata does not establish artifact integrity. Candidate SQL 4–5 is packaged but excluded from this release target and is not accepted as an Interview installation.
 
 ## Fresh local database
 
 From the repository root after supplying both connections and the administrative settings documented in README:
 
 ```sh
-make migrate.up MIGRATION_VERSION=2
+make migrate.up MIGRATION_VERSION=3
 make migrate.status
-# Start the application only after version=2 dirty=false.
+# Start the application only after version=3 dirty=false.
 ```
 
 For Compose, configure the local environment, then explicitly prepare the database:
 
 ```sh
 docker compose up -d --wait database
-make docker.migrate MIGRATION_VERSION=2
+make docker.migrate MIGRATION_VERSION=3
 make docker.up
 ```
 
@@ -43,13 +43,13 @@ make docker.up
 
    | Observed state | Command | Expected |
    | --- | --- | --- |
-   | Empty owned schema | `make migrate.up MIGRATION_VERSION=2` | Clean 2 |
-   | Exact Task-only legacy, absent metadata | `make migrate.baseline`, then `make migrate.up MIGRATION_VERSION=2` | Baseline 1, clean 2, Task history retained |
-   | Exact three-table legacy, absent metadata | `make migrate.baseline` | Clean 2, all existing rows retained |
-   | Recognized clean 1 or 2 | `make migrate.up MIGRATION_VERSION=2` | Upgrade or no-op |
+   | Empty owned schema | `make migrate.up MIGRATION_VERSION=3` | Clean 3 |
+   | Exact Task-only legacy, absent metadata | `make migrate.baseline`, then `make migrate.up MIGRATION_VERSION=3` | Baseline 1, clean 3, Task history retained |
+   | Exact three-table legacy, absent metadata | `make migrate.baseline`, then `make migrate.up MIGRATION_VERSION=3` | Baseline 2, clean 3, all existing rows retained |
+   | Recognized clean 1, 2 or 3 | `make migrate.up MIGRATION_VERSION=3` | Upgrade or no-op |
    | Drift, partial/foreign schema, dirty/unsupported metadata | Stop and investigate | No guessed stamping or automatic force |
 
-5. Run `make migrate.status`; require `version=2 dirty=false`. Verify row equality, creator links, stored hash equality and original expiry/revocation. Baseline never updates business rows or seeds accounts.
+5. Run `make migrate.status`; require `version=3 dirty=false`. Verify row equality, creator links, stored hash equality and original expiry/revocation. Baseline never updates business rows or seeds accounts. Empty configuration tables are additive.
 6. Start the migration-aware binary with the restricted runtime role. Verify health, Task create/start/complete/read, ADMIN login → HR provisioning/login → session/logout, and restart. Bootstrap must preserve existing ADMIN credentials.
 7. Retain the backup, checksum manifest, catalog inspection and sanitized evidence. Release acceptance for candidates, ACP and Interview remains with those owners.
 
@@ -61,13 +61,13 @@ Stop rollout on error. Inspect metadata, SQL transaction outcome and the actual 
 
 Choose reviewed forward repair with explicit preconditions and verified catalog/data postconditions, or restore the verified backup into a separate target and redirect after validation. The disposable acceptance suite demonstrates a cancelled transactional down: proves the original catalog remains, explicitly restores the established version/clean metadata, then checks compatibility and no-op up. That repair is fixture-specific, not a universal production command.
 
-For application rollback, retain the migrated database and start a previously verified migration-aware binary that explicitly supports clean version 2. The full-stack rehearsal records the exact compatible image, stops it, and later recreates it by immutable image ID against retained version 2 before Task/admin HTTP smoke. A pre-cutover AutoMigrate binary is excluded. No different historical release was supplied; rollback compatibility is established only for that recorded image.
+For application rollback, retain the migrated database and start a previously verified migration-aware binary that explicitly supports clean version 3, or unmount configuration routes and start a binary that still accepts the previous clean version while retaining the new tables. The full-stack rehearsal records the exact compatible image, stops it, and later recreates it by immutable image ID against retained version 3 before Task/admin HTTP smoke. A pre-cutover AutoMigrate binary is excluded. Do not run down against retained publication data.
 
 Destructive reversal is only for disposable databases, after stopping consumers:
 
 ```sh
 make migrate.down MIGRATION_STEPS=1 MIGRATION_DISPOSABLE=yes
-make migrate.up MIGRATION_VERSION=2
+make migrate.up MIGRATION_VERSION=3
 ```
 
 Down deletes affected tables/data; it is never a retained-data recovery mechanism.

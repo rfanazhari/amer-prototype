@@ -15,7 +15,7 @@ var catalogAssets embed.FS
 // preflight rejects foreign schemas/metadata before any tool-owned DDL.
 func (d *driver) preflight(adopting bool) error {
 	var foreign int
-	err := d.conn.QueryRowContext(d.ctx, `SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_name NOT IN ('tasks','administrative_accounts','administrative_sessions','schema_migrations')`).Scan(&foreign)
+	err := d.conn.QueryRowContext(d.ctx, `SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_name NOT IN ('tasks','administrative_accounts','administrative_sessions','schema_migrations','agent_instances','agent_drafts','agent_validations','agent_revisions','agent_publication_commands')`).Scan(&foreign)
 	if err != nil {
 		return err
 	}

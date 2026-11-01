@@ -2,5 +2,7 @@
   "000001_tasks.down.sql": "247851772c6633208558b9dca9270761e11456e47228cc7837b438cac68b2531",
   "000002_administrative_access.down.sql": "7698c5034f9a6194f882adbe8eacc5df06c7b4340fb9921ab9fcf166f1a120d8",
   "000002_administrative_access.up.sql": "fb0f38615af15624435dc8b952e09171eea1c20c5cb11fc4f85b18bd7d964e20",
-  "000001_tasks.up.sql": "0ba4abe9224e04c79c4f030c1c5e49aac1c821d1e71e8eb832169e1c8583b39d"
+  "000001_tasks.up.sql": "0ba4abe9224e04c79c4f030c1c5e49aac1c821d1e71e8eb832169e1c8583b39d",
+  "000003_agent_configuration.down.sql": "0d44502eda25b746f3b5c1abc158e38e5b062a2542d09fe3f35888700c05f605",
+  "000003_agent_configuration.up.sql": "229e68dad4e255b1a254a0fec319b929821d3ef04edf9e4eca5bf7590fc36244"
 }

@@ -39,9 +39,9 @@ func TestRuntimeRequiresPreparedSchema(t *testing.T) {
 		{name: "unreadable metadata", setup: "CREATE TABLE schema_migrations(x text);", wantErr: true},
 		{name: "ambiguous metadata", setup: "CREATE TABLE schema_migrations(version bigint,dirty boolean); INSERT INTO schema_migrations VALUES(2,false),(2,false);", wantErr: true},
 		{name: "empty", setup: "CREATE TABLE schema_migrations(version bigint PRIMARY KEY,dirty boolean NOT NULL);", wantErr: true},
-		{name: "old", setup: "CREATE TABLE schema_migrations(version bigint PRIMARY KEY,dirty boolean NOT NULL); INSERT INTO schema_migrations VALUES(1,false);", wantErr: true},
-		{name: "future", setup: "CREATE TABLE schema_migrations(version bigint PRIMARY KEY,dirty boolean NOT NULL); INSERT INTO schema_migrations VALUES(3,false);", wantErr: true},
-		{name: "dirty", setup: "CREATE TABLE schema_migrations(version bigint PRIMARY KEY,dirty boolean NOT NULL); INSERT INTO schema_migrations VALUES(2,true);", wantErr: true},
+		{name: "old", setup: "CREATE TABLE schema_migrations(version bigint PRIMARY KEY,dirty boolean NOT NULL); INSERT INTO schema_migrations VALUES(2,false);", wantErr: true},
+		{name: "future", setup: "CREATE TABLE schema_migrations(version bigint PRIMARY KEY,dirty boolean NOT NULL); INSERT INTO schema_migrations VALUES(4,false);", wantErr: true},
+		{name: "dirty", setup: "CREATE TABLE schema_migrations(version bigint PRIMARY KEY,dirty boolean NOT NULL); INSERT INTO schema_migrations VALUES(3,true);", wantErr: true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -83,12 +83,12 @@ func TestRuntimeWithDDLDeniedRole(t *testing.T) {
 	require.NoError(t, err)
 	directory, err := filepath.Abs("../../migrations/pgsql")
 	require.NoError(t, err)
-	_, _, err = (schema.Runner{DB: db, Directory: directory}).Execute(context.Background(), schema.Options{Action: "up", Version: 2})
+	_, _, err = (schema.Runner{DB: db, Directory: directory}).Execute(context.Background(), schema.Options{Action: "up", Version: 3})
 	require.NoError(t, err)
 	role := "runtime_" + strings.ReplaceAll(uuid.NewString(), "-", "")
 	password := uuid.NewString()
 	// Both interpolated values are generated UUIDs, never external identifiers or credentials.
-	_, err = db.ExecContext(context.Background(), "CREATE ROLE "+role+" LOGIN PASSWORD '"+password+"'; GRANT USAGE ON SCHEMA public TO "+role+"; GRANT SELECT,INSERT,UPDATE,DELETE ON tasks,administrative_accounts,administrative_sessions TO "+role+"; GRANT SELECT ON schema_migrations TO "+role)
+	_, err = db.ExecContext(context.Background(), "CREATE ROLE "+role+" LOGIN PASSWORD '"+password+"'; GRANT USAGE ON SCHEMA public TO "+role+"; GRANT SELECT,INSERT,UPDATE,DELETE ON tasks,administrative_accounts,administrative_sessions,agent_instances,agent_drafts,agent_validations,agent_revisions,agent_publication_commands TO "+role+"; GRANT SELECT ON schema_migrations TO "+role)
 	require.NoError(t, err)
 	defer func() {
 		_, err := db.ExecContext(context.Background(), "DROP OWNED BY "+role+"; DROP ROLE "+role)

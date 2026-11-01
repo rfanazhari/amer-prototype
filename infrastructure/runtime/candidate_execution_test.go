@@ -8,23 +8,24 @@ import (
 	"time"
 
 	"github.com/DATA-DOG/go-sqlmock"
+	"github.com/rfanazhari/amer-prototype/application/repository/executionport"
 	"github.com/rfanazhari/amer-prototype/application/service"
 	"github.com/rfanazhari/amer-prototype/infrastructure/service/accesscredentials"
 	"github.com/rfanazhari/amer-prototype/pkg/errs"
 	"github.com/stretchr/testify/require"
 )
 
-// unboundExecutionCase names a composed route that must fail closed without execution SQL writes.
-type unboundExecutionCase struct {
+// unavailableExecutionCase names a composed route that must map a lifecycle dependency failure safely.
+type unavailableExecutionCase struct {
 	name    string
 	path    string
 	body    string
 	consent bool
 }
 
-// TestCandidateExecutionCompositionFailsClosed exercises real operation wiring with SQL mocked and lifecycle unbound.
-func TestCandidateExecutionCompositionFailsClosed(t *testing.T) {
-	tests := []unboundExecutionCase{
+// TestCandidateExecutionCompositionMapsLifecycleDependencyFailure exercises real lifecycle wiring with SQL dependency failures.
+func TestCandidateExecutionCompositionMapsLifecycleDependencyFailure(t *testing.T) {
+	tests := []unavailableExecutionCase{
 		{name: "start", path: "/candidate/executions", body: `{"consentId":"11111111-1111-4111-8111-111111111111"}`, consent: true},
 		{name: "cancel", path: "/candidate/executions/22222222-2222-4222-8222-222222222222/cancel", body: `{"expectedVersion":1}`},
 	}
@@ -35,10 +36,17 @@ func TestCandidateExecutionCompositionFailsClosed(t *testing.T) {
 			sessionID := "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeee1"
 			assignmentID := "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1"
 			for range 2 {
-				sql.ExpectQuery(`SELECT .* FROM "candidate_sessions"`).WillReturnRows(sqlmock.NewRows([]string{"id", "assignment_id", "invitation_id", "token_hash", "created_at", "expires_at"}).AddRow(sessionID, assignmentID, "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb1", "hash", now, now.Add(2*time.Hour)))
+				sql.ExpectQuery(`SELECT .* FROM "candidate_sessions" JOIN interview_assignments .* WHERE candidate_sessions.token_hash = .* AND interview_assignments.access_revoked_at IS NULL`).WillReturnRows(sqlmock.NewRows([]string{"id", "assignment_id", "invitation_id", "token_hash", "created_at", "expires_at"}).AddRow(sessionID, assignmentID, "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb1", "hash", now, now.Add(2*time.Hour)))
 			}
 			if tt.consent {
 				sql.ExpectQuery(`SELECT .* FROM "interview_consents"`).WillReturnRows(sqlmock.NewRows([]string{"id", "assignment_id", "notice_version", "accepted_at", "candidate_session_id"}).AddRow("11111111-1111-4111-8111-111111111111", assignmentID, "notice-261102", now, sessionID))
+			}
+			if tt.consent {
+				sql.ExpectBegin()
+				sql.ExpectExec(`SELECT id FROM interview_assignments`).WillReturnError(executionport.ErrDependencyUnavailable)
+				sql.ExpectRollback()
+			} else {
+				sql.ExpectQuery(`SELECT .* FROM "agent_executions".*JOIN interview_executions`).WillReturnError(executionport.ErrDependencyUnavailable)
 			}
 			cfg := validAccessConfig()
 			csrf, err := (accesscredentials.CSRF{Secret: []byte(cfg.AccessCSRFSecret)}).Issue(service.CredentialCandidate, sessionID)

@@ -67,6 +67,7 @@ func snapshot(t *testing.T, now time.Time, state execution.State) execution.Snap
 
 // TestCommitOrFindReportsCommitAndReplay covers first commit and replay of a terminal execution.
 func TestCommitOrFindReportsCommitAndReplay(t *testing.T) {
+	// testCase names one adapter contract scenario.
 	type testCase struct {
 		name     string
 		existing bool
@@ -91,6 +92,7 @@ func TestCommitOrFindReportsCommitAndReplay(t *testing.T) {
 			}
 			f.commands.On("FindOrInsert", mock.Anything, assignmentID, "start", "candidate-start", mock.Anything, mock.Anything).Return(func(_ context.Context, _, _, _, _, id string) (string, error) { return id, nil })
 			result, err := f.adapter.CommitOrFind(context.Background(), service.CommitOrFindRequest{AssignmentID: assignmentID, ConsentID: consentID, IdempotencyKey: strings.Repeat("k", 128)})
+			require.Equal(t, tt.wantErr, err != nil)
 			require.NoError(t, err)
 			require.Equal(t, !tt.existing, result.Created)
 			require.Equal(t, saved.ID, result.Execution.ID)
@@ -102,6 +104,7 @@ func TestCommitOrFindReportsCommitAndReplay(t *testing.T) {
 
 // TestFindReturnsDeadlineAndClassifiedErrors proves reads never start and deadline comes from persisted activation.
 func TestFindReturnsDeadlineAndClassifiedErrors(t *testing.T) {
+	// testCase names one adapter contract scenario.
 	type testCase struct {
 		name    string
 		state   execution.State
@@ -138,6 +141,7 @@ func TestFindReturnsDeadlineAndClassifiedErrors(t *testing.T) {
 
 // TestCancelUsesLifecycleAndRejectsTerminal checks cancellation under the execution lock, including terminal replay refusal.
 func TestCancelUsesLifecycleAndRejectsTerminal(t *testing.T) {
+	// testCase names one adapter contract scenario.
 	type testCase struct {
 		name    string
 		state   execution.State
@@ -179,4 +183,31 @@ func TestStartIntentConflictUsesOneCommandIdentity(t *testing.T) {
 	f.commands.On("FindOrInsert", mock.Anything, assignmentID, "start", "candidate-start", mock.Anything, executionID).Return("", executionport.ErrIdempotencyConflict)
 	_, err := f.adapter.CommitOrFind(context.Background(), service.CommitOrFindRequest{AssignmentID: assignmentID, ConsentID: consentID, IdempotencyKey: "key"})
 	require.ErrorIs(t, err, service.ErrInterviewConflict)
+}
+
+// TestCommitOrFindWithholdsSuccessOnTransactionFailure covers classified failure after the lifecycle transaction.
+func TestCommitOrFindWithholdsSuccessOnTransactionFailure(t *testing.T) {
+	// testCase names a transaction outcome and its candidate-safe classification.
+	type testCase struct {
+		name    string
+		source  error
+		want    error
+		wantErr bool
+	}
+	tests := []testCase{
+		{name: "uncertain", source: executionport.ErrUncertainCommit, want: service.ErrInterviewStartUncertain, wantErr: true},
+		{name: "dependency", source: executionport.ErrDependencyUnavailable, want: service.ErrInterviewDependencyUnavailable, wantErr: true},
+		{name: "missing", source: executionport.ErrNotFound, want: service.ErrInterviewNotFound, wantErr: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := setup(t)
+			f.assignments.On("WithAssignment", mock.Anything, assignmentID, mock.Anything).Return(tt.source)
+			got, err := f.adapter.CommitOrFind(context.Background(), service.CommitOrFindRequest{AssignmentID: assignmentID, ConsentID: consentID, IdempotencyKey: "retry"})
+			require.Equal(t, tt.wantErr, err != nil)
+			require.ErrorIs(t, err, tt.want)
+			require.Empty(t, got.Execution.ID)
+			require.False(t, got.Created)
+		})
+	}
 }

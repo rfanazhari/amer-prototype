@@ -315,7 +315,7 @@ Body exactly `{ "expectedVersion": 1 }` where the number is the execution versio
 
 ### 6.3 Sibling contracts
 
-These are requirements on other capabilities. This slice ships the Go interfaces and a failing adapter. Tasks that need a real adapter are blocked.
+These are requirements on other capabilities. T11 now binds the lifecycle interface through `infrastructure/service/candidatelifecycle`; Interview Runtime remains pending for T12. Lifecycle keeps transaction and transition ownership.
 
 **Execution Lifecycle** must provide:
 
@@ -376,7 +376,7 @@ Precedence for every new route:
 |---|---|---|---|---|
 | Q1 | What notice version and statement text are shown? Resolved 2026-11-02: `notice-261102` and the statement in section 6. | Product owner | None | The version matches §3's character rule and the statement is the approved text, recorded in §6 and the catalog. |
 | Q2 | What happens if the candidate withdraws consent after start? | Product and data owner | No current task. Withdrawal stays unimplemented. | A later decision adds a task. This plan does not add `withdrawn_at`. |
-| Q3 | Lifecycle commit-or-find, read, deadline, and cancel are not implemented. `interview_executions` is a pin. | Execution Lifecycle capability | T11, and the live portion of T13 | The §6.3 lifecycle operations exist and are covered by that capability's own proof. |
+| Q3 | Resolved for T11: existing lifecycle operations and `agent_executions` support start/read/cancel; deadline derives from persisted `activated_at + 15m`. `interview_executions` remains a pin. | Execution Lifecycle capability | T11 completed; T13 still requires T12 | See [T11 evidence](t11-execution.md); sibling capability status is unchanged. |
 | Q4 | Runtime candidate-safe progress and controller fencing are not implemented. | Interview Runtime capability | T12, and the progress portion of T13 | The §6.3 runtime operations exist. |
 | Q5 | `countExecutions` in the access integration fixture counts table presence for `interview_executions`, which version 7 already creates. | Access tests, pre-existing | None in this plan, provided new tables are not named `consent_records` or `interview_runs` | Leave that assertion to its owner unless a candidate-interview test run shows it failing for a reason this slice introduced. |
 
@@ -388,3 +388,5 @@ Implementation risks: the exact schema floor makes version 8 and version 9 binar
 |---|---|---|---|
 | v1 | 2026-11-02 | Initial design | Mode A plan for BR-CORE-040..047. Rules are not enforced. |
 | v2 | 2026-11-02 | Assign `000009_candidate_interview` and clean floor 9 | assign a unique migration version after the parallel tripack collision on 000008 |
+
+T11 execution update (2026-11-02): the production composition binds lifecycle start/read/cancel. Candidate intent uses a fixed `candidate-start` command key per assignment and typed SHA-256 references for the client idempotency key and consent id, preserving the 128-character API key within lifecycle's 64-character token limit. A call-local minted execution id identifies a successful first commit; replay and race reconciliation report `created=false`. A store decorator refuses terminal cancel inside the existing locked callback; the lifecycle operation still performs the transition and commits. Interview credential reads join assignment revocation without changing access routes. PostgreSQL and mocked evidence, assessment and limits are in [t11-execution.md](t11-execution.md). T12 progress/fencing and T13 remain pending. No business decision changed.

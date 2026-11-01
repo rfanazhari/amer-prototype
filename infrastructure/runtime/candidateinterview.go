@@ -11,27 +11,28 @@ import (
 	"github.com/rfanazhari/amer-prototype/delivery/http/candidateinterview"
 	"github.com/rfanazhari/amer-prototype/delivery/http/handler/candidateinterviewhandler"
 	domain "github.com/rfanazhari/amer-prototype/domain/aggregate/candidateinterview"
-	"github.com/rfanazhari/amer-prototype/infrastructure/repository/accessrepository"
 	"github.com/rfanazhari/amer-prototype/infrastructure/repository/candidateinterviewrepository"
+	"github.com/rfanazhari/amer-prototype/infrastructure/repository/executionrepository"
 	"github.com/rfanazhari/amer-prototype/infrastructure/service/accessauthority"
 	"github.com/rfanazhari/amer-prototype/infrastructure/service/accesscredentials"
+	"github.com/rfanazhari/amer-prototype/infrastructure/service/candidatelifecycle"
 	"github.com/rfanazhari/amer-prototype/infrastructure/service/clock"
 	"gorm.io/gorm"
 )
 
 // NewCandidateInterview composes the candidate interview JSON handler and page shell over the shared pool.
-// Execution Lifecycle remains bound to a fail-closed stand-in until T11 supplies its adapter.
+// Execution Lifecycle uses the shared execution store; runtime progress remains separate.
 func NewCandidateInterview(db *gorm.DB, cfg Config, logs *logmanager.Application) (http.Handler, http.Handler) {
-	store := accessrepository.Store{DB: db}
 	timer := clock.System{}
 	current := accessauthority.CandidateSessions{
-		Store:  accessrepository.CandidateSessionSecrets{Store: store},
+		Store:  candidateinterviewrepository.Sessions{DB: db},
 		Tokens: accesscredentials.Tokens{},
 		Clock:  timer,
 	}
 	consents := candidateinterviewrepository.ConsentStore{DB: db, Clock: timer}
 	controllers := candidateinterviewrepository.ControllerStore{DB: db}
-	lifecycle := unboundLifecycle{}
+	executions := executionrepository.Store{DB: db}
+	lifecycle := candidatelifecycle.Lifecycle{Assignments: executions, Transactions: executions, Executions: executions, Commands: executions, Clock: timer}
 	catalog := approvedNoticeCatalog{notice: CurrentCandidateNotice()}
 	return candidateinterviewhandler.Handler{
 		Get: candidateinterviewquery.GetInterview{
@@ -69,24 +70,4 @@ func (c approvedNoticeCatalog) Current(context.Context) (service.Notice, bool) {
 		return service.Notice{}, false
 	}
 	return service.Notice{Version: version, Statement: c.notice.Statement}, true
-}
-
-// unboundLifecycle stands in for Execution Lifecycle until that capability provides an adapter; it writes nothing.
-type unboundLifecycle struct{}
-
-var _ service.ExecutionLifecycle = unboundLifecycle{}
-
-// CommitOrFind reports the dependency as unavailable.
-func (unboundLifecycle) CommitOrFind(context.Context, service.CommitOrFindRequest) (service.CommitOrFindResult, error) {
-	return service.CommitOrFindResult{}, service.ErrInterviewDependencyUnavailable
-}
-
-// Find reports the dependency as unavailable, which the interview read renders as no execution.
-func (unboundLifecycle) Find(context.Context, string) (service.ExecutionFacts, error) {
-	return service.ExecutionFacts{}, service.ErrInterviewDependencyUnavailable
-}
-
-// Cancel reports the dependency as unavailable.
-func (unboundLifecycle) Cancel(context.Context, service.CancelRequest) (service.ExecutionFacts, error) {
-	return service.ExecutionFacts{}, service.ErrInterviewDependencyUnavailable
 }

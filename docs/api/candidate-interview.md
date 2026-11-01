@@ -4,7 +4,7 @@ All responses use the standard JSON envelope. `Accept-Language: id` selects Indo
 
 The machine-readable specification is [openapi.yaml](openapi.yaml); contract changes are recorded in [CHANGELOG.md](CHANGELOG.md). Design: [technical-design.md](../services/core-ai/candidate-interview/technical-design.md).
 
-This document covers interview read, notice acceptance, the candidate page, start, execution polling, takeover, and cancel. Session-attempt, ready, and report routes are absent. Execution Lifecycle remains unbound until T11; valid start and execution operations fail closed with `503 CIN_DEPENDENCY_UNAVAILABLE` after their input, session, CSRF, and applicable policy checks. The interview screen continues to return `execution: null`.
+This document covers interview read, notice acceptance, the candidate page, start, execution polling, takeover, and cancel. Session-attempt, ready, and report routes are absent. Execution Lifecycle is bound to the PostgreSQL execution store. Start commits once per assignment, returns 200 on the same intent, and conflicts on a different client key or consent intent. Execution reads and cancellation use that stored lifecycle; unavailable dependencies still fail closed. Interview credential reads refuse assignment revocation.
 
 ## Session, origin and CSRF
 
@@ -65,11 +65,11 @@ Body exactly `{ "controllerId": "<tab-id>", "expectedVersion": 1 }`. The body id
 
 ### POST `/candidate/executions/{id}/cancel`
 
-Body exactly `{ "expectedVersion": 1 }` using a positive **execution** version. Requires `X-Interview-Controller` for the current tab. Returns `200` with the committed execution in state `CANCELLED`. Another assignment's id is `404 NOT_FOUND`; a non-controller is `403 CIN_NOT_CONTROLLER`. Terminal state is never relabelled. Controller persistence is composed from T8; real cancellation awaits T11.
+Body exactly `{ "expectedVersion": 1 }` using a positive **execution** version. Requires `X-Interview-Controller` for the current tab. Returns `200` with the committed execution in state `CANCELLED`. Another assignment's id is `404 NOT_FOUND`; a non-controller is `403 CIN_NOT_CONTROLLER`. Terminal state is never relabelled. Controller persistence and lifecycle cancellation are composed.
 
 ### GET `/candidate/interview/page`
 
-Returns the candidate page as `text/html` with `Cache-Control: no-store` and `Referrer-Policy: no-referrer`. The page reads `GET /candidate/session`, then `GET /candidate/interview`, and displays only the offered accept/start/takeover/cancel actions. It stores the tab controller and start intent in `sessionStorage`, sends `X-Interview-Controller`, and retains the same start key and consent id after an uncertain response or refresh. Refresh never POSTs start. A second tab is read-only until takeover; cancel asks for confirmation. Live `CREATED`/`RUNNING` views poll the interview every two seconds; polling stops on access loss or a terminal outcome and superseded responses are ignored. `COMPLETED`, `FAILED`, and `CANCELLED` have distinct final screens. Without a cookie it shows the access-error state and no notice. It does not request a report or open a microphone. Other methods are `405` `METHOD_NOT_ALLOWED`. Production execution remains null until T11; T10 browser evidence uses API fixtures.
+Returns the candidate page as `text/html` with `Cache-Control: no-store` and `Referrer-Policy: no-referrer`. The page reads `GET /candidate/session`, then `GET /candidate/interview`, and displays only the offered accept/start/takeover/cancel actions. It stores the tab controller and start intent in `sessionStorage`, sends `X-Interview-Controller`, and retains the same start key and consent id after an uncertain response or refresh. Refresh never POSTs start. A second tab is read-only until takeover; cancel asks for confirmation. Live `CREATED`/`RUNNING` views poll the interview every two seconds; polling stops on access loss or a terminal outcome and superseded responses are ignored. `COMPLETED`, `FAILED`, and `CANCELLED` have distinct final screens. Without a cookie it shows the access-error state and no notice. It does not request a report or open a microphone. Other methods are `405` `METHOD_NOT_ALLOWED`. Production execution is supplied by lifecycle; progress and runtime fencing await T12. T10 browser evidence uses API fixtures; T11 separately proves production HTTP composition against PostgreSQL.
 
 `GET /candidate/access` navigates to this page once, after `GET /candidate/session` succeeds.
 

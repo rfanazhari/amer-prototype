@@ -1,5 +1,9 @@
 # API changelog
 
+## Candidate lifecycle integration — T11 (2026-11-02)
+
+The existing candidate routes now use the PostgreSQL lifecycle adapter for start, read and cancel. Repeated intent returns the same execution, different intent conflicts, and cancellation commits before success. Running deadlines derive from persisted activation. Interview credentials refuse revoked assignments. Routes, JSON schemas and public codes are unchanged. Progress/fencing remain T12; no report call is introduced. See [candidate-interview.md](candidate-interview.md).
+
 ## Candidate page — T10 (2026-11-02)
 
 The existing HTML route now presents API-offered start/takeover/cancel actions, confirmed cancellation, and distinct completed/failed/cancelled outcomes. The tab controller and retryable start intent stay in sessionStorage. Live interview reads poll every two seconds and stop at terminal/access loss; refresh never starts an execution. No JSON route, schema, or status changed. Production lifecycle remains unbound pending T11; UI verification uses headless Chrome with API fixtures. See [candidate-interview.md](candidate-interview.md).

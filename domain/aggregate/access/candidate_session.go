@@ -27,12 +27,35 @@ type CandidateSession struct {
 
 // NewCandidateSession records a new unrevoked session whose expiry is exactly creation plus two hours.
 func NewCandidateSession(id, assignmentID, invitationID string, now time.Time) (*CandidateSession, error) {
-	return nil, ErrInvalidCandidateSession
+	if id == "" || assignmentID == "" || invitationID == "" {
+		return nil, ErrInvalidCandidateSession
+	}
+	lifetime, err := valueobject.NewSessionLifetime(now, valueobject.AdministrativeDuration)
+	if err != nil {
+		return nil, ErrInvalidCandidateSession
+	}
+	return &CandidateSession{id: id, assignmentID: assignmentID, invitationID: invitationID, lifetime: lifetime}, nil
 }
 
 // RestoreCandidateSession validates stored identity, assignment and invitation references without resetting the deadline.
 func RestoreCandidateSession(s CandidateSessionSnapshot) (*CandidateSession, error) {
-	return nil, ErrInvalidCandidateSession
+	if s.ID == "" || s.AssignmentID == "" || s.InvitationID == "" {
+		return nil, ErrInvalidCandidateSession
+	}
+	lifetime, err := valueobject.RestoreSessionLifetime(s.CreatedAt, s.ExpiresAt)
+	if err != nil {
+		return nil, ErrInvalidCandidateSession
+	}
+	if s.RevokedAt != nil && (s.RevokedAt.IsZero() || s.RevokedAt.Before(s.CreatedAt)) {
+		return nil, ErrInvalidCandidateSession
+	}
+	return &CandidateSession{
+		id:           s.ID,
+		assignmentID: s.AssignmentID,
+		invitationID: s.InvitationID,
+		lifetime:     lifetime,
+		revokedAt:    copyTime(s.RevokedAt),
+	}, nil
 }
 
 // Snapshot returns a detached copy of the current session facts, including an optional revocation pointer.
@@ -52,10 +75,10 @@ func (s *CandidateSession) Snapshot() CandidateSessionSnapshot {
 
 // Current reports whether the session is unrevoked and now is strictly before expiry.
 func (s *CandidateSession) Current(now time.Time) bool {
-	return false
+	return s != nil && s.id != "" && s.revokedAt == nil && s.lifetime.Current(now)
 }
 
 // Authorizes reports whether this current session is bound to assignmentID.
 func (s *CandidateSession) Authorizes(assignmentID string, now time.Time) bool {
-	return false
+	return s.Current(now) && assignmentID != "" && s.assignmentID == assignmentID
 }

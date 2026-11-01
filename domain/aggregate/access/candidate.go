@@ -17,12 +17,25 @@ type Candidate struct{ state CandidateSnapshot }
 
 // NewCandidate records a new identity with caller-supplied contact already accepted by application policy.
 func NewCandidate(id, name, email, createdBy string, now time.Time) (*Candidate, error) {
-	return nil, ErrInvalidCandidate
+	if id == "" || name == "" || email == "" || createdBy == "" || now.IsZero() {
+		return nil, ErrInvalidCandidate
+	}
+	return &Candidate{state: CandidateSnapshot{
+		ID:        id,
+		Name:      name,
+		Email:     email,
+		CreatedBy: createdBy,
+		CreatedAt: now,
+		UpdatedAt: now,
+	}}, nil
 }
 
 // RestoreCandidate validates stored identity, creator and timestamp order without rewriting contact history.
 func RestoreCandidate(s CandidateSnapshot) (*Candidate, error) {
-	return nil, ErrInvalidCandidate
+	if s.ID == "" || s.Name == "" || s.Email == "" || s.CreatedBy == "" || s.CreatedAt.IsZero() || s.UpdatedAt.Before(s.CreatedAt) {
+		return nil, ErrInvalidCandidate
+	}
+	return &Candidate{state: s}, nil
 }
 
 // Snapshot returns a detached copy of the current candidate facts.

@@ -16,6 +16,9 @@ import (
 	"gorm.io/gorm/logger"
 )
 
+// wellFormedSecret is a base64url 32-byte credential, the only shape that reaches the session lookup.
+const wellFormedSecret = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+
 // composedInterview opens the composition over sqlmock so tests own the SQL expectations.
 func composedInterview(t *testing.T) (http.Handler, http.Handler, sqlmock.Sqlmock) {
 	t.Helper()
@@ -53,7 +56,7 @@ func TestNewCandidateInterviewRejectsUnknownSession(t *testing.T) {
 	mock.ExpectQuery(`(?i)SELECT .* FROM ["']?candidate_sessions["']?`).WillReturnRows(sqlmock.NewRows([]string{"id"}))
 	req := httptest.NewRequest(http.MethodGet, "/candidate/interview", nil)
 	req.Host = "localhost:8080"
-	req.AddCookie(&http.Cookie{Name: "ia-candidate", Value: "unknown-secret"})
+	req.AddCookie(&http.Cookie{Name: "ia-candidate", Value: wellFormedSecret})
 	rec := httptest.NewRecorder()
 
 	api.ServeHTTP(rec, req)
@@ -73,7 +76,7 @@ func TestNewCandidateInterviewOffersAcceptWithApprovedNoticeAndUnboundLifecycle(
 	mock.ExpectQuery(`(?i)SELECT .* FROM ["']?interview_consents["']?`).WillReturnRows(sqlmock.NewRows([]string{"id"}))
 	req := httptest.NewRequest(http.MethodGet, "/candidate/interview", nil)
 	req.Host = "localhost:8080"
-	req.AddCookie(&http.Cookie{Name: "ia-candidate", Value: "known-secret"})
+	req.AddCookie(&http.Cookie{Name: "ia-candidate", Value: wellFormedSecret})
 	rec := httptest.NewRecorder()
 
 	api.ServeHTTP(rec, req)

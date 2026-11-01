@@ -17,7 +17,7 @@ const (
 	defaultRealtimeURL   = "https://api.openai.com/v1/realtime/calls"
 )
 
-// Router sends prototype voice paths to their handlers, configuration paths before access, administrative paths to access, and every other path to Task.
+// Router sends prototype voice paths to their handlers, configuration and candidate interview paths before access, administrative paths to access, and every other path to Task.
 type Router struct {
 	Page          http.Handler
 	Setup         http.Handler
@@ -73,6 +73,14 @@ func (h Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	default:
 		if h.Landing != nil && r.URL.Path == "/candidate/access" {
 			h.Landing.ServeHTTP(w, r)
+			return
+		}
+		if h.InterviewPage != nil && r.URL.Path == "/candidate/interview/page" {
+			h.InterviewPage.ServeHTTP(w, r)
+			return
+		}
+		if h.Interview != nil && (r.URL.Path == "/candidate/interview" || r.URL.Path == "/candidate/consents") {
+			h.Interview.ServeHTTP(w, r)
 			return
 		}
 		if h.Configuration != nil && isAgentConfigurationPath(r.URL.Path) {

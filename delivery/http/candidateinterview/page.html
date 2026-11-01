@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <meta http-equiv="Cache-Control" content="no-store">
+  <title>Candidate interview</title>
+  <style>
+    body { font-family: sans-serif; margin: 2rem; max-width: 40rem; }
+    pre { white-space: pre-wrap; font: inherit; }
+    button { font: inherit; padding: 0.5rem 1rem; }
+  </style>
+</head>
+<body>
+  <h1>Candidate interview</h1>
+  <p id="status">Loading</p>
+  <section id="notice" hidden>
+    <pre id="statement"></pre>
+    <button id="accept" type="button" hidden>Saya setuju</button>
+  </section>
+  <script>
+    (function () {
+      var status = document.getElementById("status");
+      var notice = document.getElementById("notice");
+      var statement = document.getElementById("statement");
+      var accept = document.getElementById("accept");
+      var csrfToken = "";
+      var noticeVersion = "";
+
+      function accessError() {
+        notice.hidden = true;
+        status.textContent = "Access is no longer available";
+      }
+
+      function render(data) {
+        if (!data.notice) {
+          notice.hidden = true;
+          status.textContent = "The interview notice is not available yet";
+          return;
+        }
+        noticeVersion = data.notice.version;
+        statement.textContent = data.notice.statement;
+        notice.hidden = false;
+        var canAccept = data.actions.indexOf("accept") >= 0;
+        accept.hidden = !canAccept;
+        if (data.consent) {
+          status.textContent = "Notice accepted";
+        } else if (canAccept) {
+          status.textContent = "Please read and accept the notice";
+        } else {
+          status.textContent = "The interview notice is not available yet";
+        }
+      }
+
+      function load() {
+        return fetch("/candidate/interview", { credentials: "include" }).then(function (response) {
+          if (response.status === 401) {
+            accessError();
+            return;
+          }
+          if (!response.ok) {
+            status.textContent = "The interview is temporarily unavailable";
+            return;
+          }
+          return response.json().then(function (body) { render(body.data); });
+        });
+      }
+
+      accept.addEventListener("click", function () {
+        accept.disabled = true;
+        fetch("/candidate/consents", {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json", "X-CSRF-Token": csrfToken },
+          body: JSON.stringify({ noticeVersion: noticeVersion, accepted: true })
+        }).then(function (response) {
+          if (response.status === 401) {
+            accessError();
+            return;
+          }
+          if (!response.ok) {
+            status.textContent = "The interview notice is temporarily unavailable";
+            accept.disabled = false;
+            return;
+          }
+          return load();
+        }).catch(function () {
+          status.textContent = "The interview is temporarily unavailable";
+          accept.disabled = false;
+        });
+      });
+
+      fetch("/candidate/session", { credentials: "include" }).then(function (response) {
+        if (!response.ok) {
+          accessError();
+          return;
+        }
+        return response.json().then(function (body) {
+          csrfToken = body.data.csrfToken;
+          return load();
+        });
+      }).catch(function () {
+        status.textContent = "The interview is temporarily unavailable";
+      });
+    })();
+  </script>
+</body>
+</html>

@@ -124,3 +124,13 @@ func clearSessionCookie(w http.ResponseWriter, secure bool) {
 		Expires:  time.Unix(0, 0).UTC(),
 	})
 }
+
+// ReadCandidateCookie exposes the candidate cookie reader to the candidate interview routes.
+func ReadCandidateCookie(r *http.Request, secure bool) (string, bool, bool) {
+	return readCandidateCookie(r, secure)
+}
+
+// BindCandidateCredential exposes candidate cookie-context binding to the candidate interview routes.
+func BindCandidateCredential(r *http.Request, token string) *http.Request {
+	return bindCandidateCredential(r, token)
+}

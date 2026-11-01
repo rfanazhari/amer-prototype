@@ -1,5 +1,9 @@
 # API changelog
 
+## 0.9.0 — candidate notice consent, interview read and page shell
+
+Added `GET /candidate/interview`, `POST /candidate/consents`, and `GET /candidate/interview/page`. They are dispatched ahead of the `/candidate/` access catch-all and reuse the candidate cookie, origin, and CSRF; `POST /candidate/access/exchange` and `GET /candidate/session` are unchanged. Consent is `201` on first acceptance and `200` on replay. The read returns notice, consent, a null execution, actions, and a null progress, with no controller id, salary, or report member. Added `CIN_*` codes (`CIN_FORBIDDEN` for a bad CSRF header, `CIN_NOTICE_UNAVAILABLE` for an empty catalog, and the codes later start, takeover, and cancel routes use). The invitation landing now navigates to the page shell once after the session read succeeds. See [candidate-interview.md](candidate-interview.md) and [openapi.yaml](openapi.yaml).
+
 ## 0.8.0 — HR agent instance list
 
 Added `GET /admin/agent-instances`. Current HR receives every instance, newest first (`createdAt` descending, then `id` descending). An empty result is `200` with `data` as an empty array. Each item keeps the filtered instance view: `salaryCeilingConfigured`, never the salary reference. POST create on that path is unchanged. See [agent-configuration.md](agent-configuration.md) and [openapi.yaml](openapi.yaml).

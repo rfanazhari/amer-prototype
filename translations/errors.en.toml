@@ -100,6 +100,39 @@ other = "execution dependency is unavailable"
 [EXL_UNCERTAIN_COMMIT]
 other = "execution outcome is uncertain; retry with the same key"
 
+[CIN_FORBIDDEN]
+other = "request could not be verified; reload the page and try again"
+
+[CIN_CONSENT_REQUIRED]
+other = "accept the current notice before starting the interview"
+
+[CIN_SESSION_COVERAGE]
+other = "your access ends before the interview can finish; open a valid invitation again"
+
+[CIN_IDEMPOTENCY_CONFLICT]
+other = "this start request conflicts with an earlier request"
+
+[CIN_CONTROLLER_CONFLICT]
+other = "another tab took control of this interview; reload and try again"
+
+[CIN_NOT_CONTROLLER]
+other = "only the controlling tab can do this"
+
+[CIN_TERMINAL]
+other = "the interview has already ended"
+
+[CIN_NOT_LIVE]
+other = "the interview is not in progress"
+
+[CIN_NOTICE_UNAVAILABLE]
+other = "the interview notice is unavailable; try again later"
+
+[CIN_DEPENDENCY_UNAVAILABLE]
+other = "the interview service is unavailable; try again later"
+
+[CIN_START_UNCERTAIN]
+other = "the interview start could not be confirmed; retry with the same key"
+
 [REQUIRED_VALUE]
 other = "a required publication value is missing"
 

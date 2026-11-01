@@ -10,6 +10,3 @@ var (
 	// ErrInvalidIdempotencyKey reports an Idempotency-Key that breaks the local character rule.
 	ErrInvalidIdempotencyKey = errors.New("invalid idempotency key")
 )
-
-// errNotImplemented marks an operation whose behavior has not been written yet.
-var errNotImplemented = errors.New("not implemented")

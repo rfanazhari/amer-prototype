@@ -81,16 +81,9 @@ func (q GetInterview) execution(ctx context.Context, assignmentID string) (servi
 
 // fillExecution adds the safe execution, the controller-dependent action and live progress to the view.
 func (q GetInterview) fillExecution(ctx context.Context, view *dto.InterviewView, facts service.ExecutionFacts, assignmentID, tab string) error {
-	execution := &dto.InterviewExecutionView{ID: facts.ID, State: facts.State, Version: facts.Version, HardDeadline: copyTime(facts.HardDeadline)}
-	controller, err := q.Controllers.Find(ctx, assignmentID)
-	if err != nil && !errors.Is(err, candidateinterviewport.ErrNotFound) {
+	execution, err := safeExecution(ctx, q.Controllers, facts, assignmentID, tab)
+	if err != nil {
 		return err
-	}
-	if err == nil {
-		execution.ControllerVersion = controller.Version
-		if id, parseErr := candidateinterview.ParseControllerID(tab); parseErr == nil {
-			execution.IsCurrentController = controller.ControllerID == id
-		}
 	}
 	view.Execution = execution
 	switch facts.State {
@@ -103,6 +96,22 @@ func (q GetInterview) fillExecution(ctx context.Context, view *dto.InterviewView
 		view.Progress = q.progress(ctx, facts.ID)
 	}
 	return nil
+}
+
+// safeExecution builds the allow-listed execution view and marks whether the calling tab is the current controller.
+func safeExecution(ctx context.Context, controllers candidateinterviewport.Controllers, facts service.ExecutionFacts, assignmentID, tab string) (*dto.InterviewExecutionView, error) {
+	execution := &dto.InterviewExecutionView{ID: facts.ID, State: facts.State, Version: facts.Version, HardDeadline: copyTime(facts.HardDeadline)}
+	controller, err := controllers.Find(ctx, assignmentID)
+	if err != nil && !errors.Is(err, candidateinterviewport.ErrNotFound) {
+		return nil, err
+	}
+	if err == nil {
+		execution.ControllerVersion = controller.Version
+		if id, parseErr := candidateinterview.ParseControllerID(tab); parseErr == nil {
+			execution.IsCurrentController = controller.ControllerID == id
+		}
+	}
+	return execution, nil
 }
 
 // progress returns the candidate-safe progress, or nil when runtime has none or fails.

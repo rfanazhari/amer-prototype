@@ -2,7 +2,6 @@ package candidateinterviewquery
 
 import (
 	"context"
-	"errors"
 
 	"github.com/rfanazhari/amer-prototype/application/dto"
 	"github.com/rfanazhari/amer-prototype/application/repository/candidateinterviewport"
@@ -16,9 +15,25 @@ type GetExecution struct {
 	Lifecycle   service.ExecutionLifecycle
 }
 
-// Execute returns the candidate-safe execution, or a not-found error outside the assignment.
-func (q GetExecution) Execute(_ context.Context, _ GetExecutionInput) (*dto.InterviewExecutionView, error) {
-	return nil, errors.New("not implemented")
+// Execute returns the candidate-safe execution through the lifecycle read only, never commit-or-find. An execution
+// that is not the assignment's one is not found; an unbound lifecycle adapter is a dependency failure.
+func (q GetExecution) Execute(ctx context.Context, in GetExecutionInput) (*dto.InterviewExecutionView, error) {
+	session, err := q.Current.Resolve(ctx)
+	if err != nil {
+		return nil, err
+	}
+	facts, err := q.Lifecycle.Find(ctx, session.AssignmentID)
+	if err != nil {
+		return nil, err
+	}
+	if facts.ID != in.ExecutionID {
+		return nil, service.ErrInterviewNotFound
+	}
+	view, err := safeExecution(ctx, q.Controllers, facts, session.AssignmentID, in.ControllerID)
+	if err != nil {
+		return nil, err
+	}
+	return view, nil
 }
 
 var _ GetExecutionOperation = GetExecution{}

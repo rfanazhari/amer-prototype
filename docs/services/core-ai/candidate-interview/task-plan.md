@@ -67,9 +67,10 @@ Companion plans: [Identity and Access](../identity-access/task-plan.md) owns the
 
 ### Orchestration that can use ports before siblings exist
 
-- [ ] **T7. Orchestrate start, takeover, cancel, and polling** — Application — L
+- [x] **T7. Orchestrate start, takeover, cancel, and polling** — Application — L
   - Ticket ID: `CORE-CIN-007`
   - depends: T2, T3, T5 — ref: design §5–6, BR-CORE-040..047.
+  - Evidence: `candidateinterviewusecase.StartInterview`, `Takeover` and `CancelInterview` and `candidateinterviewquery.GetExecution` are plain structs over Mockery-generated ports (no new interfaces, so `make mocks` was not needed). Start validates the `Idempotency-Key` and tab id, then notice catalog, stored consent of the current version, and coverage (`expiresAt.After(now+15m)`), and only then calls `CommitOrFind` once; it writes no consent and claims the controller for the starting tab (an existing controller is read back). Takeover and cancel reject an execution id outside the assignment as not found; a stale controller version is `ErrInterviewConflict`; a terminal execution is refused for both and is never relabelled; a non-controller cancel returns before `Cancel`; a controller cancel sends `candidate_early_stop`. `GetExecution` uses `Find` only and shares `safeExecution` with `GetInterview`. New usecase sentinels `ErrConsentRequired`, `ErrNotController`, `ErrInvalidIdempotencyKey` are mapped to public codes in T9. Mockery mocks only, no real execution row, no SQL, no HTTP. `make test`, `make test.all`, `make test.contract`, `make test.architecture`, `make lint`, and `make test.security` pass; database suites were skipped (no `TEST_DATABASE_URL`).
   - DoD: Mockery tests show start calls lifecycle only after current consent and coverage; the same idempotency key and consent id return one execution; a different consent id conflicts; coverage equality does not call the port; GET does not call commit-or-find; a non-controller cancel does not call the port; a controller cancel asks for `candidate_early_stop` and the following view is `CANCELLED`; a terminal view has no report field; an unbound lifecycle port returns the dependency error and does not insert consent. `make test` passes. This task does not claim a real execution row.
 
 - [ ] **T8. Persist controller takeover** — Infrastructure — M

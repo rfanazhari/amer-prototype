@@ -47,6 +47,13 @@ type AssignmentLock interface {
 	WithAssignment(ctx context.Context, assignmentID string, fn func(ctx context.Context, row AssignmentRow) error) error
 }
 
+// Transactor runs a unit of work in one database transaction without an assignment lock.
+type Transactor interface {
+	// WithTransaction runs fn in one transaction and rolls back when fn returns an error.
+	// Store calls made with the context handed to fn join that transaction.
+	WithTransaction(ctx context.Context, fn func(ctx context.Context) error) error
+}
+
 // ExecutionStore reads and writes executions within a transaction boundary.
 type ExecutionStore interface {
 	// Insert writes a new CREATED execution and its initial transition without an interview pin.

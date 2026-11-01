@@ -24,10 +24,11 @@ Companion plans: [Identity and Access](../identity-access/task-plan.md) owns the
 
 ### Contract decision
 
-- [ ] **T1. Record the notice version and statement** — Product / composition — M
+- [x] **T1. Record the notice version and statement** — Product / composition — M
   - Ticket ID: `CORE-CIN-001`
   - depends: none — ref: design §3 seed, §6, §9 Q1; decision-log D1.
-  - Blocked by: Q1, product owner — ready when the owner supplies the version and the statement text.
+  - Blocked by: none. Q1 resolved 2026-11-02: version `notice-261102`, statement in design §6.
+  - Evidence: `infrastructure/runtime/candidatenotice.go` holds the catalog value and `TestCurrentCandidateNotice*` checks it against design §6. Wiring it into the `NoticeCatalog` port is T3/T5; accept is not live until T5 and T6.
   - DoD: design §6 names the exact version and the full statement. The version matches the §3 character rule. Composition loads that catalog and an empty catalog is no longer the production setting. No other notice text is invented. Documents only, plus the catalog value. No claim that accept is live until T5 and T6 have run.
 
 ### Independent foundation

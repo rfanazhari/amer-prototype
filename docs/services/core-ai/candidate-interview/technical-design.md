@@ -146,7 +146,7 @@ No migration seed and no seeder. The notice statement is not a row. The current 
 
 | Target | Stable key | Proposed values | Purpose / status | Environments |
 |---|---|---|---|---|
-| In-memory notice catalog | `notice version` | Unresolved version and statement | Required before a real candidate can accept. Source: product owner, Q1. | All, once approved. Absent until then. |
+| In-memory notice catalog | `notice version` | `notice-261102` and the statement in section 6 | Required before a real candidate can accept. Source: product owner, Q1 (resolved). | All. |
 
 Open data decision Q1 blocks T1 and any demonstration that records a real acceptance. It does not block the schema, the fail-closed operations, or tests that inject a fixture notice.
 
@@ -271,6 +271,26 @@ When an execution exists:
 | `CREATED` or `RUNNING`, this tab is the controller | `cancel` |
 | Terminal | none |
 
+### Notice catalog value
+
+Resolved Q1 (product owner, 2026-11-02). The catalog is a composition constant in `infrastructure/runtime/candidatenotice.go`, not a database row or seeder (D1). Version: `notice-261102`. A statement change requires a new version.
+
+Statement:
+
+```text
+Pemberitahuan dan Persetujuan Interview
+
+Interview ini dilakukan secara lisan dengan agen AI dan berlangsung maksimal 15 menit. Dengan menekan "Saya setuju", Anda menyatakan memahami dan menyetujui hal berikut:
+
+1. Suara Anda direkam dan diubah menjadi transkrip selama interview berlangsung.
+2. Rekaman, transkrip, dan hasil penilaian dipakai hanya untuk proses seleksi pada lowongan yang Anda lamar.
+3. Hasil interview hanya dapat dilihat oleh tim rekrutmen yang berwenang. Kandidat lain tidak dapat melihatnya.
+4. Anda dapat menghentikan interview kapan saja dengan tombol berhenti. Interview yang dihentikan dicatat sebagai dibatalkan.
+5. Persetujuan ini tercatat bersama versi pemberitahuan dan waktu Anda menyetujuinya.
+
+Jika Anda tidak setuju, tutup halaman ini dan hubungi tim rekrutmen.
+```
+
 ### POST `/candidate/consents`
 
 Body exactly `{ "noticeVersion": "<version>", "accepted": true }`. Response `data`: `{ "id", "noticeVersion", "acceptedAt" }`. 201 on insert, 200 when that assignment already has that version.
@@ -352,7 +372,7 @@ Precedence for every new route:
 
 | ID | Question | Owner | Blocks | Ready when |
 |---|---|---|---|---|
-| Q1 | What notice version and statement text are shown? | Product owner | T1, and any real acceptance demonstration | The version matches §3's character rule and the statement is the approved text, recorded in §6 and the catalog. |
+| Q1 | What notice version and statement text are shown? Resolved 2026-11-02: `notice-261102` and the statement in section 6. | Product owner | None | The version matches §3's character rule and the statement is the approved text, recorded in §6 and the catalog. |
 | Q2 | What happens if the candidate withdraws consent after start? | Product and data owner | No current task. Withdrawal stays unimplemented. | A later decision adds a task. This plan does not add `withdrawn_at`. |
 | Q3 | Lifecycle commit-or-find, read, deadline, and cancel are not implemented. `interview_executions` is a pin. | Execution Lifecycle capability | T11, and the live portion of T13 | The §6.3 lifecycle operations exist and are covered by that capability's own proof. |
 | Q4 | Runtime candidate-safe progress and controller fencing are not implemented. | Interview Runtime capability | T12, and the progress portion of T13 | The §6.3 runtime operations exist. |

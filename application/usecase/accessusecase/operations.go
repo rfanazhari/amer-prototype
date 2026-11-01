@@ -29,3 +29,21 @@ type LogoutOperation interface {
 	// Execute revokes the current administrative session or reports commit uncertainty.
 	Execute(ctx context.Context) error
 }
+
+// CreateCandidateOperation records a reusable candidate identity under current HR authority.
+type CreateCandidateOperation interface {
+	// Execute persists a new candidate after current HR recheck.
+	Execute(ctx context.Context, name, email string) (*dto.Candidate, error)
+}
+
+// IssueInvitationOperation issues or replaces an assignment invitation under current HR authority.
+type IssueInvitationOperation interface {
+	// Execute persists a new invitation after assignment-first eligibility checks and returns the plaintext token once.
+	Execute(ctx context.Context, assignmentID string) (*dto.IssuedInvitation, error)
+}
+
+// ExchangeInvitationOperation establishes a candidate session from an invitation secret.
+type ExchangeInvitationOperation interface {
+	// Execute accepts only the invitation token and returns session metadata after commit.
+	Execute(ctx context.Context, token string) (*dto.CandidateAccess, error)
+}

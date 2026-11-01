@@ -3,6 +3,7 @@ package accessport
 import (
 	"context"
 	"errors"
+	"time"
 )
 
 // ErrAssignmentAccessNotReady reports that a runtime Interview adapter is not wired.
@@ -46,6 +47,14 @@ func (f AssignmentFacts) BoundToCandidate(candidateID string) bool {
 type AssignmentTx interface {
 	// Facts returns current assignment access facts for the locked assignment.
 	Facts(ctx context.Context) (AssignmentFacts, error)
+	// CurrentInvitations lists unrevoked invitations for the locked assignment.
+	CurrentInvitations(ctx context.Context) ([]InvitationRecord, error)
+	// RevokeInvitation writes revoked_at explicitly for an invitation owned by the locked assignment.
+	RevokeInvitation(ctx context.Context, id string, revokedAt *time.Time) error
+	// InsertInvitation stores a new invitation inside the locked assignment boundary.
+	InsertInvitation(ctx context.Context, record InvitationRecord) error
+	// InsertCandidateSession stores a new candidate session inside the locked assignment boundary.
+	InsertCandidateSession(ctx context.Context, record CandidateSessionRecord) error
 }
 
 // AssignmentAccess collaborates with the Interview assignment owner using assignment-first locking.

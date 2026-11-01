@@ -27,6 +27,11 @@ func AllowsAgentConfiguration(role enum.Role) bool {
 	return role == enum.HR
 }
 
+// AllowsCandidateAdministration reports whether the current role may create or read candidates and issue invitations.
+func AllowsCandidateAdministration(role enum.Role) bool {
+	return role == enum.HR
+}
+
 // KnownAgentConfigurationOperation reports whether operation is a recognized ACP action.
 func KnownAgentConfigurationOperation(operation string) bool {
 	switch operation {

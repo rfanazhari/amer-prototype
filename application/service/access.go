@@ -34,6 +34,8 @@ var (
 	ErrForbidden = errors.New("administrative operation is forbidden")
 	// ErrBootstrapIncompatible reports existing administrative state that bootstrap must not overwrite.
 	ErrBootstrapIncompatible = errors.New("bootstrap administrative state is incompatible")
+	// ErrCandidateSessionUnbound reports a missing, expired, revoked or assignment-mismatched candidate session.
+	ErrCandidateSessionUnbound = errors.New("candidate session is not bound to a current assignment")
 )
 
 const (
@@ -69,4 +71,10 @@ type CSRFTokens interface {
 type CurrentAdministrativeSession interface {
 	// Resolve returns the current session and account or ErrSessionUnbound.
 	Resolve(ctx context.Context) (accessport.SessionRecord, accessport.AccountRecord, error)
+}
+
+// CurrentCandidateSession resolves the trusted candidate session cookie binding.
+type CurrentCandidateSession interface {
+	// Resolve returns the current candidate session or ErrCandidateSessionUnbound.
+	Resolve(ctx context.Context) (accessport.CandidateSessionRecord, error)
 }

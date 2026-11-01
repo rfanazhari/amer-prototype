@@ -16,6 +16,18 @@ type CurrentSessionOperation interface {
 	Execute(ctx context.Context) (*dto.AdministrativeCurrentSession, error)
 }
 
+// CandidateOperation returns a detached candidate identity for current HR selection.
+type CandidateOperation interface {
+	// Execute returns one candidate by identity after current HR authorization.
+	Execute(ctx context.Context, id string) (*dto.Candidate, error)
+}
+
+// CandidateSessionOperation returns the current candidate session after trusted assignment binding.
+type CandidateSessionOperation interface {
+	// Execute returns detached candidate, assignment and session material without creating execution.
+	Execute(ctx context.Context) (*dto.CandidateAccess, error)
+}
+
 // CurrentSession returns the current administrative session after trusted binding.
 type CurrentSession struct {
 	Current service.CurrentAdministrativeSession

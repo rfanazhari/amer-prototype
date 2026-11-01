@@ -11,6 +11,9 @@ var ErrInvalidSessionLifetime = errors.New("invalid session lifetime")
 // AdministrativeDuration is the exact created-to-expiry span for administrative and candidate sessions.
 const AdministrativeDuration = 2 * time.Hour
 
+// InvitationDuration is the exact created-to-expiry span for assignment invitations.
+const InvitationDuration = 24 * time.Hour
+
 // SessionLifetime is an immutable created/expiry pair with exact-boundary current access semantics.
 type SessionLifetime struct {
 	createdAt time.Time

@@ -5,6 +5,8 @@ import "errors"
 var (
 	// ErrNotFound reports that an administrative account or session was not stored.
 	ErrNotFound = errors.New("administrative access record not found")
+	// ErrInvitationUnavailable reports an indistinguishable missing, expired, revoked or inaccessible invitation.
+	ErrInvitationUnavailable = errors.New("invitation is unavailable")
 )
 
 // AccountConflictError classifies a duplicate canonical administrative email without exposing existing identifiers.

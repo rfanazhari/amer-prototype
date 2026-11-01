@@ -56,6 +56,70 @@ func AdministrativeAccountRecord(t *testing.T) accessport.AccountRecord {
 	}
 }
 
+// CandidateID is a distinct candidate identity used by access tests.
+const CandidateID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1"
+
+// AssignmentID is a distinct interview assignment identity used by access tests.
+const AssignmentID = "dddddddd-dddd-4ddd-8ddd-ddddddddddd1"
+
+// InvitationID is a distinct invitation identity used by access tests.
+const InvitationID = "cccccccc-cccc-4ccc-8ccc-ccccccccccc1"
+
+// CandidateSessionID is a distinct candidate session identity used by access tests.
+const CandidateSessionID = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeee1"
+
+// InvitationTokenHash is a 64-character digest in the invitation credential namespace.
+const InvitationTokenHash = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+
+// CandidateRecord returns a fresh HR-created candidate identity with canonical contact.
+func CandidateRecord(t *testing.T) accessport.CandidateRecord {
+	t.Helper()
+	return accessport.CandidateRecord{
+		ID:        CandidateID,
+		Name:      "Andi Pratama",
+		Email:     "andi@example.com",
+		CreatedBy: ID,
+		CreatedAt: Now(),
+		UpdatedAt: Now(),
+	}
+}
+
+// InvitationRecord returns a fresh unrevoked invitation bound to the fixture assignment.
+func InvitationRecord(t *testing.T) accessport.InvitationRecord {
+	t.Helper()
+	return accessport.InvitationRecord{
+		ID:           InvitationID,
+		AssignmentID: AssignmentID,
+		TokenHash:    InvitationTokenHash,
+		CreatedBy:    ID,
+		CreatedAt:    Now(),
+		ExpiresAt:    Now().Add(24 * time.Hour),
+	}
+}
+
+// CandidateSessionRecord returns a fresh unrevoked candidate session bound to the fixture assignment.
+func CandidateSessionRecord(t *testing.T) accessport.CandidateSessionRecord {
+	t.Helper()
+	return accessport.CandidateSessionRecord{
+		ID:           CandidateSessionID,
+		AssignmentID: AssignmentID,
+		InvitationID: InvitationID,
+		TokenHash:    TokenHash,
+		CreatedAt:    Now(),
+		ExpiresAt:    Now().Add(2 * time.Hour),
+	}
+}
+
+// AssignmentFacts returns live Interview-owned access facts for the fixture assignment and candidate.
+func AssignmentFacts(t *testing.T) accessport.AssignmentFacts {
+	t.Helper()
+	return accessport.AssignmentFacts{
+		AssignmentID: AssignmentID,
+		CandidateID:  CandidateID,
+		RevisionID:   "8e4f3155-a072-4d24-bf66-5e6f708192a3",
+	}
+}
+
 // AdministrativeSessionRecord returns a fresh unrevoked session bound to the administrative fixture account.
 func AdministrativeSessionRecord(t *testing.T) accessport.SessionRecord {
 	t.Helper()

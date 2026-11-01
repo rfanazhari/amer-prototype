@@ -54,3 +54,40 @@ type AdministrativeCurrentSession struct {
 	Session   AdministrativeSession
 	CSRFToken string
 }
+
+// Candidate is a detached candidate identity without credentials.
+type Candidate struct {
+	ID        string
+	Name      string
+	Email     string
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+// FromCandidate copies identity fields from a persisted candidate record.
+func FromCandidate(record accessport.CandidateRecord) Candidate {
+	return Candidate{
+		ID:        record.ID,
+		Name:      record.Name,
+		Email:     record.Email,
+		CreatedAt: record.CreatedAt,
+		UpdatedAt: record.UpdatedAt,
+	}
+}
+
+// IssuedInvitation is the detached invitation view including the plaintext token shown once.
+type IssuedInvitation struct {
+	ID           string
+	AssignmentID string
+	ExpiresAt    time.Time
+	Token        string
+}
+
+// CandidateAccess is the detached exchange or current-session view without execution material.
+type CandidateAccess struct {
+	Candidate    Candidate
+	AssignmentID string
+	Session      AdministrativeSession
+	SessionToken string
+	CSRFToken    string
+}

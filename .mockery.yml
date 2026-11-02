@@ -148,6 +148,7 @@ packages:
       ExecutionStore:
       CommandStore:
       ProgressCommitment:
+      AttemptLedger:
   github.com/rfanazhari/amer-prototype/application/usecase/executionusecase:
     config:
       dir: test/mocks

@@ -11,6 +11,8 @@ import (
 // SessionCommand is the stored identity of one accepted session-attempt request.
 // Key is already scoped to the candidate session. AnswerSDP is the provider answer returned on the first request.
 type SessionCommand struct {
+	// State is pending, succeeded, failed or legacy; empty is accepted only by old test fixtures.
+	State            string
 	ID               string
 	ExecutionID      string
 	Key              string

@@ -47,6 +47,7 @@ packages:
       InterviewProgress:
       InterviewLifecycle:
       InterviewDriver:
+      InterviewSummarizer:
   github.com/rfanazhari/amer-prototype/application/usecase/taskusecase:
     config:
       dir: test/mocks

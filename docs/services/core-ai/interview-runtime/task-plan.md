@@ -53,8 +53,9 @@ Every Go task also requires `gofmt` on changed Go files, comments on new declara
   - depends: T1 — ref: design §3.
   - DoD: `migrations/pgsql/000010_interview_runtime.up.sql` and `.down.sql` match the eight-table design, including checks, partial unique indexes, and FKs to `interview_executions` and `interview_progress`. No FK to a missing attempt table. No seed inserts. `schema.ReleaseVersion` becomes 10 and the runner accepts target 10 only after this task. Startup still does not migrate. Disposable PostgreSQL proof, via `make test.docker` or an authorized integration database: clean upgrade from version 9 keeps existing pins, fresh up creates the tables, down drops only the new tables. If `TEST_DATABASE_URL` is absent, say the database proof was skipped. Do not describe that skip as a pass.
 
-- [ ] **T5. Persist classified progress with GORM** — Infrastructure — L
+- [x] **T5. Persist classified progress with GORM** — Infrastructure — L
   - Ticket ID: `CORE-IRT-005`
+  - Evidence: [T5 verification](t5-verification.md); store in `infrastructure/repository/interviewrepository`. PostgreSQL proof written but skipped (no `TEST_DATABASE_URL`, Docker daemon down). Follow-ups, reconnect counters and clarification/omission entry ids have no table in version 10 and are refused, not dropped.
   - depends: T1, T4 — ref: design §3 adapter and transactions.
   - DoD: store maps progress, coverage, sessions, handoffs, checkpoints, technical losses, and transcript rows that the caller already marked fragment or final. Explicit `Select` persists `clarification_count` 0 and null `closed_at` / `summary`. Rollback of a handoff leaves the source stage. Unique open session and unique handoff per stage are enforced by PostgreSQL tests. Restore of a corrupt state is a technical error. The store does not interpret provider event names. Same database-proof rule as T4.
 

@@ -22,7 +22,7 @@ Companion dependencies, not implemented by this plan:
 - DoD: verifiable
 - Blocked: not executable until the ready condition is true and this design is updated when the condition changes the contract
 
-Every Go task also requires `gofmt` on changed Go files, comments on new declarations so `make test.architecture` passes, and `make lint` clean for the touched packages. Domain and application tasks run `make test`. T1 and T2 are complete; all other tasks remain unchanged.
+Every Go task also requires `gofmt` on changed Go files, comments on new declarations so `make test.architecture` passes, and `make lint` clean for the touched packages. Domain and application tasks run `make test`. T1, T2, and T3 are complete; all other tasks remain unchanged.
 
 ## Tasks
 
@@ -42,8 +42,9 @@ Every Go task also requires `gofmt` on changed Go files, comments on new declara
 
 ### Workflow and schema that do not need event names
 
-- [ ] **T3. Orchestrate proposals, handoff order, and budgets with mocks** — Application — L
+- [x] **T3. Orchestrate proposals, handoff order, and budgets with mocks** — Application — L
   - Ticket ID: `CORE-IRT-003`
+  - Evidence: [T3 verification](t3-verification.md); mocked workflow in `application/usecase/interviewusecase`.
   - depends: T1, T2 — ref: design §5–§6, decision-log D1, D2, D3, D4.
   - DoD: mocked tests show an unauthorized proposal writes nothing; a successful proposal commits the handoff before any create-session call; summary failure still commits structured evidence; reconnect uses the same execution id and a new session; an old attempt id is dropped; activation passes the section 10 budget into the lifecycle port; the third activation attempt is not opened. Clock is injected. No live provider and no claim that a real fence exists.
 

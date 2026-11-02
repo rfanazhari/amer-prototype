@@ -43,19 +43,19 @@ func pinnedRevision(t *testing.T) agentconfig.PublishedRevision[valueobject.HRCo
 // harness owns generated port mocks and a detached in-memory boundary for orchestration assertions.
 // It simulates callback success/rollback, without asserting SQL or real lifecycle locking.
 type harness struct {
-	workflow                                              interviewusecase.Workflow
-	lifecycle                                             *mocks.InterviewLifecycle
-	store                                                 *mocks.ProgressStore
-	driver                                                *mocks.InterviewDriver
-	summary                                               *mocks.InterviewSummarizer
-	record                                                interviewport.ProgressRecord
-	exists                                                bool
-	steps                                                 []string
-	fenceErr, commitErr, createErr, attachErr, summaryErr error
-	activationCalls                                       int
-	budgetRequests                                        []service.InterviewActivation
-	creates                                               []service.InterviewVoiceCreate
-	contexts                                              []service.InterviewVoiceContext
+	workflow                                                        interviewusecase.Workflow
+	lifecycle                                                       *mocks.InterviewLifecycle
+	store                                                           *mocks.ProgressStore
+	driver                                                          *mocks.InterviewDriver
+	summary                                                         *mocks.InterviewSummarizer
+	record                                                          interviewport.ProgressRecord
+	exists                                                          bool
+	steps                                                           []string
+	fenceErr, writeErr, commitErr, createErr, attachErr, summaryErr error
+	activationCalls                                                 int
+	budgetRequests                                                  []service.InterviewActivation
+	creates                                                         []service.InterviewVoiceCreate
+	contexts                                                        []service.InterviewVoiceContext
 }
 
 // authority supplies independent lifecycle authority; progress versions are tracked separately.
@@ -94,6 +94,9 @@ func newHarness(t *testing.T, covered bool) *harness {
 		return nil
 	}).Maybe()
 	h.lifecycle.On("WithProgress", mock.Anything, mock.Anything, mock.Anything).Return(func(ctx context.Context, _ service.InterviewAttempt, write func(context.Context) error) error {
+		if h.writeErr != nil {
+			return h.writeErr
+		}
 		before := cloneRecord(t, h.record)
 		err := write(context.WithValue(ctx, txKey{}, true))
 		if err != nil || h.commitErr != nil {
@@ -287,13 +290,21 @@ func TestWorkflowActivation(t *testing.T) {
 			assert.Equal(t, "offer\r\n", h.creates[0].SDP)
 			assert.Equal(t, "replacement-attempt", h.creates[0].Session.AttemptID)
 			assert.Equal(t, 2, h.record.Snapshot.FollowUpLimit)
-			// The lifecycle owns the persisted count; each call here represents a separate failed setup admission.
-			h.exists = false
-			_, _ = h.workflow.Activate(context.Background(), r)
-			h.exists = false
-			_, err = h.workflow.Activate(context.Background(), r)
-			require.ErrorIs(t, err, interview.ErrBudget)
-			assert.Len(t, h.creates, 2)
+			if tt.providerFails {
+				// Retry on the same persisted progress; the lifecycle owns the activation count.
+				r.ProgressVersion = h.record.Version
+				r.SessionID = "retry-session"
+				r.IdempotencyKey = "retry-key"
+				_, err = h.workflow.Activate(context.Background(), r)
+				require.ErrorIs(t, err, h.createErr)
+				r.ProgressVersion = h.record.Version
+				r.SessionID = "third-session"
+				r.IdempotencyKey = "third-key"
+				_, err = h.workflow.Activate(context.Background(), r)
+				require.ErrorIs(t, err, interview.ErrBudget)
+				assert.Len(t, h.creates, 2)
+				h.store.AssertNumberOfCalls(t, "Insert", 1)
+			}
 		})
 	}
 }
@@ -335,7 +346,12 @@ func TestWorkflowReconnect(t *testing.T) {
 				h.record.Snapshot.StageActivatedAt = at
 				h.record.Snapshot.Reconnect.DetectedAt = &at
 			}
-			h.record.Checkpoints = []interviewport.Checkpoint{{ID: "checkpoint", Stage: enum.StageBackground, SessionID: "old-session", AttemptID: "old-attempt", CommittedAt: fixedTime()}}
+			p, restoreErr := interview.RestoreProgress(h.record.Snapshot)
+			require.NoError(t, restoreErr)
+			require.NoError(t, p.RecordEntry(interview.TranscriptEntry{ID: "committed", Stage: enum.StageBackground, Speaker: interview.Candidate, State: interview.Final, Body: "Checkpoint answer"}))
+			require.NoError(t, p.RecordEntry(interview.TranscriptEntry{ID: "uncited", Stage: enum.StageBackground, Speaker: interview.Candidate, State: interview.Final, Body: "Outside checkpoint"}))
+			h.record.Snapshot = p.Snapshot()
+			h.record.Checkpoints = []interviewport.Checkpoint{{ID: "checkpoint", Stage: enum.StageBackground, SessionID: "old-session", AttemptID: "old-attempt", EntryIDs: []string{"committed"}, CommittedAt: fixedTime().UTC().Truncate(time.Millisecond)}}
 			created, err := h.workflow.Reconnect(context.Background(), request(t, h))
 			if tt.wantErr {
 				require.Error(t, err)
@@ -353,8 +369,8 @@ func TestWorkflowReconnect(t *testing.T) {
 			assert.Equal(t, 1, h.record.Snapshot.Reconnect.Attempts)
 			assert.Nil(t, h.record.Snapshot.Reconnect.DetectedAt)
 			require.Len(t, h.contexts, 1)
-			assert.Contains(t, h.contexts[0].Text, "checkpoint")
-			assert.NotContains(t, h.contexts[0].Text, "uncommitted")
+			assert.JSONEq(t, `{"checkpointId":"checkpoint","entries":[{"ID":"committed","Stage":"background","Speaker":"candidate","State":"final","Body":"Checkpoint answer"}]}`, h.contexts[0].Text)
+			assert.NotContains(t, h.contexts[0].Text, "Outside checkpoint")
 			assert.Equal(t, "reconnect", h.budgetRequests[0].Intent)
 			// After replacement even the former current attempt must be dropped by the lifecycle fence.
 			h.fenceErr = interview.ErrConflict

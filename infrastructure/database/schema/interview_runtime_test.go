@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// interviewRuntimeTables are the eight tables version 10 adds, in dependency order.
+// interviewRuntimeTables are the eight tables version 10 adds, in creation order.
 var interviewRuntimeTables = []string{
 	"interview_progress",
 	"interview_coverage_items",
@@ -108,11 +108,34 @@ func TestInterviewRuntimeMigrationArtifacts(t *testing.T) {
 	require.NotContains(t, up, "REFERENCES public.agent_execution_attempts", "attempt_id has no foreign key")
 	require.NotRegexp(t, regexp.MustCompile(`(?i)ALTER TABLE[^;]*interview_executions`), up, "the execution pin table gains nothing")
 
-	last := 0
-	for i := len(interviewRuntimeTables) - 1; i >= 0; i-- {
-		at := strings.Index(down, "DROP TABLE IF EXISTS public."+interviewRuntimeTables[i])
-		require.Greater(t, at, last, interviewRuntimeTables[i]+" drops after its dependents")
-		last = at
+	// dependencyCase names a child table that must disappear before its referenced parent.
+	type dependencyCase struct {
+		name   string
+		child  string
+		parent string
+	}
+	dependencies := []dependencyCase{
+		{name: "coverage citations before transcript", child: "interview_coverage_items", parent: "interview_transcript_entries"},
+		{name: "transcript before sessions", child: "interview_transcript_entries", parent: "interview_voice_sessions"},
+		{name: "checkpoint before sessions", child: "interview_checkpoints", parent: "interview_voice_sessions"},
+		{name: "commands before progress", child: "interview_session_commands", parent: "interview_progress"},
+		{name: "handoffs before progress", child: "interview_handoffs", parent: "interview_progress"},
+		{name: "coverage before progress", child: "interview_coverage_items", parent: "interview_progress"},
+		{name: "losses before progress", child: "interview_technical_losses", parent: "interview_progress"},
+		{name: "sessions before progress", child: "interview_voice_sessions", parent: "interview_progress"},
+		{name: "transcript before progress", child: "interview_transcript_entries", parent: "interview_progress"},
+		{name: "checkpoint before progress", child: "interview_checkpoints", parent: "interview_progress"},
+	}
+	require.Equal(t, 8, strings.Count(down, "DROP TABLE"), "rollback owns only the eight runtime tables")
+	require.NotContains(t, down, "CASCADE", "rollback must not remove outside dependents")
+	for _, tt := range dependencies {
+		t.Run(tt.name, func(t *testing.T) {
+			child := strings.Index(down, "DROP TABLE IF EXISTS public."+tt.child+";")
+			parent := strings.Index(down, "DROP TABLE IF EXISTS public."+tt.parent+";")
+			require.GreaterOrEqual(t, child, 0)
+			require.GreaterOrEqual(t, parent, 0)
+			require.Less(t, child, parent, "child must drop before its referenced parent")
+		})
 	}
 	for _, kept := range []string{"interview_executions", "interview_assignments", "interview_consents", "interview_controllers"} {
 		require.NotRegexp(t, regexp.MustCompile(`DROP TABLE[^;]*public\.`+kept+`\b`), down, kept+" is not dropped")
@@ -266,6 +289,10 @@ VALUES ($1,$2,$3,'2026-01-02T00:00:00Z',1,'2026-01-02T00:00:00Z','2026-01-02T00:
 		seedVersionSevenPin(t, db)
 		migrateTo(t, runner, 9)
 		migrateTo(t, runner, 10)
+		seedInterviewRuntimeRollback(t, db)
+		for _, table := range interviewRuntimeTables {
+			require.Equal(t, 1, countRows(t, db, table), table)
+		}
 		got, dirty, err := runner.Execute(ctx, schema.Options{Action: "down", Steps: 1, Disposable: true})
 		require.NoError(t, err)
 		require.Equal(t, 9, got)
@@ -277,7 +304,9 @@ VALUES ($1,$2,$3,'2026-01-02T00:00:00Z',1,'2026-01-02T00:00:00Z','2026-01-02T00:
 		}
 		require.Equal(t, 1, countRows(t, db, "interview_executions"))
 		migrateTo(t, runner, 10)
-		require.Zero(t, countRows(t, db, "interview_progress"))
+		for _, table := range interviewRuntimeTables {
+			require.Zero(t, countRows(t, db, table), table)
+		}
 	})
 
 	t.Run("baseline stamps the catalog it matches", func(t *testing.T) {

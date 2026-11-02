@@ -55,6 +55,20 @@ func TestInterviewRuntimeMigrationArtifacts(t *testing.T) {
 		"updated_at >= created_at",
 		"REFERENCES public.interview_executions(id) ON UPDATE RESTRICT ON DELETE RESTRICT",
 		"REFERENCES public.interview_progress(execution_id) ON UPDATE RESTRICT ON DELETE RESTRICT",
+		// follow-ups and reconnect counters on progress
+		"follow_up_entry_ids jsonb NOT NULL DEFAULT '[]'::jsonb",
+		"jsonb_typeof(follow_up_entry_ids) = 'array'",
+		"reconnect_episodes integer NOT NULL DEFAULT 0",
+		"reconnect_attempts integer NOT NULL DEFAULT 0",
+		"reconnect_detected_at timestamptz NULL",
+		"reconnect_episodes BETWEEN 0 AND 2",
+		"reconnect_attempts BETWEEN 0 AND 2",
+		// clarification and omission evidence on coverage
+		"clarification_entry_id uuid NULL",
+		"omission_entry_id uuid NULL",
+		"(clarification_count = 1) = (clarification_entry_id IS NOT NULL)",
+		"interview_coverage_items_clarification_entry_id_fkey",
+		"interview_coverage_items_omission_entry_id_fkey",
 		// coverage
 		"UNIQUE (execution_id, question_id)",
 		"'pending', 'asked', 'answered', 'omitted'",

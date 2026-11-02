@@ -25,7 +25,19 @@ type findCase struct {
 func TestStoreFind(t *testing.T) {
 	corrupt := freshScenario()
 	corrupt.coverage[0][4] = "weird"
+	countOnly := freshScenario()
+	countOnly.coverage[0][6] = int64(1)
 	tests := []findCase{
+		{
+			name:     "clarification, follow-up and reconnect state restore from their columns",
+			scenario: clarifiedScenario(),
+			check: func(t *testing.T, rec interviewport.ProgressRecord) {
+				assert.Equal(t, interview.Asked, rec.Snapshot.Coverage[0].State)
+				assert.Equal(t, entryTwo, rec.Snapshot.Coverage[0].ClarificationEntryID)
+				assert.Equal(t, []string{entryOne}, rec.Snapshot.FollowUps)
+				assert.Equal(t, interview.ReconnectState{Episodes: 1, Attempts: 1}, rec.Snapshot.Reconnect)
+			},
+		},
 		{
 			name:     "fresh progress restores pending coverage and the open session",
 			scenario: freshScenario(),
@@ -65,6 +77,7 @@ func TestStoreFind(t *testing.T) {
 		},
 		{name: "absent progress is not found", scenario: scenario{}, wantErr: interviewport.ErrNotFound},
 		{name: "corrupt coverage state is a technical restore error", scenario: corrupt, wantErr: interview.ErrRestore},
+		{name: "clarification count without an entry id is a technical restore error", scenario: countOnly, wantErr: interview.ErrRestore},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

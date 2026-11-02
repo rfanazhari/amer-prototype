@@ -38,8 +38,13 @@ func expectLockedLoad(f storeFixture, t *testing.T, sc scenario) {
 
 // expectProgressBump expects the version-guarded progress update with explicit nullable columns.
 func expectProgressBump(f storeFixture, stage string, from int64, affected int64) {
+	expectProgressWith(f, stage, from, affected, "[]", 0, 0, nil)
+}
+
+// expectProgressWith expects the guarded progress update with explicit follow-up and reconnect columns.
+func expectProgressWith(f storeFixture, stage string, from, affected int64, followUps string, episodes, attempts int, detected any) {
 	f.mock.ExpectExec(`(?i)UPDATE "interview_progress" SET .+ WHERE execution_id = .+ AND committed_version = .+`).
-		WithArgs(stage, base, from+1, nil, now, execID, from).
+		WithArgs(stage, base, from+1, nil, followUps, episodes, attempts, detected, now, execID, from).
 		WillReturnResult(sqlmock.NewResult(0, affected))
 }
 
@@ -93,7 +98,7 @@ func TestStoreUpdate(t *testing.T) {
 			expect: func(f storeFixture) {
 				expectLockedLoad(f, t, freshScenario())
 				f.mock.ExpectExec(`(?i)UPDATE "interview_coverage_items" SET .+ WHERE execution_id = .+ AND question_id = .+`).
-					WithArgs("asked", nil, 0, nil, now, execID, "background").
+					WithArgs("asked", nil, 0, nil, nil, nil, now, execID, "background").
 					WillReturnResult(sqlmock.NewResult(0, 1))
 				expectProgressBump(f, "background", 3, 1)
 				f.mock.ExpectCommit()
@@ -132,6 +137,51 @@ func TestStoreUpdate(t *testing.T) {
 					WithArgs(sqlmock.AnyArg(), execID, "background", "screening", 1, nil, closedAt).
 					WillReturnResult(sqlmock.NewResult(0, 1))
 				expectProgressBump(f, "background", 3, 1)
+				f.mock.ExpectCommit()
+			},
+		},
+		{
+			name: "clarification persists count one and the model entry id", scenario: readyScenario(), expected: 3,
+			change: func(t *testing.T) func(*interviewport.ProgressRecord) error {
+				return func(rec *interviewport.ProgressRecord) error {
+					mutate(t, rec, func(p *interview.Progress) error { return p.Clarify("background", entryTwo) })
+					return nil
+				}
+			},
+			expect: func(f storeFixture) {
+				expectLockedLoad(f, t, askedModelScenario())
+				f.mock.ExpectExec(`(?i)UPDATE "interview_coverage_items" SET .+ WHERE execution_id = .+ AND question_id = .+`).
+					WithArgs("asked", nil, 1, nil, entryTwo, nil, now, execID, "background").
+					WillReturnResult(sqlmock.NewResult(0, 1))
+				expectProgressBump(f, "background", 3, 1)
+				f.mock.ExpectCommit()
+			},
+		},
+		{
+			name: "follow-up persists the cited candidate entry id", scenario: readyScenario(), expected: 3,
+			change: func(t *testing.T) func(*interviewport.ProgressRecord) error {
+				return func(rec *interviewport.ProgressRecord) error {
+					mutate(t, rec, func(p *interview.Progress) error { return p.FollowUp(entryOne) })
+					return nil
+				}
+			},
+			expect: func(f storeFixture) {
+				expectLockedLoad(f, t, readyScenario())
+				expectProgressWith(f, "background", 3, 1, `["`+entryOne+`"]`, 0, 0, nil)
+				f.mock.ExpectCommit()
+			},
+		},
+		{
+			name: "reconnect episode persists counters and the detection instant", scenario: freshScenario(), expected: 3,
+			change: func(t *testing.T) func(*interviewport.ProgressRecord) error {
+				return func(rec *interviewport.ProgressRecord) error {
+					mutate(t, rec, func(p *interview.Progress) error { return p.BeginReconnect(base.Add(time.Minute)) })
+					return nil
+				}
+			},
+			expect: func(f storeFixture) {
+				expectLockedLoad(f, t, freshScenario())
+				expectProgressWith(f, "background", 3, 1, "[]", 1, 0, base.Add(time.Minute))
 				f.mock.ExpectCommit()
 			},
 		},

@@ -26,6 +26,7 @@ const (
 	attemptOne = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb1"
 	attemptTwo = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb2"
 	entryOne   = "cccccccc-cccc-4ccc-8ccc-ccccccccccc1"
+	entryTwo   = "cccccccc-cccc-4ccc-8ccc-ccccccccccc2"
 	revisionID = "pinned-revision"
 )
 
@@ -37,8 +38,8 @@ var now = base.Add(5 * time.Minute)
 
 // progressColumns, coverageColumns and the following lists name the version 10 columns scanned on reads.
 var (
-	progressColumns   = []string{"execution_id", "follow_up_limit", "current_stage", "stage_activated_at", "committed_version", "controller_id", "created_at", "updated_at"}
-	coverageColumns   = []string{"id", "execution_id", "question_id", "stage", "state", "omission_reason", "clarification_count", "answer_entry_id", "updated_at"}
+	progressColumns   = []string{"execution_id", "follow_up_limit", "current_stage", "stage_activated_at", "committed_version", "controller_id", "follow_up_entry_ids", "reconnect_episodes", "reconnect_attempts", "reconnect_detected_at", "created_at", "updated_at"}
+	coverageColumns   = []string{"id", "execution_id", "question_id", "stage", "state", "omission_reason", "clarification_count", "answer_entry_id", "clarification_entry_id", "omission_entry_id", "updated_at"}
 	sessionColumns    = []string{"id", "execution_id", "stage", "attempt_id", "provider_session_id", "readiness_at", "replaced_session_id", "opened_at", "closed_at"}
 	entryColumns      = []string{"id", "execution_id", "session_id", "attempt_id", "speaker", "ordinal", "revision", "evidence_state", "body", "cites_entry_id", "supersedes_entry_id", "committed_at"}
 	lossColumns       = []string{"id", "execution_id", "question_id", "session_id", "attempt_id", "resolved_at", "created_at"}
@@ -119,7 +120,7 @@ func freshRecord(t *testing.T) interviewport.ProgressRecord {
 func pendingCoverage() [][]driver.Value {
 	rows := make([][]driver.Value, 0, 3)
 	for _, q := range []string{"background", "screening", "compensation"} {
-		rows = append(rows, []driver.Value{"row-" + q, execID, q, q, "pending", nil, int64(0), nil, base})
+		rows = append(rows, []driver.Value{"row-" + q, execID, q, q, "pending", nil, int64(0), nil, nil, nil, base})
 	}
 	return rows
 }
@@ -127,7 +128,7 @@ func pendingCoverage() [][]driver.Value {
 // freshScenario is stage background at progress version 3 with every question pending.
 func freshScenario() scenario {
 	return scenario{
-		progress: [][]driver.Value{{execID, int64(2), "background", base, int64(3), nil, base, base}},
+		progress: [][]driver.Value{{execID, int64(2), "background", base, int64(3), nil, "[]", int64(0), int64(0), nil, base, base}},
 		coverage: pendingCoverage(),
 		sessions: [][]driver.Value{{sessionOne, execID, "background", attemptOne, nil, nil, nil, base, nil}},
 	}
@@ -136,8 +137,25 @@ func freshScenario() scenario {
 // readyScenario answers the background question with a final candidate entry, so a handoff may be sealed.
 func readyScenario() scenario {
 	sc := freshScenario()
-	sc.coverage[0] = []driver.Value{"row-background", execID, "background", "background", "answered", nil, int64(0), entryOne, base}
+	sc.coverage[0] = []driver.Value{"row-background", execID, "background", "background", "answered", nil, int64(0), entryOne, nil, nil, base}
 	sc.entries = [][]driver.Value{{entryOne, execID, sessionOne, attemptOne, "candidate", int64(1), int64(1), "final", "I built payment APIs", nil, nil, base.Add(time.Second)}}
+	return sc
+}
+
+// askedModelScenario has the background question asked and a final model entry that can clarify it.
+func askedModelScenario() scenario {
+	sc := freshScenario()
+	sc.coverage[0] = []driver.Value{"row-background", execID, "background", "background", "asked", nil, int64(0), nil, nil, nil, base}
+	sc.entries = [][]driver.Value{{entryTwo, execID, sessionOne, attemptOne, "model", int64(1), int64(1), "final", "Could you say more?", nil, nil, base.Add(time.Second)}}
+	return sc
+}
+
+// clarifiedScenario asks the background question, stores a model clarification, one follow-up and one reconnect episode.
+func clarifiedScenario() scenario {
+	sc := readyScenario()
+	sc.progress = [][]driver.Value{{execID, int64(2), "background", base, int64(3), nil, `["` + entryOne + `"]`, int64(1), int64(1), nil, base, base}}
+	sc.coverage[0] = []driver.Value{"row-background", execID, "background", "background", "asked", nil, int64(1), nil, entryTwo, nil, base}
+	sc.entries = append(sc.entries, []driver.Value{entryTwo, execID, sessionOne, attemptOne, "model", int64(2), int64(1), "final", "Could you say more?", nil, nil, base.Add(2 * time.Second)})
 	return sc
 }
 
@@ -145,7 +163,7 @@ func readyScenario() scenario {
 func sealedScenario() scenario {
 	sc := readyScenario()
 	closed := base.Add(90 * time.Second)
-	sc.progress = [][]driver.Value{{execID, int64(2), "screening", base.Add(2 * time.Minute), int64(5), nil, base, base.Add(2 * time.Minute)}}
+	sc.progress = [][]driver.Value{{execID, int64(2), "screening", base.Add(2 * time.Minute), int64(5), nil, "[]", int64(0), int64(0), nil, base, base.Add(2 * time.Minute)}}
 	sc.sessions = [][]driver.Value{
 		{sessionOne, execID, "background", attemptOne, "provider-1", base.Add(time.Second), nil, base, closed},
 		{sessionTwo, execID, "screening", attemptTwo, nil, nil, nil, base.Add(2 * time.Minute), nil},

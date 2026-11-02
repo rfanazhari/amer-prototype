@@ -23,19 +23,19 @@ type insertCase struct {
 // expectInsertWrites expects the progress row, session shell and pending coverage with explicit zero and null columns.
 func expectInsertWrites(f storeFixture) {
 	f.mock.ExpectExec(`(?i)INSERT INTO "interview_progress"`).
-		WithArgs(execID, 2, "background", base, int64(1), nil, now, now).
+		WithArgs(execID, 2, "background", base, int64(1), nil, "[]", 0, 0, nil, now, now).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 	f.mock.ExpectExec(`(?i)INSERT INTO "interview_voice_sessions"`).
 		WithArgs(sessionOne, execID, "background", attemptOne, nil, nil, nil, base, nil).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 	args := make([]driver.Value, 0, 27)
 	for _, q := range []string{"background", "screening", "compensation"} {
-		args = append(args, sqlmock.AnyArg(), execID, q, q, "pending", nil, 0, nil, now)
+		args = append(args, sqlmock.AnyArg(), execID, q, q, "pending", nil, 0, nil, nil, nil, now)
 	}
 	f.mock.ExpectExec(`(?i)INSERT INTO "interview_coverage_items"`).WithArgs(args...).WillReturnResult(sqlmock.NewResult(0, 3))
 }
 
-// TestStoreInsert proves atomic creation, duplicate classification and refusal of unrepresentable state.
+// TestStoreInsert proves atomic creation, duplicate classification and refusal of unusable sessions.
 func TestStoreInsert(t *testing.T) {
 	tests := []insertCase{
 		{
@@ -58,30 +58,20 @@ func TestStoreInsert(t *testing.T) {
 			wantErr: interviewport.ErrConflict,
 		},
 		{
-			name: "follow-ups are refused before any SQL because no table stores them",
+			name: "session without an attempt id is refused before any SQL",
 			record: func(t *testing.T) interviewport.ProgressRecord {
 				rec := freshRecord(t)
-				rec.Snapshot.FollowUps = []string{entryOne}
+				rec.Sessions[0].AttemptID = ""
 				return rec
 			},
 			expect:  func(storeFixture) {},
 			wantErr: interviewrepository.ErrUnmappable,
 		},
 		{
-			name: "reconnect counters are refused before any SQL because no table stores them",
+			name: "record naming another execution is refused before any SQL",
 			record: func(t *testing.T) interviewport.ProgressRecord {
 				rec := freshRecord(t)
-				rec.Snapshot.Reconnect.Episodes = 1
-				return rec
-			},
-			expect:  func(storeFixture) {},
-			wantErr: interviewrepository.ErrUnmappable,
-		},
-		{
-			name: "clarification evidence ids are refused before any SQL because no column stores them",
-			record: func(t *testing.T) interviewport.ProgressRecord {
-				rec := freshRecord(t)
-				rec.Snapshot.Coverage[0].ClarificationEntryID = entryOne
+				rec.Snapshot.ExecutionID = "other"
 				return rec
 			},
 			expect:  func(storeFixture) {},

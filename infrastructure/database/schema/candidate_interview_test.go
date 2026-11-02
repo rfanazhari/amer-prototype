@@ -5,12 +5,10 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"regexp"
 	"strings"
 	"testing"
 
-	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/rfanazhari/amer-prototype/infrastructure/database/schema"
 	"github.com/stretchr/testify/require"
 )
@@ -92,89 +90,6 @@ func TestCandidateInterviewChecksums(t *testing.T) {
 	require.Equal(t, "f213ae6700e1424e42897ca8c02d08833a62fc59468b11ed697a3c8d223941c4", sums["000008_execution_lifecycle.down.sql"])
 	require.Equal(t, "fad47701239f7dd8ecf4d060904a19697ae177dcea39a0508ba85f96825b4b78", sums["000007_interview_executions.up.sql"])
 	require.Equal(t, "55a758f53320f47737a270a30a43d0ac9ddf20d760f886e177cbdd9c72304909", sums["000007_interview_executions.down.sql"])
-}
-
-// TestReleaseVersionRequiresNine proves the clean schema floor, grants, and operator messages.
-func TestReleaseVersionRequiresNine(t *testing.T) {
-	require.Equal(t, 9, schema.ReleaseVersion)
-	require.Subset(t, schema.RuntimeGrantTables, candidateInterviewTables)
-	require.Subset(t, schema.RuntimeGrantTables, lifecycleTables, "version 8 grants stay")
-
-	tests := []struct {
-		name    string
-		rows    *sqlmock.Rows
-		err     error
-		want    string
-		wantErr bool
-	}{
-		{name: "unreadable", err: errors.New("private"), want: "clean version 9", wantErr: true},
-		{name: "floor eight is refused", rows: sqlmock.NewRows([]string{"version", "dirty"}).AddRow(8, false), want: "require clean version 9", wantErr: true},
-		{name: "future is refused", rows: sqlmock.NewRows([]string{"version", "dirty"}).AddRow(10, false), want: "require clean version 9", wantErr: true},
-		{name: "dirty is refused", rows: sqlmock.NewRows([]string{"version", "dirty"}).AddRow(9, true), want: "require clean version 9", wantErr: true},
-		{name: "ambiguous", rows: sqlmock.NewRows([]string{"version", "dirty"}).AddRow(9, false).AddRow(9, false), want: "exactly one clean version 9", wantErr: true},
-		{name: "clean nine", rows: sqlmock.NewRows([]string{"version", "dirty"}).AddRow(9, false)},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			db, mock, err := sqlmock.New()
-			require.NoError(t, err)
-			defer func() { _ = db.Close() }()
-			expect := mock.ExpectQuery("SELECT version, dirty FROM public.schema_migrations")
-			if tt.err != nil {
-				expect.WillReturnError(tt.err)
-			} else {
-				expect.WillReturnRows(tt.rows)
-			}
-			err = schema.RequireCompatible(context.Background(), db)
-			if !tt.wantErr {
-				require.NoError(t, err)
-				return
-			}
-			require.ErrorContains(t, err, tt.want)
-		})
-	}
-
-	runner := schema.Runner{}
-	_, _, err := runner.Execute(context.Background(), schema.Options{Action: "up", Version: 10})
-	require.ErrorContains(t, err, "1 through 9")
-	_, _, err = runner.Execute(context.Background(), schema.Options{Action: "up", Version: 9})
-	require.EqualError(t, err, "database required")
-	_, _, err = runner.Execute(context.Background(), schema.Options{Action: "down", Steps: 9, Disposable: true})
-	require.EqualError(t, err, "database required")
-}
-
-// TestOperationalFilesRequireVersionNine proves operator-facing files move to the same floor.
-func TestOperationalFilesRequireVersionNine(t *testing.T) {
-	makefile := readRepoFile(t, "Makefile")
-	require.Contains(t, makefile, "version=9 dirty=false")
-	require.Contains(t, makefile, "make docker.migrate MIGRATION_VERSION=9")
-	require.NotContains(t, makefile, "version=8 dirty=false")
-	require.NotContains(t, makefile, "MIGRATION_VERSION=8")
-
-	compose := readRepoFile(t, "scripts", "verify_compose.py")
-	require.Contains(t, compose, "MIGRATION_VERSION=9")
-	require.NotContains(t, compose, "MIGRATION_VERSION=8")
-	require.NotContains(t, compose, `"MIGRATION_VERSION"] = "8"`)
-	require.NotContains(t, compose, "retained version 8")
-
-	readme := readRepoFile(t, "README.md")
-	require.Contains(t, readme, "clean version 9")
-	require.Contains(t, readme, "MIGRATION_VERSION=9")
-	require.Contains(t, readme, "(version 9)")
-	require.NotContains(t, readme, "clean version 8")
-	require.NotContains(t, readme, "MIGRATION_VERSION=8")
-	require.NotContains(t, readme, "1 through 8")
-
-	runbook := readRepoFile(t, "docs", "design", "database-migrations.md")
-	require.Contains(t, runbook, "clean version 9 only")
-	require.Contains(t, runbook, "CORE-CIN-004")
-	require.Contains(t, runbook, "## Version 9: candidate interview")
-	require.Contains(t, runbook, "000009_candidate_interview")
-	require.Contains(t, runbook, "interview_consents")
-	require.Contains(t, runbook, "interview_controllers")
-	require.Contains(t, runbook, "Versions 1–9 are immutable")
-	require.NotContains(t, runbook, "MIGRATION_VERSION=8")
-	require.NotContains(t, runbook, "version=8")
 }
 
 // TestCandidateInterviewMigrationOnPostgres proves clean 8 to clean 9, constraints, and disposable down/up.

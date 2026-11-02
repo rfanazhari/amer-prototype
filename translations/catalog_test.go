@@ -20,6 +20,7 @@ func TestEveryErrorCodeHasBothTranslations(t *testing.T) {
 		errs.CINTerminal, errs.CINNotLive, errs.CINNoticeUnavailable, errs.CINDependencyUnavailable, errs.CINStartUncertain,
 		errs.EXLNotFound, errs.EXLAssignmentUnavailable, errs.EXLIdempotencyConflict, errs.EXLInvalidTransition, errs.EXLStaleVersion,
 		errs.EXLStaleAttempt, errs.EXLProgressRequired, errs.EXLTerminalConflict, errs.EXLDependencyUnavailable, errs.EXLUncertainCommit,
+		errs.IRTConflict, errs.IRTNotReady,
 	} {
 		t.Run(code, func(t *testing.T) {
 			en := translations.Message("en", code)
@@ -45,6 +46,21 @@ func TestSessionUnavailableMessages(t *testing.T) {
 	tests := []localeMessageCase{
 		{name: "english", locale: "en", code: errs.SessionUnavailable, message: "voice session unavailable"},
 		{name: "indonesian", locale: "id", code: errs.SessionUnavailable, message: "sesi suara tidak tersedia"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.message, translations.Message(tt.locale, tt.code))
+		})
+	}
+}
+
+// TestInterviewRuntimeMessages locks the English and Indonesian session-attempt conflict and readiness text.
+func TestInterviewRuntimeMessages(t *testing.T) {
+	tests := []localeMessageCase{
+		{name: "conflict english", locale: "en", code: errs.IRTConflict, message: "the interview session request conflicts with the current interview state"},
+		{name: "conflict indonesian", locale: "id", code: errs.IRTConflict, message: "permintaan sesi interview bertentangan dengan keadaan interview saat ini"},
+		{name: "not ready english", locale: "en", code: errs.IRTNotReady, message: "the interview session is not ready"},
+		{name: "not ready indonesian", locale: "id", code: errs.IRTNotReady, message: "sesi interview belum siap"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

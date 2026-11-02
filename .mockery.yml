@@ -214,3 +214,14 @@ packages:
     interfaces:
       PinReader:
       ProgressStore:
+      SessionCommands:
+      RevisionReader:
+  github.com/rfanazhari/amer-prototype/application/usecase/interviewusecase:
+    config:
+      dir: test/mocks
+      outpkg: mocks
+      filename: 'interview_{{.InterfaceName | snakecase}}.go'
+    interfaces:
+      AttemptOperation:
+      ReadyOperation:
+      SessionStarter:

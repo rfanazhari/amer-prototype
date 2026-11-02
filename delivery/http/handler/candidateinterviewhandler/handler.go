@@ -8,6 +8,7 @@ import (
 	"github.com/rfanazhari/amer-prototype/application/query/candidateinterviewquery"
 	"github.com/rfanazhari/amer-prototype/application/service"
 	"github.com/rfanazhari/amer-prototype/application/usecase/candidateinterviewusecase"
+	"github.com/rfanazhari/amer-prototype/application/usecase/interviewusecase"
 	"github.com/rfanazhari/amer-prototype/delivery/http/handler/accesshandler"
 	"github.com/rfanazhari/amer-prototype/domain/aggregate/candidateinterview"
 	"github.com/rfanazhari/amer-prototype/pkg/errs"
@@ -25,6 +26,8 @@ type Handler struct {
 	Start        candidateinterviewusecase.StartInterviewOperation
 	Takeover     candidateinterviewusecase.TakeoverOperation
 	Cancel       candidateinterviewusecase.CancelInterviewOperation
+	Attempt      interviewusecase.AttemptOperation
+	Ready        interviewusecase.ReadyOperation
 	Get          candidateinterviewquery.GetInterviewOperation
 	Accept       candidateinterviewusecase.AcceptNoticeOperation
 	Current      service.CurrentCandidateSession

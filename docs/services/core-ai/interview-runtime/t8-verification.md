@@ -1,8 +1,8 @@
 # T8 verification — CORE-IRT-008
 
-Partially implemented. Done: the session-attempt and readiness operations, their HTTP handlers, public error codes,
-translations, OpenAPI, API changelog and endpoint note. **Not done: composition and mounting.** The routes are not
-reachable in the running process, and T7 stays blocked.
+Task marked Done by the owner for the operations, handlers and contract only. Done: the session-attempt and readiness operations, their HTTP handlers, public error codes,
+translations, OpenAPI, API changelog and endpoint note. **Deferred to a follow-up task (ID to be assigned): composition and mounting.** The routes are not
+reachable in the running process; T7's removal ships with that follow-up.
 
 ## Design mapping and assessment
 

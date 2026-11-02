@@ -18,7 +18,7 @@ Each task has a stable ticket ID: `T1` → `CORE-CIN-001`, then onward in order 
 - A blocked task is not executable until its ready-when condition is true and the design still matches that condition.
 - At closure, align design, strategy, and status with what was verified. Record RED/GREEN only from commands run for that task.
 
-Companion plans: [Identity and Access](../identity-access/task-plan.md) owns the session this slice consumes. Execution Lifecycle and Interview Runtime have capability documents and no tripack in this repository; T11 now integrates the existing lifecycle implementation; T12 remains blocked on runtime.
+Companion plans: [Identity and Access](../identity-access/task-plan.md) owns the session this slice consumes. Execution Lifecycle and Interview Runtime have capability documents and no tripack in this repository; T11 now integrates the existing lifecycle implementation; T12 is done with the limits in [t12-execution.md](t12-execution.md).
 
 ## Tasks
 
@@ -100,16 +100,18 @@ Companion plans: [Identity and Access](../identity-access/task-plan.md) owns the
   - Evidence: `candidatelifecycle.Lifecycle` composes lifecycle start/read/cancel with the existing execution store. One candidate command identity fingerprints the client key and consent; first commit returns 201, a lost-response retry 200, and a different intent conflicts. Deadline derives from persisted activation plus 15 minutes. Terminal cancel refusal runs under the execution lock. Interview-only session reads join the assignment and refuse revoked access. Mockery tests, sqlmock composition tests, and `make test.integration` filtered to `TestCandidateLifecyclePostgres` pass on disposable PostgreSQL 16 (8 concurrent starts, retry, intent conflict, coverage refusal, cancel/poll, stable deadline, completed replay, and revocation with an explicit `CancelNonterminal` commit). `make test` and `make check` pass; unfiltered database/smoke suites were not run. RED `2acb6bb`; assessment, commands and limits: [t11-execution.md](t11-execution.md).
   - DoD: one assignment yields one execution under a repeated start, including a lost 201. A different idempotency intent conflicts and leaves the original. Session coverage is enforced before the call. Cancel commits `CANCELLED` and GET shows it without reading a report table. A `COMPLETED` execution is not restarted. Revocation during the interview is refused to the candidate; the cancellation commit itself is the lifecycle operation, and this task's evidence identifies that call rather than treating 401 as the cancel. PostgreSQL proof uses `make test.integration` or `make test.docker`. `make test` passes.
 
-- [ ] **T12. Integrate candidate-safe progress and controller fencing** — Application / infrastructure — L
+- [x] **T12. Integrate candidate-safe progress and controller fencing** — Application / infrastructure — L
   - Ticket ID: `CORE-CIN-012`
   - depends: T8, T11 — ref: design §6.3, BR-CORE-043, BR-CORE-044.
-  - Blocked by: Q4, Interview Runtime BR-CORE-060..071 — ready when runtime supplies the candidate-safe progress object and rejects advances from a controller id that is no longer current.
+  - Blocked by: none for this task. Production composition of runtime progress still waits on the Interview Runtime T8 composition follow-up (no `PinReader` adapter, routes unmounted).
+  - Evidence: `candidateprogress.Reader` projects only phase label and connection from the runtime progress store; `Ready` re-checks the current controller inside the lifecycle lock and refuses a replaced tab. Mocks only: no PostgreSQL proof, not composed in `NewCandidateInterview`, re-check not atomic with a takeover commit. `make test` and `make check` pass; database suites not run. RED `68f2474`; commands and limits: [t12-execution.md](t12-execution.md).
   - DoD: poll renders only that progress object. Takeover causes a subsequent advance with the previous id to be refused by runtime. The view still has no transcript body, salary, competence flag, or report. This task does not implement stages, voice sessions, or `session-attempts`. `make test` and, where the fence is stored, `make test.integration` or `make test.docker` pass.
 
-- [ ] **T13. Prove the candidate interview slice** — Integration / verification — L
+- [x] **T13. Prove the candidate interview slice** — Integration / verification — L
   - Ticket ID: `CORE-CIN-013`
   - depends: T5, T6, T8, T9, T10, T11, T12 — ref: design §3 rule table, §8; tactical-strategy §5.
-  - Blocked by: T12 for progress and advance fencing. T11 now proves lifecycle HTTP integration; the combined page/runtime demonstration remains this task. Consent, coverage, and the page shell evidence is T5, T6, T8, and T10.
+  - Blocked by: none for this task. Progress and advance fencing cannot be demonstrated live until Interview Runtime composition lands (see Evidence).
+  - Evidence: `TestCandidateInterviewSlicePostgres` drives production `NewCandidateInterview` over release schema 9 on disposable PostgreSQL 16: notice before start, one execution after a lost start, coverage refused at 14m59s and allowed at 15m30s, second-tab takeover with replaced-tab refusal, early cancel as `CANCELLED`/`candidate_early_stop`, refresh with one execution, and a `COMPLETED` view with no report field or table. The real `page.html` was driven in the built-in browser over the same composition (`TestCandidatePageDemoPostgres`, a stand-in session endpoint and injected cookie). `make test`, `make test.contract`, `make test.architecture`, `make lint` and `make test.security` pass; the four candidate suites pass together on a fresh database. Unfiltered `make test.integration` still fails 11 pre-existing fixture-isolation tests (`candidates` dropped by the access fixture); `make test.docker` was not run. No live progress or runtime fence demonstration (runtime composition deferred); exact 15-minute equality stays in controlled-time unit tests. No RED was observed; the test checkpoint is `94e08b3`. Commands and limits: [t13-execution.md](t13-execution.md).
   - DoD: disposable PostgreSQL and the candidate page demonstrate the capability examples that are in scope: notice before start, one execution after a lost start, coverage refusal at the 15-minute boundary, second-tab takeover, early cancel shown as cancelled, refresh without a new execution, and a completed interview rendered while no report exists. Record the exact `make test`, `make test.contract`, `make test.architecture`, `make lint`, and `make test.docker` or `make test.integration` commands, skips, and failures. Update design, strategy, and this status to match the run. Do not mark sibling capabilities done.
 
 ## Dependency Graph
@@ -125,8 +127,8 @@ T3 + T4 + T7 → T8 (controller SQL)
 T6 + T7 + T8 → T9 (start/poll/takeover/cancel HTTP)
 T6 + T9 → T10 (candidate page)
 Q3 (resolved) + T7 + T9 → T11 (lifecycle adapter) [done]
-Q4 + T8 + T11 → T12 (runtime progress and fence) [blocked]
-T5 + T6 + T8 + T9 + T10 + T11 + T12 → T13 (slice proof) [blocked on T12]
+Q4 + T8 + T11 → T12 (runtime progress and fence) [done, not composed]
+T5 + T6 + T8 + T9 + T10 + T11 + T12 → T13 (slice proof) [done, progress not live]
 ```
 
 T2 and T3 are independent streams, not instructions to spawn agents.

@@ -160,3 +160,31 @@ func TestReadyExecute(t *testing.T) {
 		})
 	}
 }
+
+// TestReadyRefusesControllerReplacedBeforeCommit proves a takeover that lands after the first check refuses the old tab
+// inside the lifecycle lock and leaves the readiness flag unset.
+func TestReadyRefusesControllerReplacedBeforeCommit(t *testing.T) {
+	h := newReadyHarness(t, true)
+	h.current.On("Resolve", mock.Anything).Return(testdata.CandidateSessionRecord(t), nil)
+	h.executions.On("Find", mock.Anything, testdata.AssignmentID).Return(service.ExecutionFacts{ID: attemptExecution, State: "RUNNING", Version: 5}, nil)
+	claim := func(tab string) candidateinterview.ControllerSnapshot {
+		id, err := candidateinterview.ParseControllerID(tab)
+		require.NoError(t, err)
+		c, err := candidateinterview.ClaimController(testdata.AssignmentID, attemptExecution, id, fixedTime())
+		require.NoError(t, err)
+		return c.Snapshot()
+	}
+	h.controllers.On("Find", mock.Anything, testdata.AssignmentID).Return(claim(attemptTab), nil).Once()
+	h.controllers.On("Find", mock.Anything, testdata.AssignmentID).Return(claim("tab-2"), nil).Once()
+	authority := service.InterviewAttempt{ExecutionID: attemptExecution, AttemptID: "attempt-1", ExpectedVersion: 5}
+	h.lifecycle.On("Fence", mock.Anything, authority).Return(nil)
+	h.progress.On("Find", mock.Anything, attemptExecution).Return(h.record, nil)
+	h.lifecycle.On("WithProgress", mock.Anything, authority, mock.Anything).Return(func(ctx context.Context, _ service.InterviewAttempt, write func(context.Context) error) error {
+		return write(ctx)
+	})
+	got, err := h.op.Execute(context.Background(), interviewusecase.ReadyInput{ExecutionID: attemptExecution, AttemptID: "attempt-1", ControllerID: attemptTab, ExpectedVersion: 5})
+	require.Error(t, err)
+	assert.ErrorIs(t, err, interviewusecase.ErrAttemptConflict)
+	assert.Nil(t, got)
+	assert.Nil(t, h.record.Sessions[0].ReadinessAt)
+}

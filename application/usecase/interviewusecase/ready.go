@@ -7,6 +7,7 @@ import (
 	"github.com/rfanazhari/amer-prototype/application/repository/candidateinterviewport"
 	"github.com/rfanazhari/amer-prototype/application/repository/interviewport"
 	"github.com/rfanazhari/amer-prototype/application/service"
+	"github.com/rfanazhari/amer-prototype/domain/aggregate/candidateinterview"
 	"github.com/rfanazhari/amer-prototype/domain/interview"
 )
 
@@ -28,7 +29,7 @@ func (u Ready) Execute(ctx context.Context, in ReadyInput) (*ReadyResult, error)
 	if in.AttemptID == "" || in.ExecutionID == "" || in.ControllerID == "" || in.ExpectedVersion < 1 {
 		return nil, ErrAttemptInvalid
 	}
-	_, facts, err := authorizeCandidate(ctx, u.Current, u.Executions, u.Controllers, in.ExecutionID, in.ControllerID)
+	session, facts, err := authorizeCandidate(ctx, u.Current, u.Executions, u.Controllers, in.ExecutionID, in.ControllerID)
 	if err != nil {
 		return nil, err
 	}
@@ -46,6 +47,9 @@ func (u Ready) Execute(ctx context.Context, in ReadyInput) (*ReadyResult, error)
 	now := trusted(u.Clock)
 	result := ReadyResult{AttemptID: in.AttemptID, ExecutionVersion: facts.Version}
 	err = u.Lifecycle.WithProgress(ctx, authority, func(tx context.Context) error {
+		if err := u.stillController(tx, session.AssignmentID, in.ControllerID); err != nil {
+			return err
+		}
 		return u.Progress.Update(tx, interviewport.ProgressWrite{ExecutionID: in.ExecutionID, AttemptID: in.AttemptID, ExpectedVersion: record.Version}, func(r *interviewport.ProgressRecord) error {
 			for i := range r.Sessions {
 				s := &r.Sessions[i]
@@ -66,4 +70,19 @@ func (u Ready) Execute(ctx context.Context, in ReadyInput) (*ReadyResult, error)
 		return nil, classify(err)
 	}
 	return &result, nil
+}
+
+// stillController re-reads the controller under the lifecycle lock so a takeover committed after the first check
+// refuses the previous tab. A takeover that commits after this read is not excluded; that limit is documented, not fenced.
+func (u Ready) stillController(ctx context.Context, assignmentID, controllerID string) error {
+	tab, err := candidateinterview.ParseControllerID(controllerID)
+	if err != nil {
+		return ErrAttemptInvalid
+	}
+	held, err := u.Controllers.Find(ctx, assignmentID)
+	switch {
+	case errors.Is(err, candidateinterviewport.ErrNotFound), err == nil && held.ControllerID != tab:
+		return ErrAttemptConflict
+	}
+	return err
 }

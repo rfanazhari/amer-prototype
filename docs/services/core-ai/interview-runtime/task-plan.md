@@ -59,8 +59,9 @@ Every Go task also requires `gofmt` on changed Go files, comments on new declara
   - depends: T1, T4 — ref: design §3 adapter and transactions.
   - DoD: store maps progress, coverage, sessions, handoffs, checkpoints, technical losses, and transcript rows that the caller already marked fragment or final. Explicit `Select` persists `clarification_count` 0 and null `closed_at` / `summary`. Rollback of a handoff leaves the source stage. Unique open session and unique handoff per stage are enforced by PostgreSQL tests. Restore of a corrupt state is a technical error. The store does not interpret provider event names. Same database-proof rule as T4.
 
-- [ ] **T6. Build the GPT-Live driver transport** — Infrastructure — L
+- [x] **T6. Build the GPT-Live driver transport** — Infrastructure — L
   - Ticket ID: `CORE-IRT-006`
+  - Evidence: [T6 verification](t6-verification.md); driver in `infrastructure/service/interviewvoice`. Fake-server tests only; sideband frame shapes for context and control are unverified against the live provider.
   - depends: T2 — ref: design §4 driver, §1 prototype table.
   - DoD: `interviewvoice` implements create, attach, observe, supply context, control, and close against the driver port. Create retains the provider session id and the SDP answer. A fake HTTP server covers success, empty key, and non-success. Close failure is returned and does not imply a database rollback. Observe yields an opaque event and does not mark coverage. Package tests do not call the public network. `H-01` is not claimed. RabbitMQ is not imported.
 

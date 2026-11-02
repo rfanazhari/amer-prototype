@@ -67,3 +67,7 @@ No live provider, event-finality, automatic provider recreation, durable externa
 Retained: four root layers, generic lifecycle state ownership, interview domain invariants, immutable revision pinning, operation interfaces and detached results. The shared infrastructure transaction carrier removes independent child transactions without exposing GORM inward. `RecordAttempt` and `FencedWrite` give generic authority separate responsibilities; the infrastructure adapter translates interview budgets and safe errors.
 
 Refined during implementation: reserve/finalize command timing, retained legacy policy, shared candidate/controller reads, bounded setup within both operation and hard deadlines, and sideband cleanup after HTTP drain. The one-connection regression validates the shared-read refinement. No further in-scope refactor was selected; retained interfaces match actual consumers. Broader controller takeover fencing, provider finality and post-handoff exhaustion remain separate decisions/tasks.
+
+## Approved rollback follow-up
+
+The historical version-10 down failure above is resolved by the owner-approved correction recorded in [T18 rollback verification](t18-rollback-verification.md). Full `make test.docker` now passes. The initial checkpoint's unchanged-migration statements describe that earlier delivery; this follow-up explicitly changes only the down-v10 dependency order and its checksum records, leaving all up SQL and schema version 11 unchanged.

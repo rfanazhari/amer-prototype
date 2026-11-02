@@ -14,6 +14,9 @@ Supply secrets through environment configuration, without echoing URLs or puttin
 
 The image includes `/migrate` and `/migrations/pgsql`; its working directory is `/`. The app entrypoint stays `/amer-prototype`. Versions 1–10 are immutable and checked against the [release SHA-256 manifest](database-migration-checksums.sha256), also enforced by the runner's embedded `checksums.json`. Version/dirty metadata does not establish artifact integrity.
 
+Owner-approved exception (2026-11-03, `CORE-IRT-018` follow-up): correct only the dependency order in `000010_interview_runtime.down.sql`. Coverage citations must be dropped before transcript entries; checkpoint/transcript dependents must be dropped before voice sessions. The approved down digest changes from `049a54c3f2191d627a9b9778ec542e441710cd2725457b6799ba38c4464a7fab` to `8af2b71e7103d14326e475b885dc86c4c2ec558e124c3c20846c45e73f81702f` in both manifests. Every up artifact, the release version (11), and the guarded disposable-only down policy remain unchanged. This is an explicit historical rollback-artifact correction, not a schema upgrade, automatic repair or production-data recovery. Full rollback/re-up and Compose verification are recorded in [the follow-up evidence](../services/core-ai/features/interview-runtime/t18-rollback-verification.md).
+
+
 ## Fresh local database
 
 From the repository root after supplying both connections and the administrative settings documented in README:

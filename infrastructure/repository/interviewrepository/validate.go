@@ -14,20 +14,8 @@ func unmappable(format string, args ...any) error {
 	return fmt.Errorf("%w: %s", ErrUnmappable, fmt.Sprintf(format, args...))
 }
 
-// representable refuses state that version 10 tables cannot store, so evidence is never silently dropped.
+// representable refuses sessions the tables cannot hold, so state is never silently dropped.
 func representable(rec interviewport.ProgressRecord) error {
-	snap := rec.Snapshot
-	if len(snap.FollowUps) > 0 {
-		return unmappable("follow-ups have no table")
-	}
-	if r := snap.Reconnect; r.Episodes != 0 || r.Attempts != 0 || r.DetectedAt != nil {
-		return unmappable("reconnect counters have no table")
-	}
-	for _, q := range snap.Coverage {
-		if q.ClarificationEntryID != "" || q.OmissionEntryID != "" {
-			return unmappable("clarification and omission entry ids have no column")
-		}
-	}
 	for _, session := range rec.Sessions {
 		if session.ID == "" || session.AttemptID == "" || !session.Stage.Valid() {
 			return unmappable("session needs an id, an attempt id and a known stage")
@@ -62,6 +50,9 @@ func stable(before, after interviewport.ProgressRecord) error {
 			after.HandoffSummaries[h.Stage] != before.HandoffSummaries[h.Stage] {
 			return unmappable("committed handoff rewritten")
 		}
+	}
+	if !slices.Equal(b.FollowUps, a.FollowUps[:min(len(b.FollowUps), len(a.FollowUps))]) || len(a.FollowUps) < len(b.FollowUps) {
+		return unmappable("committed follow-up citations rewritten")
 	}
 	if !slices.Equal(b.Entries, a.Entries[:len(b.Entries)]) {
 		return unmappable("committed transcript rewritten")

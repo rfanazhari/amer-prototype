@@ -55,7 +55,7 @@ Every Go task also requires `gofmt` on changed Go files, comments on new declara
 
 - [x] **T5. Persist classified progress with GORM** — Infrastructure — L
   - Ticket ID: `CORE-IRT-005`
-  - Evidence: [T5 verification](t5-verification.md); store in `infrastructure/repository/interviewrepository`. PostgreSQL proof written but skipped (no `TEST_DATABASE_URL`, Docker daemon down). Follow-ups, reconnect counters and clarification/omission entry ids have no table in version 10 and are refused, not dropped.
+  - Evidence: [T5 verification](t5-verification.md); store in `infrastructure/repository/interviewrepository`. PostgreSQL proof written but skipped (no `TEST_DATABASE_URL`, Docker daemon down). Version 10 also stores follow-up citations, reconnect counters and clarification/omission entry ids (design v3), so T14 and T15 are not blocked on schema.
   - depends: T1, T4 — ref: design §3 adapter and transactions.
   - DoD: store maps progress, coverage, sessions, handoffs, checkpoints, technical losses, and transcript rows that the caller already marked fragment or final. Explicit `Select` persists `clarification_count` 0 and null `closed_at` / `summary`. Rollback of a handoff leaves the source stage. Unique open session and unique handoff per stage are enforced by PostgreSQL tests. Restore of a corrupt state is a technical error. The store does not interpret provider event names. Same database-proof rule as T4.
 

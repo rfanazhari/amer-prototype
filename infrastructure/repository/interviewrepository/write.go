@@ -25,7 +25,8 @@ func (s Store) Insert(ctx context.Context, req interviewport.ProgressWrite, reco
 		row := ProgressModel{
 			ExecutionID: snap.ExecutionID, FollowUpLimit: snap.FollowUpLimit, CurrentStage: snap.CurrentStage.String(),
 			StageActivatedAt: snap.StageActivatedAt.UTC(), CommittedVersion: 1, ControllerID: textPointer(record.ControllerID),
-			CreatedAt: at, UpdatedAt: at,
+			FollowUpEntryIDs: encodeFollowUps(snap.FollowUps), ReconnectEpisodes: snap.Reconnect.Episodes, ReconnectAttempts: snap.Reconnect.Attempts,
+			ReconnectDetectedAt: utcPointer(snap.Reconnect.DetectedAt), CreatedAt: at, UpdatedAt: at,
 		}
 		if err := tx.Create(&row).Error; err != nil {
 			return classify(err)
@@ -65,11 +66,14 @@ func (s Store) Update(ctx context.Context, req interviewport.ProgressWrite, chan
 		}
 		next := ProgressModel{
 			CurrentStage: after.Snapshot.CurrentStage.String(), StageActivatedAt: after.Snapshot.StageActivatedAt.UTC(),
-			CommittedVersion: row.CommittedVersion + 1, ControllerID: textPointer(after.ControllerID), UpdatedAt: at,
+			CommittedVersion: row.CommittedVersion + 1, ControllerID: textPointer(after.ControllerID),
+			FollowUpEntryIDs: encodeFollowUps(after.Snapshot.FollowUps), ReconnectEpisodes: after.Snapshot.Reconnect.Episodes,
+			ReconnectAttempts: after.Snapshot.Reconnect.Attempts, ReconnectDetectedAt: utcPointer(after.Snapshot.Reconnect.DetectedAt), UpdatedAt: at,
 		}
 		result := tx.Model(&ProgressModel{}).
 			Where("execution_id = ? AND committed_version = ?", row.ExecutionID, row.CommittedVersion).
-			Select("current_stage", "stage_activated_at", "committed_version", "controller_id", "updated_at").
+			Select("current_stage", "stage_activated_at", "committed_version", "controller_id", "follow_up_entry_ids",
+				"reconnect_episodes", "reconnect_attempts", "reconnect_detected_at", "updated_at").
 			Updates(&next)
 		if result.Error != nil {
 			return classify(result.Error)
@@ -202,7 +206,7 @@ func writeCoverage(tx *gorm.DB, before, after interviewport.ProgressRecord, at t
 		model := coverageModel(after.Snapshot.ExecutionID, "", q, at)
 		result := tx.Model(&CoverageModel{}).
 			Where("execution_id = ? AND question_id = ?", model.ExecutionID, q.QuestionID).
-			Select("state", "omission_reason", "clarification_count", "answer_entry_id", "updated_at").
+			Select("state", "omission_reason", "clarification_count", "answer_entry_id", "clarification_entry_id", "omission_entry_id", "updated_at").
 			Updates(&model)
 		if result.Error != nil {
 			return classify(result.Error)

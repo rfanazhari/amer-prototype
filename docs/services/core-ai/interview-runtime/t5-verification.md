@@ -22,13 +22,17 @@ Only T5 is implemented: `interviewport.ProgressStore` over the version 10 tables
 
 Assessment: **retained with rationale**. Persistence stays in infrastructure; rules stay in the domain.
 
-## Gaps the version 10 schema cannot hold (refused with `ErrUnmappable`, never dropped)
+## Schema amendment (design v3)
 
-- Follow-up citations (`Snapshot.FollowUps`), reconnect counters, and the domain's clarification and
-  omission entry ids. Consequently clarified questions and `candidate_skip` / `no_answer_after_clarification`
-  omissions cannot be persisted yet. T10/T11/T13 need a forward migration or a design revision first.
-- The port's "joins the lifecycle transaction carried by ctx" is not implemented: the store opens its
-  own transaction. It must be wired when the lifecycle callback exists (Q3).
+The first pass found follow-up citations, reconnect counters and the clarification/omission entry ids had
+no storage. `000010` (unreleased, edited in place; `checksums.json` and the checksum manifest updated) now has
+`follow_up_entry_ids` (jsonb array, no FK; restore validates each citation through the aggregate),
+`reconnect_episodes`/`reconnect_attempts`/`reconnect_detected_at` on progress, and
+`clarification_entry_id`/`omission_entry_id` (FKs) on coverage with `clarification_count = 1` exactly when
+the clarification entry exists. The store persists and restores them.
+
+Remaining: the port's "joins the lifecycle transaction carried by ctx" is not implemented; the store opens
+its own transaction. Wire it when the lifecycle callback exists (Q3).
 
 ## RED checkpoint
 
@@ -39,9 +43,12 @@ go test ./infrastructure/repository/interviewrepository/ -count=1
 ```
 
 Observed failure: every Find/Insert/Update case failed on `interview progress store not implemented`
-(declaration-only `Store` stub) and unmet sqlmock expectations; tests compiled and executed. SHA
+(declaration-only `Store` stub) and unmet sqlmock expectations; tests compiled and executed. first RED SHA
 `f94d8201e23dc91a86594a379783cc083b32ec1f`, subject
 `test: [CORE-IRT-005][rfanazhari] RED cover interview progress GORM store`.
+
+Amendment RED: `go test ./infrastructure/repository/interviewrepository/ ./infrastructure/database/schema/ -count=1`
+failed on the new column arguments and migration snippets. SHA `8a6cb0caf97fe731ae0221a4b3ef6446d8943a8b`.
 
 ## GREEN checks
 

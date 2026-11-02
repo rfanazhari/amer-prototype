@@ -3,6 +3,7 @@ package interviewrepository
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"sort"
@@ -54,6 +55,24 @@ func text(value *string) string {
 		return ""
 	}
 	return *value
+}
+
+// decodeFollowUps restores the stored follow-up citations; malformed JSON is corrupt state.
+func decodeFollowUps(stored string) ([]string, error) {
+	var ids []string
+	if err := json.Unmarshal([]byte(stored), &ids); err != nil {
+		return nil, restoreError("follow-up citations are not a JSON array of ids")
+	}
+	return ids, nil
+}
+
+// encodeFollowUps stores follow-up citations as a JSON array, empty when none exist.
+func encodeFollowUps(ids []string) string {
+	if len(ids) == 0 {
+		return "[]"
+	}
+	encoded, _ := json.Marshal(ids)
+	return string(encoded)
 }
 
 // Find reads one complete progress boundary in a consistent read-only transaction.
@@ -120,10 +139,15 @@ func (s Store) assemble(ctx context.Context, tx *gorm.DB, row ProgressModel) (in
 
 	record := interviewport.ProgressRecord{Version: row.CommittedVersion, ControllerID: textPointer(row.ControllerID)}
 	idx := index{ordinals: make(map[string]int, len(entries)), sessions: make(map[string]string, len(entries))}
+	followUps, err := decodeFollowUps(row.FollowUpEntryIDs)
+	if err != nil {
+		return interviewport.ProgressRecord{}, index{}, err
+	}
 	snap := interview.Snapshot{
 		ExecutionID: row.ExecutionID, RevisionID: pin.RevisionID, Configuration: pin.Configuration.Clone(),
 		RunningAt: utc(pin.RunningAt), StageActivatedAt: utc(row.StageActivatedAt),
-		CurrentStage: enum.QuestionStage(row.CurrentStage), FollowUpLimit: row.FollowUpLimit,
+		CurrentStage: enum.QuestionStage(row.CurrentStage), FollowUpLimit: row.FollowUpLimit, FollowUps: followUps,
+		Reconnect: interview.ReconnectState{DetectedAt: utcPointer(row.ReconnectDetectedAt), Episodes: row.ReconnectEpisodes, Attempts: row.ReconnectAttempts},
 	}
 	stageOf, order, err := mapSessions(sessions, &record)
 	if err != nil {
@@ -183,12 +207,13 @@ func mapCoverage(rows []CoverageModel, questions []valueobject.MandatoryQuestion
 	items := make([]interview.CoverageItem, 0, len(questions))
 	for _, q := range questions {
 		row, ok := byQuestion[q.ID()]
-		if !ok || row.ClarificationCount != 0 {
-			return nil, restoreError("coverage row missing or carries unrepresentable clarification")
+		if !ok || (row.ClarificationCount == 1) != (row.ClarificationEntryID != nil) {
+			return nil, restoreError("coverage row missing or clarification count disagrees with its entry")
 		}
 		items = append(items, interview.CoverageItem{
 			QuestionID: row.QuestionID, Stage: enum.QuestionStage(row.Stage), State: interview.CoverageState(row.State),
 			OmissionReason: interview.OmissionReason(text(row.OmissionReason)), AnswerEntryID: text(row.AnswerEntryID),
+			ClarificationEntryID: text(row.ClarificationEntryID), OmissionEntryID: text(row.OmissionEntryID),
 		})
 	}
 	return items, nil

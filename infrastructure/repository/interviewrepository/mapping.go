@@ -8,7 +8,7 @@ import (
 	"github.com/rfanazhari/amer-prototype/domain/interview"
 )
 
-// coverageModel maps one question's mutable state; clarification evidence is never representable, so its count is zero.
+// coverageModel maps one question's mutable state; the clarification count is one exactly when a clarification entry exists.
 func coverageModel(executionID, id string, q interview.CoverageItem, at time.Time) CoverageModel {
 	model := CoverageModel{ID: id, ExecutionID: executionID, QuestionID: q.QuestionID, Stage: q.Stage.String(), State: string(q.State), UpdatedAt: at}
 	if q.OmissionReason != "" {
@@ -18,6 +18,14 @@ func coverageModel(executionID, id string, q interview.CoverageItem, at time.Tim
 	if q.AnswerEntryID != "" {
 		entry := q.AnswerEntryID
 		model.AnswerEntryID = &entry
+	}
+	if q.ClarificationEntryID != "" {
+		entry := q.ClarificationEntryID
+		model.ClarificationEntryID, model.ClarificationCount = &entry, 1
+	}
+	if q.OmissionEntryID != "" {
+		entry := q.OmissionEntryID
+		model.OmissionEntryID = &entry
 	}
 	return model
 }

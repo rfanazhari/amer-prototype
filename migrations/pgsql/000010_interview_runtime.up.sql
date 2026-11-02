@@ -9,12 +9,22 @@ CREATE TABLE public.interview_progress (
     stage_activated_at timestamptz NOT NULL,
     committed_version bigint NOT NULL,
     controller_id uuid NULL,
+    follow_up_entry_ids jsonb NOT NULL DEFAULT '[]'::jsonb,
+    reconnect_episodes integer NOT NULL DEFAULT 0,
+    reconnect_attempts integer NOT NULL DEFAULT 0,
+    reconnect_detected_at timestamptz NULL,
     created_at timestamptz NOT NULL,
     updated_at timestamptz NOT NULL,
     CONSTRAINT interview_progress_follow_up_limit_check CHECK (follow_up_limit = 2),
     CONSTRAINT interview_progress_current_stage_check CHECK (current_stage IN ('background', 'screening', 'compensation', 'closing')),
     CONSTRAINT interview_progress_committed_version_check CHECK (committed_version >= 1),
     CONSTRAINT interview_progress_updated_at_check CHECK (updated_at >= created_at),
+    CONSTRAINT interview_progress_follow_up_entry_ids_check CHECK (jsonb_typeof(follow_up_entry_ids) = 'array'),
+    CONSTRAINT interview_progress_reconnect_episodes_check CHECK (reconnect_episodes BETWEEN 0 AND 2),
+    CONSTRAINT interview_progress_reconnect_attempts_check CHECK (reconnect_attempts BETWEEN 0 AND 2),
+    CONSTRAINT interview_progress_reconnect_state_check CHECK (
+        reconnect_episodes > 0 OR (reconnect_attempts = 0 AND reconnect_detected_at IS NULL)
+    ),
     CONSTRAINT interview_progress_execution_id_fkey FOREIGN KEY (execution_id)
         REFERENCES public.interview_executions(id) ON UPDATE RESTRICT ON DELETE RESTRICT
 );
@@ -28,6 +38,8 @@ CREATE TABLE public.interview_coverage_items (
     omission_reason text NULL,
     clarification_count integer NOT NULL,
     answer_entry_id uuid NULL,
+    clarification_entry_id uuid NULL,
+    omission_entry_id uuid NULL,
     updated_at timestamptz NOT NULL,
     CONSTRAINT interview_coverage_items_stage_check CHECK (stage IN ('background', 'screening', 'compensation', 'closing')),
     CONSTRAINT interview_coverage_items_state_check CHECK (state IN ('pending', 'asked', 'answered', 'omitted')),
@@ -36,6 +48,7 @@ CREATE TABLE public.interview_coverage_items (
         OR (state <> 'omitted' AND omission_reason IS NULL)
     ),
     CONSTRAINT interview_coverage_items_clarification_count_check CHECK (clarification_count >= 0 AND clarification_count <= 1),
+    CONSTRAINT interview_coverage_items_clarification_entry_check CHECK ((clarification_count = 1) = (clarification_entry_id IS NOT NULL)),
     CONSTRAINT interview_coverage_items_execution_id_question_id_key UNIQUE (execution_id, question_id),
     CONSTRAINT interview_coverage_items_execution_id_fkey FOREIGN KEY (execution_id)
         REFERENCES public.interview_progress(execution_id) ON UPDATE RESTRICT ON DELETE RESTRICT
@@ -105,6 +118,10 @@ CREATE TABLE public.interview_transcript_entries (
 
 ALTER TABLE public.interview_coverage_items
     ADD CONSTRAINT interview_coverage_items_answer_entry_id_fkey FOREIGN KEY (answer_entry_id)
+        REFERENCES public.interview_transcript_entries(id) ON UPDATE RESTRICT ON DELETE RESTRICT,
+    ADD CONSTRAINT interview_coverage_items_clarification_entry_id_fkey FOREIGN KEY (clarification_entry_id)
+        REFERENCES public.interview_transcript_entries(id) ON UPDATE RESTRICT ON DELETE RESTRICT,
+    ADD CONSTRAINT interview_coverage_items_omission_entry_id_fkey FOREIGN KEY (omission_entry_id)
         REFERENCES public.interview_transcript_entries(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
 
 CREATE TABLE public.interview_checkpoints (

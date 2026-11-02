@@ -8,7 +8,7 @@ The machine-readable specification is [openapi.yaml](openapi.yaml); contract cha
 
 Every administrative request requires `Origin` equal to `ACCESS_HTTP_ORIGIN`. Same-origin GET and HEAD omit `Origin` in browsers; those requests are accepted when `Host` matches `ACCESS_HTTP_ORIGIN`. A present mismatched `Origin` is still rejected. Requests with bodies also require `Content-Type: application/json`. HTTPS uses cookie `__Host-ia-admin` (Secure, HttpOnly, SameSite=Lax, Path=/, host-only). HTTP localhost uses `ia-admin` with the same flags except `__Host-` and Secure. Candidate cookies `ia-candidate` and `__Host-ia-candidate` never authenticate administrative routes.
 
-Login has no CSRF header. Authenticated unsafe methods require `X-CSRF-Token` matching the current administrative session. `GET /admin/session` returns `csrfToken`. Login is limited to 5 attempts per canonical email and 20 per client IP per 15 minutes; excess is `429` `IA_RATE_LIMITED` with `Retry-After`.
+Login has no CSRF header. A committed login deletes every other administrative session of the same account in the same transaction, so an account has one live session; a request that still carries a replaced session cookie gets `401` `IA_UNAUTHENTICATED`. A failed or rolled-back login deletes nothing, and logout still sets `revoked_at` on the current session without deleting the row. The login response and cookie are unchanged. Authenticated unsafe methods require `X-CSRF-Token` matching the current administrative session. `GET /admin/session` returns `csrfToken`. Login is limited to 5 attempts per canonical email and 20 per client IP per 15 minutes; excess is `429` `IA_RATE_LIMITED` with `Retry-After`.
 
 ## Routes
 

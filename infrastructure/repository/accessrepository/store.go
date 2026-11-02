@@ -70,7 +70,7 @@ func (t loginTx) Account(ctx context.Context) (accessport.AccountRecord, error) 
 
 // DeleteOtherSessions removes the locked account's other administrative sessions in the open transaction.
 func (t loginTx) DeleteOtherSessions(ctx context.Context, keepID string) error {
-	return nil
+	return t.tx.WithContext(ctx).Where("account_id = ? AND id <> ?", t.accountID, keepID).Delete(&SessionModel{}).Error
 }
 
 // InsertSession stores the session in the open transaction or classifies a duplicate digest.

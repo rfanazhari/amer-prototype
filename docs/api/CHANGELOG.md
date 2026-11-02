@@ -1,5 +1,9 @@
 # API changelog
 
+## 0.13.1 — single live administrative session (T23)
+
+A committed administrative login now deletes the account's other `administrative_sessions` rows in the same transaction. An earlier session cookie then receives `401` `IA_UNAUTHENTICATED`. No route, schema, response body, cookie, status code, or migration changed. See [identity-access.md](identity-access.md).
+
 ## 0.13.0 — HR assignment access revocation (T22)
 
 Added `POST /admin/interview-assignments/{id}/revocation`. Current HR commits `access_revoked_at` once from the trusted clock, then the command cancels a nonterminal execution with reason `access_revoked`. Success is `200` with `id` and `accessRevokedAt` only after cancellation returns; a repeat returns the original instant. A cancellation failure after the marker commit is `503` `IA_DEPENDENCY_UNAVAILABLE` with no success body. No existing route, schema, or code changed. See [identity-access.md](identity-access.md) and [openapi.yaml](openapi.yaml).

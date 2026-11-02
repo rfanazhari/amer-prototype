@@ -358,13 +358,13 @@ These are obligations for implementation. Checked items are recorded in this des
 - [x] Sibling calls are kernel operations. Consent, stages, transcript, voice, and report content are out of scope.
 - [x] Every new Go declaration is required to satisfy `test/architecture/documentation_test.go`.
 - [ ] PostgreSQL proof of locking, rollback, and idempotency still has to be produced by T8.
-- [ ] A production revocation caller still has to exist before BR-CORE-055 is demonstrated outside a fixture. That caller is `CORE-IAM-022`. In-interview expiry remains Identity and Access Q7.
+- [x] T10 demonstrates production HR revocation cancellation through `CORE-IAM-022` on PostgreSQL. `TestExecutionRevocationHTTPPostgres` verifies CREATED/RUNNING cancellation, HR actor, stable repeat and invitation reissue. In-interview expiry remains Identity and Access Q7 and is unproved here.
 
 ## 9. Risks & Open Questions
 
 | Item | Effect | Readiness |
 |---|---|---|
-| Q1. No production command writes `access_revoked_at`. | T1–T9 can implement and prove `CancelNonterminal` with a fixture. T10 cannot show an HR revocation cancelling a run until `CORE-IAM-022` is Done. | Ready when that command is Done and `CancelNonterminal` still accepts assignment id, actor, and reason `access_revoked`. Owner: Identity and Access T22. |
+| Q1. Resolved by Identity and Access T22 and Execution Lifecycle T10. | The production revocation command writes `access_revoked_at` then calls `CancelNonterminal` with assignment id, HR actor and `access_revoked`. | T10 production-runtime HTTP proof passes on disposable PostgreSQL 17 for CREATED/RUNNING, stable repeat and non-cancelling invitation reissue. In-interview expiry is still Q1b. |
 | Q1b. No command detects authority expiry during a run. | T10 does not pick this up. A live session can end without cancelling the execution. | Ready when Identity and Access Q7 names the trigger and a task calls `CancelNonterminal` with `authority_expired`. |
 | Q2. `interview_assignments.completed_at` is not set when the execution completes. | BR-CORE-039 is met for `Start` because a second execution is not created while the pin exists. A reader that looks only at `completed_at` will not see completion. | Not a blocker. Revisit when the interview completion coordinator is designed. That coordinator may set the marker. This kernel still must not. |
 | Q3. Activation retry budget and voice deadlines are unset. | Interview Runtime chooses them when it calls `Fail` or sets `deadline_at`. | Not a blocker for this kernel. |
@@ -374,7 +374,7 @@ These are obligations for implementation. Checked items are recorded in this des
 | Risk. `StartExecution` against a version-8 database fails the new foreign key. | The function is unmounted. Private-table pin tests still pass and still do not prove the release schema. | T8 covers the release schema. T9 checks runtime does not reference `StartExecution`. |
 | Risk. Two terminal transactions deadlock if a new path locks the execution and then the assignment. | The repository must not offer that method. | T8 includes a lock-order test and review of the SQL order. |
 
-No independent implementation task is waiting on Q2, Q3, or Q4. T10 waits on Q1. Q1b has no task in this plan.
+No independent implementation task is waiting on Q2, Q3, or Q4. T10 closes Q1 with production-command evidence. Q1b has no task in this plan.
 
 ## 10. Revision History
 
@@ -382,3 +382,4 @@ No independent implementation task is waiting on Q2, Q3, or Q4. T10 waits on Q1.
 |---|---|---|---|
 | v1 | 2026-11-02 | Initial design | Mode A plan for BR-CORE-050..BR-CORE-059. The existing pin is recorded as impact, not as an implementation of the lifecycle. |
 | v1.1 | 2026-11-02 | Q1 names `CORE-IAM-022` as the revocation caller. Expiry during a run is Q1b | Owner approved the caller outside this capability. `CancelNonterminal` signature unchanged. Documents only |
+| v1.2 | 2026-11-03 | Resolve Q1 with T10 production HTTP proof | No lifecycle, API or schema change; authority-expiry detection remains Q1b |

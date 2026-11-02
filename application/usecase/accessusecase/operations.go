@@ -42,6 +42,12 @@ type IssueInvitationOperation interface {
 	Execute(ctx context.Context, assignmentID string) (*dto.IssuedInvitation, error)
 }
 
+// RevokeAssignmentAccessOperation withdraws assignment access and cancels a nonterminal execution.
+type RevokeAssignmentAccessOperation interface {
+	// Execute commits the access marker, then asks the execution lifecycle to cancel a nonterminal run.
+	Execute(ctx context.Context, assignmentID string) (*dto.AssignmentRevocation, error)
+}
+
 // ExchangeInvitationOperation establishes a candidate session from an invitation secret.
 type ExchangeInvitationOperation interface {
 	// Execute accepts only the invitation token and returns session metadata after commit.

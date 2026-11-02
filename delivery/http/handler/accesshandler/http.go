@@ -79,6 +79,12 @@ type candidateBody struct {
 	UpdatedAt string `json:"updatedAt"`
 }
 
+// revocationBody is the committed assignment access revocation without execution material.
+type revocationBody struct {
+	ID              string `json:"id"`
+	AccessRevokedAt string `json:"accessRevokedAt"`
+}
+
 // invitationBody is the issued invitation including the plaintext token shown once.
 type invitationBody struct {
 	ID           string `json:"id"`

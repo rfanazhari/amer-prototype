@@ -17,6 +17,8 @@ func (e *CommitUncertainError) Unwrap() error { return e.Cause }
 type LoginTx interface {
 	// Account returns the locked account for eligibility and stored-hash recheck before insert.
 	Account(ctx context.Context) (AccountRecord, error)
+	// DeleteOtherSessions removes every administrative session of the locked account except keepID.
+	DeleteOtherSessions(ctx context.Context, keepID string) error
 	// InsertSession stores the session in the open transaction or returns TokenConflictError.
 	InsertSession(ctx context.Context, record SessionRecord) error
 }

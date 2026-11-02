@@ -84,6 +84,10 @@ migrate.down:
 	@test -n "$(MIGRATION_STEPS)" || (echo 'MIGRATION_STEPS is required' >&2; exit 1)
 	@MIGRATION_STEPS="$(MIGRATION_STEPS)" MIGRATION_DISPOSABLE=yes go run ./cmd/migrate down
 
+.PHONY: access.prune-sessions
+access.prune-sessions:
+	@go run ./cmd/prune-sessions
+
 .PHONY: docker.migrate
 docker.migrate:
 	@test -n "$(MIGRATION_VERSION)" || (echo 'MIGRATION_VERSION is required' >&2; exit 1)

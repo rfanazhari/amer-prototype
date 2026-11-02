@@ -15,8 +15,10 @@ import (
 	"github.com/rfanazhari/amer-prototype/infrastructure/repository/accessrepository"
 	"github.com/rfanazhari/amer-prototype/infrastructure/repository/agentbindingrepository"
 	"github.com/rfanazhari/amer-prototype/infrastructure/repository/agentconfigrepository"
+	"github.com/rfanazhari/amer-prototype/infrastructure/repository/executionrepository"
 	"github.com/rfanazhari/amer-prototype/infrastructure/service/accessauthority"
 	"github.com/rfanazhari/amer-prototype/infrastructure/service/accesscredentials"
+	"github.com/rfanazhari/amer-prototype/infrastructure/service/accesslifecycle"
 	"github.com/rfanazhari/amer-prototype/infrastructure/service/clock"
 	"gorm.io/gorm"
 )
@@ -86,6 +88,7 @@ func assembleAccess(db *gorm.DB, cfg Config, logs *logmanager.Application) acces
 	candidates := accessrepository.CandidateIdentities{Store: store}
 	configStore := agentconfigrepository.Store{DB: db}
 	assignmentPins := agentbindingrepository.Assignments{DB: db}
+	executions := executionrepository.Store{DB: db}
 	invitations := accessrepository.InvitationSecrets{Store: store}
 	candidateSecrets := accessrepository.CandidateSessionSecrets{Store: store}
 	candidateSessions := accessauthority.CandidateSessions{Store: candidateSecrets, Tokens: tokens, Clock: timer}
@@ -98,9 +101,13 @@ func assembleAccess(db *gorm.DB, cfg Config, logs *logmanager.Application) acces
 		CreateAssignment: agentbindingusecase.CreateAssignment{
 			Current: sessions, Clock: timer, Candidates: candidates, Instances: configStore, Assignments: assignmentPins,
 		},
-		Candidate:        accessquery.Candidate{Candidates: candidates, Current: sessions, Clock: timer},
-		ListCandidates:   accessquery.ListCandidates{Candidates: candidates, Current: sessions, Clock: timer},
-		IssueInvitation:  accessusecase.IssueInvitation{Assignments: store, Current: sessions, Tokens: tokens, Clock: timer},
+		Candidate:       accessquery.Candidate{Candidates: candidates, Current: sessions, Clock: timer},
+		ListCandidates:  accessquery.ListCandidates{Candidates: candidates, Current: sessions, Clock: timer},
+		IssueInvitation: accessusecase.IssueInvitation{Assignments: store, Current: sessions, Tokens: tokens, Clock: timer},
+		RevokeAssignment: accessusecase.RevokeAssignmentAccess{
+			Assignments: store, Current: sessions, Clock: timer,
+			Lifecycle: accesslifecycle.Canceller{Assignments: executions, Executions: executions, Clock: timer},
+		},
 		Exchange:         accessusecase.ExchangeInvitation{Invitations: invitations, Candidates: candidates, Assignments: store, Tokens: tokens, Clock: timer},
 		CandidateSession: accessquery.CandidateSession{Current: candidateSessions, Candidates: candidates, Assignments: store, CSRF: csrf, Clock: timer},
 		CSRF:             csrf,

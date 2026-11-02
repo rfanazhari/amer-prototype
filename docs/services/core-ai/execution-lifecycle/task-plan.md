@@ -80,13 +80,14 @@ T1 and T2 may proceed in parallel. They are not a request to run two agents.
   - Ticket: `CORE-EXL-009` — depends: T4, T6, T7 — ref: design §4, §8; decision-log D6.
   - DoD: `make test`, `make test.all`, `make test.contract`, `make test.architecture`, and `make lint` pass. OpenAPI has no new execution route. The documentation test passes for every new declaration, including unexported ones and interface methods. A source check fails the build if the kernel packages named in design §4 contain stage, invoice, transcript, or salary identifiers. `infrastructure/runtime` does not reference `StartExecution` and does not register a lifecycle route. State the commands and that T8, if not yet run, is still required before calling the database rules proved. T9 does not close T10 or T11.
 
-### Blocked / Deferred
+### Follow-up / Deferred
 
-- [ ] **T10. Prove the HR revocation command cancels a nonterminal execution** — Application integration — M
+- [x] **T10. Prove the HR revocation command cancels a nonterminal execution** — Application integration — M
   - Ticket: `CORE-EXL-010` — depends: T7, T8, and Identity and Access T22 — ref: design §9 Q1; decision-log D7, D8.
-  - Blocked by: `CORE-IAM-022` is not Done. No production command writes `access_revoked_at`. The only observed writer is `revokeAssignment` in the access integration fixture. In-interview session expiry stays Identity and Access Q7 and is not this task.
-  - Ready when: `CORE-IAM-022` is Done and `CancelNonterminal` still accepts assignment id, actor, and reason `access_revoked` without reading the revocation marker.
+  - Blocked by: none. `CORE-IAM-022` is Done. The production revocation command writes `access_revoked_at` and invokes lifecycle cancellation. In-interview session expiry stays Identity and Access Q7 and is not this task.
+  - Readiness verified: `CORE-IAM-022` is Done; `CancelNonterminal` still accepts assignment id, actor, and reason `access_revoked` without reading the revocation marker.
   - DoD: an end-to-end case on PostgreSQL calls the real `POST /admin/interview-assignments/{id}/revocation` command and shows a nonterminal execution becoming `CANCELLED`, a repeat not reopening it, and invitation reissue still not cancelling it. `make test.integration` or `make test.docker` covers that case. Fixture-only proof remains T7/T8 and does not close this task. This task does not add the route, the marker write, or an `authority_expired` detector.
+  - Evidence (2026-11-03): `TestExecutionRevocationHTTPPostgres` starts the production runtime and sends real loopback HTTP requests on disposable PostgreSQL 17, release schema 10. Both `CREATED` and `RUNNING` become `CANCELLED` with reason `access_revoked` and the HR actor. Repeating the command preserves the complete terminal snapshot, revocation timestamp and single cancellation transition. Initial invitation issue and reissue preserve the nonterminal snapshot; a later start is refused and the pin remains unique. `TEST_DATABASE_URL` was set only to this disposable database. From the repository root, `GOFLAGS='-run=^TestExecutionRevocationHTTPPostgres$' make test.integration` passes (T10 selected; smoke has no matching tests). Full database regression was not run. The new test passes immediately against existing behavior: no behavioral RED or RED SHA is claimed. Local checks and assessment are recorded in `tactical-strategy.md` §7.
 
 - [ ] **T11. Run a non-interview agent on this kernel** — Later capability — L
   - Ticket: `CORE-EXL-011` — depends: T8, T9 — ref: design §9 Q5; decision-log D6.
@@ -109,7 +110,7 @@ T9 → T11
 Identity and Access T22 (`CORE-IAM-022`) → T10
 ```
 
-T1 is parallel with T2. T5 is parallel with T3 and T4 once T1 and T2 are done. T9 is parallel with T8 once T4, T6, and T7 are done. T10 stays blocked until `CORE-IAM-022` is Done. T11 stays blocked on its own readiness condition.
+T1 is parallel with T2. T5 is parallel with T3 and T4 once T1 and T2 are done. T9 is parallel with T8 once T4, T6, and T7 are done. T10 is Done after `CORE-IAM-022`; its production HTTP proof is recorded above. T11 stays blocked on its own readiness condition.
 
 ## Revision History
 
@@ -117,3 +118,4 @@ T1 is parallel with T2. T5 is parallel with T3 and T4 once T1 and T2 are done. T
 |---|---|---|---|
 | v1 | 2026-11-02 | Initial plan, all tasks Todo | Mode A. No historical Done status copied. |
 | v1.1 | 2026-11-02 | T10 waits on Identity and Access T22. In-interview expiry stays out of T10 | Owner approved the HR revocation command as `CORE-IAM-022`. Documents only |
+| v1.2 | 2026-11-03 | Close T10 with production HTTP and PostgreSQL proof | CORE-IAM-022 is Done; CREATED/RUNNING revocation, repeat and invitation reissue verified |

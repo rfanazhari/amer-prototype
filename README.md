@@ -80,4 +80,8 @@ make migrate.down MIGRATION_STEPS=1 MIGRATION_DISPOSABLE=yes
 
 Up requires an explicit target 1 through 10. The current release target is clean version 10. Baseline requires absent metadata and exact legacy Task-only or three-table catalog equivalence. Stop legacy writers and take a restorable backup before adoption. Drift, partial/foreign schemas and dirty versions require inspection; no automatic force is provided. Baseline uses the same advisory lock as up/down. Commands allow 59 seconds for operations and one second for cleanup; lock waits are capped at five seconds. Baseline SQL uses explicit transactions and pinned checksums; change future schema through new versions rather than editing applied files. Run status after failures and use reviewed forward repair or restore.
 
+### Administrative session cleanup
+
+`make access.prune-sessions` deletes `administrative_sessions` rows more than 7 days past `expires_at` or `revoked_at`, at most 500 rows per statement, and prints `removed=<count>`. It uses the runtime `DATABASE_URL` role (DELETE on that one table only), never touches candidate or account tables, and is safe to rerun after an interruption. Run it from an external scheduler; the application starts no cleanup worker.
+
 `DATABASE_URL` is the DDL-denied application connection; `MIGRATION_DATABASE_URL` is the separate DDL-capable operator connection. Configure grants as described in the runbook. Normal local Compose uses its development owner for convenience; restricted-role runtime behavior is verified on disposable PostgreSQL. `TEST_MIGRATION_DATABASE_URL` is a separate explicitly authorized disposable database whose public schema is reset by migration acceptance tests. The isolated verification scripts supply it automatically.

@@ -99,15 +99,33 @@ func TestAdministrativePersistenceSQL(t *testing.T) {
 				rows := sqlmock.NewRows([]string{"id", "name", "email", "password_hash", "role", "status", "created_by", "created_at", "updated_at"}).
 					AddRow(account.ID, account.Name, account.Email, account.PasswordHash, account.Role.String(), account.Status.String(), nil, account.CreatedAt, account.UpdatedAt)
 				mock.ExpectQuery(`(?i)SELECT .* FROM ["']?administrative_accounts["']?`).WithArgs(account.ID, 1).WillReturnRows(rows)
+				mock.ExpectExec(`(?i)DELETE FROM ["']?administrative_sessions["']? WHERE account_id = .* AND id <> `).WithArgs(account.ID, session.ID).WillReturnResult(sqlmock.NewResult(0, 2))
 				mock.ExpectExec(`(?i)INSERT INTO ["']?administrative_sessions["']?`).WillReturnResult(sqlmock.NewResult(1, 1))
 				mock.ExpectCommit()
 				err := store.WithinLogin(context.Background(), account.ID, func(tx accessport.LoginTx) error {
 					got, err := tx.Account(context.Background())
 					require.NoError(t, err)
 					require.Equal(t, account.ID, got.ID)
+					require.NoError(t, tx.DeleteOtherSessions(context.Background(), session.ID))
 					return tx.InsertSession(context.Background(), session)
 				})
 				require.NoError(t, err)
+			},
+		},
+		{
+			name: "failed session insert rolls back the replacement delete",
+			run: func(t *testing.T, store accessrepository.Store, mock sqlmock.Sqlmock) {
+				mock.ExpectBegin()
+				mock.ExpectExec(`(?i)SELECT id FROM administrative_accounts WHERE id = .* FOR UPDATE`).WithArgs(account.ID).WillReturnResult(sqlmock.NewResult(0, 1))
+				mock.ExpectExec(`(?i)DELETE FROM ["']?administrative_sessions["']? WHERE account_id = .* AND id <> `).WithArgs(account.ID, session.ID).WillReturnResult(sqlmock.NewResult(0, 1))
+				mock.ExpectExec(`(?i)INSERT INTO ["']?administrative_sessions["']?`).WillReturnError(&pgconn.PgError{Code: "23505", ConstraintName: "administrative_sessions_token_hash_INDEX"})
+				mock.ExpectRollback()
+				err := store.WithinLogin(context.Background(), account.ID, func(tx accessport.LoginTx) error {
+					require.NoError(t, tx.DeleteOtherSessions(context.Background(), session.ID))
+					return tx.InsertSession(context.Background(), session)
+				})
+				var conflict accessport.TokenConflictError
+				require.ErrorAs(t, err, &conflict)
 			},
 		},
 		{

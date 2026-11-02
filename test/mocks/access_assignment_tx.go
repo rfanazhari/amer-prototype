@@ -111,6 +111,24 @@ func (_m *AssignmentTx) InsertInvitation(ctx context.Context, record accessport.
 	return r0
 }
 
+// MarkAccessRevoked provides a mock function with given fields: ctx, revokedAt
+func (_m *AssignmentTx) MarkAccessRevoked(ctx context.Context, revokedAt time.Time) error {
+	ret := _m.Called(ctx, revokedAt)
+
+	if len(ret) == 0 {
+		panic("no return value specified for MarkAccessRevoked")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, time.Time) error); ok {
+		r0 = rf(ctx, revokedAt)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // RevokeInvitation provides a mock function with given fields: ctx, id, revokedAt
 func (_m *AssignmentTx) RevokeInvitation(ctx context.Context, id string, revokedAt *time.Time) error {
 	ret := _m.Called(ctx, id, revokedAt)

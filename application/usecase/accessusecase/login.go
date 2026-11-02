@@ -82,6 +82,9 @@ func (u Login) Execute(ctx context.Context, email, password string) (*dto.Admini
 		if locked.PasswordHash != account.PasswordHash || locked.Status != enum.Active {
 			return service.ErrAuthenticationFailed
 		}
+		if err := tx.DeleteOtherSessions(ctx, record.ID); err != nil {
+			return err
+		}
 		return tx.InsertSession(ctx, record)
 	})
 	if err != nil {

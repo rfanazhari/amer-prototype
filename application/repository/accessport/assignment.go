@@ -15,6 +15,7 @@ type AssignmentFacts struct {
 	CandidateID       string
 	RevisionID        string
 	AccessRevoked     bool
+	AccessRevokedAt   *time.Time
 	TerminalCompleted bool
 }
 
@@ -49,6 +50,8 @@ type AssignmentTx interface {
 	Facts(ctx context.Context) (AssignmentFacts, error)
 	// CurrentInvitations lists unrevoked invitations for the locked assignment.
 	CurrentInvitations(ctx context.Context) ([]InvitationRecord, error)
+	// MarkAccessRevoked writes access_revoked_at on the locked assignment only while it is still null.
+	MarkAccessRevoked(ctx context.Context, revokedAt time.Time) error
 	// RevokeInvitation writes revoked_at explicitly for an invitation owned by the locked assignment.
 	RevokeInvitation(ctx context.Context, id string, revokedAt *time.Time) error
 	// InsertInvitation stores a new invitation inside the locked assignment boundary.

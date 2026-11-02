@@ -1,10 +1,11 @@
 ---
 id: interview-runtime
 service: core-ai
-status: planned
+status: partial
 rules: BR-CORE-060..BR-CORE-071
 updated: 2026-11-02
 implementation:
+  - domain/interview
 ---
 
 # Interview Runtime
@@ -163,7 +164,9 @@ The stage names and time budgets come from the published HR Interviewer revision
 
 ## Known gaps
 
-Not yet implemented — verify against code after implementation.
+T1 implements the in-memory progress rules in `domain/interview`: coverage, classified evidence citations, omission, handoff authorization, time boundaries, reconnect counters, and completion readiness. Public domain tests verify these rules. The aggregate does not interpret provider events.
+
+The live interview path, persistence, attempt fencing, sessions, checkpoint recovery, instructions, and lifecycle completion remain outside T1. These rules are not yet exposed as a production interview runtime.
 
 ## Open questions
 

@@ -22,14 +22,15 @@ Companion dependencies, not implemented by this plan:
 - DoD: verifiable
 - Blocked: not executable until the ready condition is true and this design is updated when the condition changes the contract
 
-Every Go task also requires `gofmt` on changed Go files, comments on new declarations so `make test.architecture` passes, and `make lint` clean for the touched packages. Domain and application tasks run `make test`. None of the tasks below are done.
+Every Go task also requires `gofmt` on changed Go files, comments on new declarations so `make test.architecture` passes, and `make lint` clean for the touched packages. Domain and application tasks run `make test`. T1 is complete; all other tasks remain unchanged.
 
 ## Tasks
 
 ### Independent foundation
 
-- [ ] **T1. Encode interview progress rules** — Domain — L
+- [x] **T1. Encode interview progress rules** — Domain — L
   - Ticket ID: `CORE-IRT-001`
+  - Evidence: [T1 verification](t1-verification.md); implementation in `domain/interview`.
   - depends: none — ref: design §3–§4, decision-log D1, D5, D6, D7, D9.
   - DoD: public tests cover coverage edges, the three omission reasons, technical loss leaving the question un-omitted and blocking `Authorize`, follow-up cap 2 with citation required, fragment rejected as an answer, handoff required before a target stage, closing handoff with no next stage, soft-budget and 15-minute equality, reconnect counters, and `ReadyForCompletion`. `NewProgress` writes cap 2 from a revision fixture that has no cap field. `RestoreProgress` keeps a stored cap and does not call publication assessment. No execution status type, no provider client, no GORM. `make test` and `make test.architecture` pass.
 

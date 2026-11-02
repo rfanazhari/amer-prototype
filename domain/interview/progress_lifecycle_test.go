@@ -161,7 +161,7 @@ func TestRestoreProgress(t *testing.T) {
 		{"historical publication", func(s *interview.Snapshot) {
 			c, err := valueobject.NewHRConfiguration(valueobject.HRInput{MandatoryQuestions: []valueobject.QuestionInput{{ID: "background", Stage: "background", Text: "Work?"}, {ID: "screening", Stage: "screening", Text: "Projects?"}, {ID: "compensation", Stage: "compensation", Text: "Expectations?"}}, StageSeconds: &valueobject.StageSecondsInput{Background: 10, Screening: 10, Compensation: 10, Closing: 10}, CompensationPolicy: &valueobject.CompensationInput{DiscussionMode: "expectations_only"}})
 			require.NoError(t, err)
-			s.Configuration = c
+			s.Configuration = c.Clone()
 		}, false},
 		{"missing execution", func(s *interview.Snapshot) { s.ExecutionID = "" }, true},
 		{"missing revision", func(s *interview.Snapshot) { s.RevisionID = "" }, true},
@@ -170,7 +170,7 @@ func TestRestoreProgress(t *testing.T) {
 		{"unknown coverage", func(s *interview.Snapshot) { s.Coverage[0].State = "unknown" }, true},
 		{"missing coverage", func(s *interview.Snapshot) { s.Coverage = s.Coverage[:1] }, true},
 		{"wrong question stage", func(s *interview.Snapshot) { s.Coverage[0].Stage = enum.StageClosing }, true},
-		{"answered without citation", func(s *interview.Snapshot) { s.Coverage[0].State = interview.Answered }, true},
+		{"answered without citation", func(s *interview.Snapshot) { s.Coverage[0].AnswerEntryID = "" }, true},
 		{"citation to fragment", func(s *interview.Snapshot) { s.Entries[0].State = interview.Fragment }, true},
 		{"unknown omission", func(s *interview.Snapshot) {
 			s.Coverage[1].State = interview.Omitted

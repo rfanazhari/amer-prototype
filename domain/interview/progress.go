@@ -18,80 +18,6 @@ var (
 	ErrBudget   = errors.New("interview budget exhausted")
 )
 
-// CoverageState describes recording completeness, without a competence verdict.
-type CoverageState string
-
-const (
-	Pending  CoverageState = "pending"
-	Asked    CoverageState = "asked"
-	Answered CoverageState = "answered"
-	Omitted  CoverageState = "omitted"
-)
-
-// OmissionReason identifies an approved nontechnical omission.
-type OmissionReason string
-
-const (
-	CandidateSkip              OmissionReason = "candidate_skip"
-	NoAnswerAfterClarification OmissionReason = "no_answer_after_clarification"
-	SoftBudgetExpired          OmissionReason = "soft_budget_expired"
-)
-
-// EvidenceState is supplied by a caller that has already classified the observation.
-type EvidenceState string
-
-const (
-	Fragment EvidenceState = "fragment"
-	Final    EvidenceState = "final"
-)
-
-// Speaker identifies the author of a classified transcript entry.
-type Speaker string
-
-const (
-	Candidate Speaker = "candidate"
-	Model     Speaker = "model"
-)
-
-// CoverageItem transfers one question's state and its evidence references.
-type CoverageItem struct {
-	QuestionID                                           string
-	Stage                                                enum.QuestionStage
-	State                                                CoverageState
-	OmissionReason                                       OmissionReason
-	ClarificationEntryID, AnswerEntryID, OmissionEntryID string
-}
-
-// TranscriptEntry transfers classified speech; it contains no provider event name.
-type TranscriptEntry struct {
-	ID      string
-	Stage   enum.QuestionStage
-	Speaker Speaker
-	State   EvidenceState
-	Body    string
-}
-
-// TechnicalLoss records a recording gap independently of question coverage.
-type TechnicalLoss struct {
-	ID, QuestionID string
-	Resolved       bool
-}
-
-// Handoff transfers the source record; an empty target closes the interview.
-type Handoff struct {
-	Stage, Target enum.QuestionStage
-	Coverage      []CoverageItem
-	EntryIDs      []string
-	Losses        []TechnicalLoss
-	CommittedAt   time.Time
-}
-
-// ReconnectState transfers the backend detection time and frozen reconnect counters.
-type ReconnectState struct {
-	DetectedAt         *time.Time
-	Episodes, Attempts int
-}
-
 // Snapshot is a detached persistence boundary, never a mutable aggregate handle.
 type Snapshot struct {
 	ExecutionID, RevisionID     string
@@ -110,63 +36,91 @@ type Snapshot struct {
 // Progress protects interview invariants behind public operations.
 type Progress struct{ state Snapshot }
 
+// trustedTime preserves the repository's UTC millisecond representation.
+func trustedTime(at time.Time) time.Time { return at.UTC().Truncate(time.Millisecond) }
+
+// stages returns the fixed interview order, including the optionally questionless closing.
+func stages() []enum.QuestionStage {
+	return []enum.QuestionStage{enum.StageBackground, enum.StageScreening, enum.StageCompensation, enum.StageClosing}
+}
+
+// stageIndex returns the position in the fixed order, or minus one for an unknown stage.
+func stageIndex(stage enum.QuestionStage) int {
+	for i, s := range stages() {
+		if s == stage {
+			return i
+		}
+	}
+	return -1
+}
+
+// stageSeconds selects a stored duration without reapplying publication eligibility.
+func stageSeconds(c valueobject.HRConfiguration, stage enum.QuestionStage) int {
+	s := c.StageSeconds()
+	if s == nil {
+		return 0
+	}
+	switch stage {
+	case enum.StageBackground:
+		return s.Background()
+	case enum.StageScreening:
+		return s.Screening()
+	case enum.StageCompensation:
+		return s.Compensation()
+	case enum.StageClosing:
+		return s.Closing()
+	}
+	return 0
+}
+
+// open reports whether the current stage has not already been sealed.
+func (p *Progress) open() bool {
+	return p.state.ExecutionID != "" && p.state.CurrentStage.Valid() && len(p.state.Handoffs) == stageIndex(p.state.CurrentStage)
+}
+
+// activeAt rejects pre-activation instants and the inclusive outer deadline.
+func (p *Progress) activeAt(now time.Time) bool {
+	return p.open() && !now.IsZero() && !now.Before(p.state.StageActivatedAt) && !p.HardDeadlineReached(now)
+}
+
 // NewProgress builds pending questions from the pinned revision and freezes cap two.
 func NewProgress(id string, revision agentconfig.PublishedRevision[valueobject.HRConfiguration], runningAt time.Time) (*Progress, error) {
-	return nil, ErrInvalid
+	r := revision.Snapshot()
+	if id == "" || r.Identity.ID == "" || runningAt.IsZero() {
+		return nil, ErrInvalid
+	}
+	at := trustedTime(runningAt)
+	s := Snapshot{ExecutionID: id, RevisionID: r.Identity.ID, Configuration: r.Configuration.Clone(), RunningAt: at, StageActivatedAt: at, CurrentStage: enum.StageBackground, FollowUpLimit: 2}
+	for _, q := range r.Configuration.MandatoryQuestions() {
+		s.Coverage = append(s.Coverage, CoverageItem{QuestionID: q.ID(), Stage: q.Stage(), State: Pending})
+	}
+	p, err := RestoreProgress(s)
+	if err != nil {
+		return nil, ErrInvalid
+	}
+	return p, nil
 }
 
-// RestoreProgress restores stored policy without publication reassessment.
-func RestoreProgress(s Snapshot) (*Progress, error) { return nil, ErrRestore }
+// Snapshot returns detached progress state, including nested handoff slices and time pointers.
+func (p *Progress) Snapshot() Snapshot { return p.state.detach() }
 
-// Snapshot returns detached progress state.
-func (p *Progress) Snapshot() Snapshot { return Snapshot{} }
-
-// Ask moves a pending question into asked coverage.
-func (p *Progress) Ask(questionID string) error { return ErrConflict }
-
-// RecordEntry accepts classified transcript evidence without interpreting provider events.
-func (p *Progress) RecordEntry(entry TranscriptEntry) error { return ErrEvidence }
-
-// Clarify records exactly one finalized model clarification for an asked question.
-func (p *Progress) Clarify(questionID, entryID string) error { return ErrEvidence }
-
-// Answer records a final candidate citation and resolves that question's technical gaps.
-func (p *Progress) Answer(questionID, entryID string) error { return ErrEvidence }
-
-// Omit records one of three approved reasons when its prerequisites hold.
-func (p *Progress) Omit(questionID string, reason OmissionReason, entryID string, now time.Time) error {
-	return ErrConflict
+// detach severs mutable aliases on both restoration and observation boundaries.
+func (s Snapshot) detach() Snapshot {
+	s.Configuration = s.Configuration.Clone()
+	s.Coverage = append([]CoverageItem(nil), s.Coverage...)
+	s.Entries = append([]TranscriptEntry(nil), s.Entries...)
+	s.FollowUps = append([]string(nil), s.FollowUps...)
+	s.Losses = append([]TechnicalLoss(nil), s.Losses...)
+	s.Handoffs = append([]Handoff(nil), s.Handoffs...)
+	for i := range s.Handoffs {
+		h := &s.Handoffs[i]
+		h.Coverage = append([]CoverageItem(nil), h.Coverage...)
+		h.EntryIDs = append([]string(nil), h.EntryIDs...)
+		h.Losses = append([]TechnicalLoss(nil), h.Losses...)
+	}
+	if s.Reconnect.DetectedAt != nil {
+		at := *s.Reconnect.DetectedAt
+		s.Reconnect.DetectedAt = &at
+	}
+	return s
 }
-
-// RecordTechnicalLoss preserves open coverage and blocks a stage proposal.
-func (p *Progress) RecordTechnicalLoss(id, questionID string) error { return ErrConflict }
-
-// FollowUp consumes the stored stage cap only with a final candidate citation.
-func (p *Progress) FollowUp(entryID string) error { return ErrEvidence }
-
-// Authorize checks a fixed next-stage proposal without changing progress.
-func (p *Progress) Authorize(target enum.QuestionStage, now time.Time) error { return ErrConflict }
-
-// CommitHandoff seals the source's structured evidence after authorization.
-func (p *Progress) CommitHandoff(target enum.QuestionStage, now time.Time) error { return ErrConflict }
-
-// ActivateStage requires a committed source handoff before starting the target timer.
-func (p *Progress) ActivateStage(target enum.QuestionStage, now time.Time) error { return ErrConflict }
-
-// SoftBudgetReached includes equality at the published stage deadline.
-func (p *Progress) SoftBudgetReached(now time.Time) bool { return false }
-
-// HardDeadlineReached includes equality at fifteen minutes from running.
-func (p *Progress) HardDeadlineReached(now time.Time) bool { return false }
-
-// ReadyForCompletion requires all coverage, resolved gaps and four sealed handoffs.
-func (p *Progress) ReadyForCompletion() bool { return false }
-
-// BeginReconnect starts a backend-detected episode under the stored episode ceiling.
-func (p *Progress) BeginReconnect(now time.Time) error { return ErrBudget }
-
-// AttemptReconnect consumes one replacement attempt strictly within 120 seconds.
-func (p *Progress) AttemptReconnect(now time.Time) error { return ErrBudget }
-
-// FinishReconnect ends the episode while retaining its counters.
-func (p *Progress) FinishReconnect() error { return ErrConflict }

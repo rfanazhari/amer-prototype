@@ -65,8 +65,9 @@ Every Go task also requires `gofmt` on changed Go files, comments on new declara
   - depends: T2 — ref: design §4 driver, §1 prototype table.
   - DoD: `interviewvoice` implements create, attach, observe, supply context, control, and close against the driver port. Create retains the provider session id and the SDP answer. A fake HTTP server covers success, empty key, and non-success. Close failure is returned and does not imply a database rollback. Observe yields an opaque event and does not mark coverage. Package tests do not call the public network. `H-01` is not claimed. RabbitMQ is not imported.
 
-- [ ] **T9. Build stage instructions without the salary ceiling** — Application — M
+- [x] **T9. Build stage instructions without the salary ceiling** — Application — M
   - Ticket ID: `CORE-IRT-009`
+  - Evidence: [T9 verification](t9-verification.md); builder in `application/usecase/interviewusecase/instructions.go`, follow-up cap in `domain/interview`. Fake-driver tests only; wording is not evaluated against a live model.
   - depends: T1, T2 — ref: design §6, decision-log D5, D6.
   - DoD: the context passed to `supply context` includes current-stage question text, topics, role name, remaining follow-ups, and `expectations_only`. The demo ceiling id and the field name `salaryCeilingRef` are absent. No amount parameter exists. Instructions do not ask the model for a hire or reject result. A test feeds a candidate sentence that asks for the ceiling and the outbound context still omits it. `make test` passes.
 

@@ -94,6 +94,7 @@ func attemptInput() interviewusecase.AttemptInput {
 
 // TestAttemptsExecute covers authorization order, replay, intent conflict, provider ordering and error mapping.
 func TestAttemptsExecute(t *testing.T) {
+	// testCase is one session-attempt scenario with its arrangement and expected outcome.
 	type testCase struct {
 		name    string
 		mutate  func(*interviewusecase.AttemptInput)

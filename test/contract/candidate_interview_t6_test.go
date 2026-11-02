@@ -53,13 +53,11 @@ func TestOpenAPIPublishesMountedCandidateInterviewRoutes(t *testing.T) {
 	}
 }
 
-// TestOpenAPIKeepsUnmountedInterviewRoutesAbsent verifies sibling runtime and reporting routes are not published.
+// TestOpenAPIKeepsUnmountedInterviewRoutesAbsent verifies reporting routes are not published.
 func TestOpenAPIKeepsUnmountedInterviewRoutesAbsent(t *testing.T) {
 	doc := loadContract(t)
 	for path := range doc.Paths.Map() {
 		require.NotContains(t, path, "/report")
-		require.NotContains(t, path, "session-attempts")
-		require.NotContains(t, path, "/ready")
 	}
 	require.NotNil(t, doc.Paths.Find("/candidate/session"))
 	require.NotNil(t, doc.Paths.Find("/candidate/access/exchange"))

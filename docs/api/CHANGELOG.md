@@ -1,5 +1,9 @@
 # API changelog
 
+## 0.11.0 — interview session attempts and readiness (T8)
+
+Added `POST /candidate/executions/{id}/session-attempts` and `POST /candidate/executions/{id}/session-attempts/{attempt_id}/ready`. Both require the candidate cookie, origin, content type and CSRF, and reject unknown or duplicate fields. A new attempt is `201`; the same key and intent replays the original attempt and answer with `200`. Added `IRT_CONFLICT` and `IRT_NOT_READY` (both `409`), with English and Indonesian messages; provider failure before a durable attempt reuses `503 SESSION_UNAVAILABLE`. Another assignment's execution is `404`. `ready` never marks coverage. No existing route, schema or code changed. `GET /voice-session` and `POST /voice-sessions` are unchanged until T7. See [candidate-interview.md](candidate-interview.md) and [openapi.yaml](openapi.yaml).
+
 ## Candidate lifecycle integration — T11 (2026-11-02)
 
 The existing candidate routes now use the PostgreSQL lifecycle adapter for start, read and cancel. Repeated intent returns the same execution, different intent conflicts, and cancellation commits before success. Running deadlines derive from persisted activation. Interview credentials refuse revoked assignments. Routes, JSON schemas and public codes are unchanged. Progress/fencing remain T12; no report call is introduced. See [candidate-interview.md](candidate-interview.md).

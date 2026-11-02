@@ -38,8 +38,8 @@ const (
 	CINDependencyUnavailable = "CIN_DEPENDENCY_UNAVAILABLE"
 	CINStartUncertain        = "CIN_START_UNCERTAIN"
 
-	IRTConflict              = "IRT_CONFLICT"
-	IRTNotReady              = "IRT_NOT_READY"
+	IRTConflict = "IRT_CONFLICT"
+	IRTNotReady = "IRT_NOT_READY"
 
 	EXLNotFound              = "EXL_NOT_FOUND"
 	EXLAssignmentUnavailable = "EXL_ASSIGNMENT_UNAVAILABLE"

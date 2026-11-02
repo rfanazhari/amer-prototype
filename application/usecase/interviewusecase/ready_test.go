@@ -90,6 +90,7 @@ func (h *readyHarness) commit(fence error) {
 
 // TestReadyExecute covers ownership, controller, fencing, the readiness flag and untouched coverage.
 func TestReadyExecute(t *testing.T) {
+	// testCase is one readiness scenario with its arrangement and expected outcome.
 	type testCase struct {
 		name     string
 		provider bool

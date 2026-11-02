@@ -101,7 +101,7 @@ No RED/GREEN history exists for this feature. Record it only from commands actua
 
 - `POST /candidate/access/exchange` and `GET /candidate/session` keep their status codes, cookie names, and body fields.
 - Access tests still show no execution insert on exchange or session read.
-- `GET /voice-session` and `POST /voice-sessions` stay on the voice handlers.
+- `GET /voice-session` and `POST /voice-sessions` were removed by `CORE-IRT-007` and fall through to Task.
 - Administrative and configuration routes stay unchanged.
 - `make test.contract` validates the combined OpenAPI file.
 - Startup on a clean version-9 database succeeds. Startup on version 8, dirty metadata, or version 10 fails and closes resources.

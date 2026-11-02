@@ -1,8 +1,12 @@
 # API changelog
 
+## 0.12.0 — prototype voice routes removed (T7)
+
+Removed `GET /voice-session` and `POST /voice-sessions`. The process no longer registers them, and `docs/api/openapi.yaml` no longer lists the `/voice-sessions` path, its schemas or the `voice-sessions` tag. A request to either path now receives the standard `404 NOT_FOUND` envelope from the Task fallback, and a wrong method no longer returns `405` there. Task, access, configuration and candidate routes are unchanged. Consumers move to `POST /candidate/executions/{id}/session-attempts`. `SESSION_UNAVAILABLE` stays in use by that route. See [voice-session.md](voice-session.md) and [candidate-interview.md](candidate-interview.md).
+
 ## 0.11.0 — interview session attempts and readiness (T8)
 
-Added `POST /candidate/executions/{id}/session-attempts` and `POST /candidate/executions/{id}/session-attempts/{attempt_id}/ready`. Both require the candidate cookie, origin, content type and CSRF, and reject unknown or duplicate fields. A new attempt is `201`; the same key and intent replays the original attempt and answer with `200`. Added `IRT_CONFLICT` and `IRT_NOT_READY` (both `409`), with English and Indonesian messages; provider failure before a durable attempt reuses `503 SESSION_UNAVAILABLE`. Another assignment's execution is `404`. `ready` never marks coverage. No existing route, schema or code changed. `GET /voice-session` and `POST /voice-sessions` are unchanged until T7. See [candidate-interview.md](candidate-interview.md) and [openapi.yaml](openapi.yaml).
+Added `POST /candidate/executions/{id}/session-attempts` and `POST /candidate/executions/{id}/session-attempts/{attempt_id}/ready`. Both require the candidate cookie, origin, content type and CSRF, and reject unknown or duplicate fields. A new attempt is `201`; the same key and intent replays the original attempt and answer with `200`. Added `IRT_CONFLICT` and `IRT_NOT_READY` (both `409`), with English and Indonesian messages; provider failure before a durable attempt reuses `503 SESSION_UNAVAILABLE`. Another assignment's execution is `404`. `ready` never marks coverage. No existing route, schema or code changed. `GET /voice-session` and `POST /voice-sessions` were unchanged until T7 (see 0.12.0). See [candidate-interview.md](candidate-interview.md) and [openapi.yaml](openapi.yaml).
 
 ## Candidate lifecycle integration — T11 (2026-11-02)
 

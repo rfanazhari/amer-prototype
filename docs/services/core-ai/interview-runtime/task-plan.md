@@ -82,8 +82,9 @@ Ready when Execution Lifecycle exposes activation, current-attempt fencing, comp
   - ready when: the lifecycle activate and fence calls exist and are wired.
   - DoD: `POST /candidate/executions/{id}/session-attempts` and `POST .../ready` match design §2. Candidate cookie and CSRF are required. Another assignment's execution is 404. Same idempotency key replays; a different intent conflicts. `ready` does not set coverage to asked or answered. Handler tests mock the operation. OpenAPI, `docs/api/CHANGELOG.md`, and an interview endpoint note are updated. `make test.contract` passes. English and Indonesian messages exist for `IRT_CONFLICT` and `IRT_NOT_READY`.
 
-- [ ] **T7. Remove the prototype voice routes from the process** — Delivery / runtime / contract — M
+- [x] **T7. Remove the prototype voice routes from the process** — Delivery / runtime / contract — M
   - Ticket ID: `CORE-IRT-007`
+  - Evidence: [T7 verification](t7-verification.md); routes removed in `infrastructure/runtime/router.go`. T8 routes are still unmounted, so the process currently serves no voice route.
   - depends: T8 — ref: design §2 prototype removal — blocked by: Q3, because it ships in the same change as T8.
   - ready when: T8 is ready to mount.
   - DoD: `infrastructure/runtime` no longer serves `GET /voice-session` or `POST /voice-sessions`. OpenAPI and `docs/api/voice-session.md` no longer describe them as available routes. Contract tests and router tests match that removal. `test/livevoice` still runs only as an opt-in probe. No interview call path remains on the old URLs.

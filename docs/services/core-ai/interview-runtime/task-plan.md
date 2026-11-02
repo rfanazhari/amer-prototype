@@ -22,7 +22,7 @@ Companion dependencies, not implemented by this plan:
 - DoD: verifiable
 - Blocked: not executable until the ready condition is true and this design is updated when the condition changes the contract
 
-Every Go task also requires `gofmt` on changed Go files, comments on new declarations so `make test.architecture` passes, and `make lint` clean for the touched packages. Domain and application tasks run `make test`. T1, T2, and T3 are complete; all other tasks remain unchanged.
+Every Go task also requires `gofmt` on changed Go files, comments on new declarations so `make test.architecture` passes, and `make lint` clean for the touched packages. Domain and application tasks run `make test`. T1, T2, T3 and T10 are complete; all other tasks remain unchanged.
 
 ## Tasks
 
@@ -89,8 +89,9 @@ Ready when Execution Lifecycle exposes activation, current-attempt fencing, comp
   - ready when: T8 is ready to mount.
   - DoD: `infrastructure/runtime` no longer serves `GET /voice-session` or `POST /voice-sessions`. OpenAPI and `docs/api/voice-session.md` no longer describe them as available routes. Contract tests and router tests match that removal. `test/livevoice` still runs only as an opt-in probe. No interview call path remains on the old URLs.
 
-- [ ] **T10. Commit handoff and open the next session under the lifecycle lock** — Application / infrastructure — L
+- [x] **T10. Commit handoff and open the next session under the lifecycle lock** — Application / infrastructure — L
   - Ticket ID: `CORE-IRT-010`
+  - Evidence: [T10 verification](t10-verification.md); retry in `application/usecase/interviewusecase/open_stage.go`. PostgreSQL proof written but skipped (no `TEST_DATABASE_URL`); lifecycle double is pass-through, so no real fence is claimed.
   - depends: T3, T5, T8 — ref: design §3 transactions, §5 — blocked by: Q3.
   - ready when: the locked callback can include the interview store.
   - DoD: PostgreSQL test shows handoff and source-session close commit together, the target session row is absent until a later successful create, and a fence rejection leaves progress unchanged. A failed target create retries that target only, without a new execution id, and without an invented exhaustion count (exhaustion is T16). Optional summary failure still leaves a readable handoff.

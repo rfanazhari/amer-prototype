@@ -64,6 +64,24 @@ func closeSessions(r *interviewport.ProgressRecord, now time.Time) {
 	}
 }
 
+// releaseUnprovisioned closes the open shell left by a failed provider create and returns its id.
+// A shell that already carries a provider identity, or an absent shell, is a conflict.
+func releaseUnprovisioned(r *interviewport.ProgressRecord, now time.Time) (string, error) {
+	for i := range r.Sessions {
+		s := &r.Sessions[i]
+		if s.ClosedAt != nil {
+			continue
+		}
+		if s.ProviderSessionID != nil || s.Stage != r.Snapshot.CurrentStage {
+			return "", interview.ErrConflict
+		}
+		at := now
+		s.ClosedAt = &at
+		return s.ID, nil
+	}
+	return "", interview.ErrConflict
+}
+
 // appendSession reserves a unique local session shell before any provider create call.
 func appendSession(r *interviewport.ProgressRecord, req SessionRequest, now time.Time, replaced string) error {
 	for _, s := range r.Sessions {

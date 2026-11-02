@@ -9,7 +9,8 @@ import (
 )
 
 // OpenStage reserves a successor shell only after reading a previously committed handoff.
-// It performs no retry loop and assigns no post-handoff attempt budget (T16).
+// A repeated call after a failed provider create retries the committed target only: the unprovisioned
+// shell is closed and replaced. It performs no retry loop and assigns no attempt budget (T16).
 func (u Workflow) OpenStage(ctx context.Context, req SessionRequest) (service.InterviewVoiceCreated, error) {
 	if !validSessionRequest(req) {
 		return service.InterviewVoiceCreated{}, interview.ErrInvalid
@@ -27,6 +28,13 @@ func (u Workflow) OpenStage(ctx context.Context, req SessionRequest) (service.In
 	}
 	now := u.now()
 	err = u.update(ctx, req.Authority, req.ProgressVersion, func(r *interviewport.ProgressRecord) error {
+		if r.Snapshot.CurrentStage == target {
+			replaced, err := releaseUnprovisioned(r, now)
+			if err != nil {
+				return err
+			}
+			return appendSession(r, req, now, replaced)
+		}
 		p, err := interview.RestoreProgress(r.Snapshot)
 		if err != nil {
 			return err

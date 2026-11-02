@@ -118,7 +118,7 @@ func (d *driver) baseline() (int, bool, error) {
 	return v, false, nil
 }
 
-// extendBaseline stamps versions 4–9 when later owned tables are already present.
+// extendBaseline stamps versions 4–10 when later owned tables are already present.
 func (d *driver) extendBaseline(v int) (int, error) {
 	candidates, err := d.countNamedTables("candidates")
 	if err != nil {
@@ -188,6 +188,27 @@ func (d *driver) extendBaseline(v int) (int, error) {
 		v = 9
 	} else if interview != 0 {
 		return 0, errors.New("partial candidate interview schema")
+	}
+	runtime, err := d.countNamedTables(
+		"interview_progress",
+		"interview_coverage_items",
+		"interview_technical_losses",
+		"interview_voice_sessions",
+		"interview_transcript_entries",
+		"interview_checkpoints",
+		"interview_handoffs",
+		"interview_session_commands",
+	)
+	if err != nil {
+		return 0, err
+	}
+	if runtime == 8 {
+		if v != 9 {
+			return 0, errors.New("interview runtime schema requires candidate interview")
+		}
+		v = 10
+	} else if runtime != 0 {
+		return 0, errors.New("partial interview runtime schema")
 	}
 	return v, nil
 }

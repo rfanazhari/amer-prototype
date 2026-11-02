@@ -48,7 +48,7 @@ Every Go task also requires `gofmt` on changed Go files, comments on new declara
   - depends: T1, T2 — ref: design §5–§6, decision-log D1, D2, D3, D4.
   - DoD: mocked tests show an unauthorized proposal writes nothing; a successful proposal commits the handoff before any create-session call; summary failure still commits structured evidence; reconnect uses the same execution id and a new session; an old attempt id is dropped; activation passes the section 10 budget into the lifecycle port; the third activation attempt is not opened. Clock is injected. No live provider and no claim that a real fence exists.
 
-- [ ] **T4. Add SQL version 10** — Infrastructure schema — M
+- [x] **T4. Add SQL version 10** — Infrastructure schema — M
   - Ticket ID: `CORE-IRT-004`
   - depends: T1 — ref: design §3.
   - DoD: `migrations/pgsql/000010_interview_runtime.up.sql` and `.down.sql` match the eight-table design, including checks, partial unique indexes, and FKs to `interview_executions` and `interview_progress`. No FK to a missing attempt table. No seed inserts. `schema.ReleaseVersion` becomes 10 and the runner accepts target 10 only after this task. Startup still does not migrate. Disposable PostgreSQL proof, via `make test.docker` or an authorized integration database: clean upgrade from version 9 keeps existing pins, fresh up creates the tables, down drops only the new tables. If `TEST_DATABASE_URL` is absent, say the database proof was skipped. Do not describe that skip as a pass.

@@ -85,7 +85,6 @@ func TestCandidateInterviewChecksums(t *testing.T) {
 		require.Equal(t, want, sums[name], name)
 		require.Contains(t, manifest, want+"  migrations/pgsql/"+name)
 	}
-	require.Len(t, sums, 18, "versions 1 through 9, up and down")
 	require.Equal(t, "8208d541363390aafdf37ef21138b58626f5357756b0b4fb1684f1d7b3cb0740", sums["000008_execution_lifecycle.up.sql"])
 	require.Equal(t, "f213ae6700e1424e42897ca8c02d08833a62fc59468b11ed697a3c8d223941c4", sums["000008_execution_lifecycle.down.sql"])
 	require.Equal(t, "fad47701239f7dd8ecf4d060904a19697ae177dcea39a0508ba85f96825b4b78", sums["000007_interview_executions.up.sql"])

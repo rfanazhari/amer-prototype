@@ -75,9 +75,9 @@ Every Go task also requires `gofmt` on changed Go files, comments on new declara
 
 Ready when Execution Lifecycle exposes activation, current-attempt fencing, complete, and fail, plus a same-transaction callback that checks nonterminal state, expected version, and attempt authority before the interview write. The operations must not require interview stages. Update this design's port names if the published signatures differ, before starting these tasks.
 
-- [~] **T8. Mount session-attempt and readiness HTTP** — Delivery / application — L
+- [x] **T8. Mount session-attempt and readiness HTTP** — Delivery / application — L
   - Ticket ID: `CORE-IRT-008`
-  - Evidence: [T8 verification](t8-verification.md); operations in `application/usecase/interviewusecase`, handlers in `delivery/http/handler/candidateinterviewhandler`. Mocks only. **Pending before Done:** the `InterviewLifecycle` adapter (attempt id versus generation), a command store with migration `000011`, a revision reader, and composition in `infrastructure/runtime`. The routes are not mounted.
+  - Evidence: [T8 verification](t8-verification.md); operations in `application/usecase/interviewusecase`, handlers in `delivery/http/handler/candidateinterviewhandler`. Mocks only. Marked Done at the owner's request because Candidate Interview `CORE-CIN-012` relies on it. **Still open, not implemented:** the `InterviewLifecycle` adapter (attempt id versus generation), a command store with migration `000011`, a revision reader, and composition in `infrastructure/runtime`. The routes are not mounted.
   - depends: T3, T5, T6 — ref: design §2, §7 — blocked by: Q3.
   - ready when: the lifecycle activate and fence calls exist and are wired.
   - DoD: `POST /candidate/executions/{id}/session-attempts` and `POST .../ready` match design §2. Candidate cookie and CSRF are required. Another assignment's execution is 404. Same idempotency key replays; a different intent conflicts. `ready` does not set coverage to asked or answered. Handler tests mock the operation. OpenAPI, `docs/api/CHANGELOG.md`, and an interview endpoint note are updated. `make test.contract` passes. English and Indonesian messages exist for `IRT_CONFLICT` and `IRT_NOT_READY`.

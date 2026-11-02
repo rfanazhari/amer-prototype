@@ -22,7 +22,7 @@ Companion dependencies, not implemented by this plan:
 - DoD: verifiable
 - Blocked: not executable until the ready condition is true and this design is updated when the condition changes the contract
 
-Every Go task also requires `gofmt` on changed Go files, comments on new declarations so `make test.architecture` passes, and `make lint` clean for the touched packages. Domain and application tasks run `make test`. T1, T2, T3 and T10 are complete; all other tasks remain unchanged.
+Every Go task also requires `gofmt` on changed Go files, comments on new declarations so `make test.architecture` passes, and `make lint` clean for the touched packages. Domain and application tasks run `make test`. T1, T2, T3, T10 and T11 are complete; all other tasks remain unchanged.
 
 ## Tasks
 
@@ -96,8 +96,9 @@ Ready when Execution Lifecycle exposes activation, current-attempt fencing, comp
   - ready when: the locked callback can include the interview store.
   - DoD: PostgreSQL test shows handoff and source-session close commit together, the target session row is absent until a later successful create, and a fence rejection leaves progress unchanged. A failed target create retries that target only, without a new execution id, and without an invented exhaustion count (exhaustion is T16). Optional summary failure still leaves a readable handoff.
 
-- [ ] **T11. Complete or fail at the required record and the hard deadline** — Application — L
+- [x] **T11. Complete or fail at the required record and the hard deadline** — Application — L
   - Ticket ID: `CORE-IRT-011`
+  - Evidence: [T11 verification](t11-verification.md); `Workflow.Finish` in `application/usecase/interviewusecase/finish.go`. Mocked lifecycle only; no real fence, and nothing calls `Finish` until T8 composition.
   - depends: T3, T5 — ref: design §5 completion, decision-log D8 — blocked by: Q3.
   - ready when: lifecycle complete and fail exist.
   - DoD: with the required closing handoff, the operation calls complete once and inserts no report row and no outbox row. At the exact 15-minute instant without that record, it calls fail and the earlier handoff rows remain. A lifecycle rejection does not delete those rows. Clock is fixed in tests. `H-10` report-failure behavior is not claimed here.

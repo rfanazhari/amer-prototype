@@ -80,8 +80,9 @@ Recommended review order only; no branch, commit or PR creation is authorized by
 2. Schema manifest and policy-document synchronization (T16); then versioned SQL/runner (T17). An intermediate artifacts PR does not establish the transition while AutoMigrate still owns startup.
 3. Runtime/test/Compose replacement (T18), real migration/recovery evidence (T19), then coordinated local/target adoption and readiness handoff (T20). Merge/deploy only a verified combination; do not deploy a guard-only binary before preparing its database.
 4. Candidate contracts (T10) are Done. Candidate persistence (T11) waits for T20 and actual assignment readiness; domain/application T12 may proceed against the approved ports.
-5. Candidate HTTP/browser and real assignment integration (T13–T14), then authorized retention/purge (T15).
+5. Candidate HTTP/browser and real assignment integration (T13–T14), then authorized retention/purge (T15). T15 now covers only old `administrative_sessions` rows (D12): 7 days after expiry or revocation, 500 rows per batch, run by an operator command. It is no longer blocked.
 6. HR assignment revocation (T22) after T12 and T13. It can land beside T21. Do not start Execution Lifecycle T10 in the same change.
+7. Single live administrative session per account (T23, D12). It is not gated by Q5 and does not share a change with T21 or T22, which also edit the access contract files.
 
 Dependency branches/parallel headings do not instruct spawning agents. Split large tasks into smaller stable follow-up IDs if estimates prove inaccurate; preserve existing IDs on revision.
 
@@ -112,6 +113,8 @@ Cases below are acceptance requirements; existing administrative suites and T9 h
 - Creator list: the logged-in HR receives only candidates they created, ordered `created_at DESC, id DESC`; another HR's rows are absent; GET by id still returns a known candidate to any current HR; empty `data` is `[]`. sqlmock covers the creator predicate and order. Real PostgreSQL proof extends the existing candidate HTTP suite and is skipped when `TEST_DATABASE_URL` is absent.
 - Candidate failures: concurrent reissue, reissue vs exchange, rollback retaining old invitation, cross-assignment composite FK violations, unique-token collision handling, assignment revocation vs exchange/admission, exact expiry, session revocation and persisted state across restart.
 - T22 PostgreSQL: a nonterminal execution becomes `CANCELLED` after the revoke route; a second call does not reopen it or move `access_revoked_at`; reissue leaves the execution state unchanged; revocation with no execution still returns the marker; a lifecycle failure after the marker commit returns 503 and no success body. sqlmock may show the explicit timestamp update. sqlmock is not the cancellation proof.
+- T23 PostgreSQL: after a committed login for account A, A's earlier sessions are gone and the old cookie gets 401; two concurrent logins for A leave exactly one row; a login that rolls back leaves the earlier sessions valid; logout leaves the row with `revoked_at` set; another account's sessions, `candidate_sessions` and `interview_invitations` are unchanged. Application tests use mocks and sqlmock shows the delete scoped to `account_id`; neither is the concurrency proof. A skipped database suite is not this proof.
+- T15: the cleanup deletes only `administrative_sessions` rows more than 7 days past expiry or revocation, in bounded batches that survive a restart, and never a session that can still authorize. No test may expect it to delete `interview_invitations` or `candidate_sessions`.
 - Resolve Q3 before repeated exchange/lost-response/device tests. Test accepted reuse/replacement policy without inventing a consumed column. Real Interview integration must prove active cancellation and completed-assignment no-restart (BR-038/039), not a fake store returning a boolean.
 - GORM tests explicitly exercise null/zero writes, bounded joins, same-assignment FK and partial uniqueness, no association side effects or physical soft-delete assumptions. Test against project-selected versions; mocks cannot establish these guarantees.
 
@@ -137,7 +140,7 @@ T17/T18 add the proposed `make migrate.status`, `make migrate.up MIGRATION_VERSI
 - Observe safe operation/outcome/record IDs, denial categories, expiry, login/exchange failures, rate limiting, bootstrap/schema failure and transaction uncertainty. Never log passwords, cookies, raw link tokens, CSRF values, candidate contacts or HR configuration/report content by default.
 - Stop rollout on drift, dirty/unsupported schema version, migration lock/timeout/failure, cross-role or cross-assignment access, missing constraints, credential leaks, duplicate interview initiation, unexpected session invalidation or broken existing routes. Restore a tested migration-aware binary or use reviewed forward repair/backup restore; retain business data and external references. Never make destructive down or unchecked force the routine rollback path.
 - Cookie/CSRF secret rotation behavior and credential persistence across restart must be tested; rotating a CSRF signing key may invalidate outstanding CSRF values, while session authority remains persisted. Do not claim rotation preserves every browser action without proof.
-- No automatic purge until Q5. Rollback is not deletion of accounts/candidates, reset of subject IDs or removal of referenced invitations. T22 has no migration. Withdrawing the route leaves a committed `access_revoked_at` in place; do not clear that marker as a rollback. In-interview session expiry stays Q7.
+- No automatic purge except the administrative-session replacement and cleanup in D12 (T23, T15). `candidates` and `administrative_accounts` have no automatic deletion until an erasure request or policy exists. `interview_invitations` and `candidate_sessions` are never deleted and have no job. Rolling back T23 does not restore deleted administrative sessions; users sign in again. Rollback is not deletion of accounts/candidates, reset of subject IDs or removal of referenced invitations. T22 has no migration. Withdrawing the route leaves a committed `access_revoked_at` in place; do not clear that marker as a rollback. In-interview session expiry stays Q7.
 
 ## Revision History
 
@@ -148,6 +151,7 @@ T17/T18 add the proposed `make migrate.status`, `make migrate.up MIGRATION_VERSI
 | v1.2 | 2026-11-01 | Record T10 candidate/exchange/assignment contracts; T12 unblocked; T11 still waits T20 and Interview assignment migration |
 | v1.3 | 2026-11-02 | D10 / T21: GET `/admin/candidates` lists the logged-in HR creator's candidates; email search and lifecycle mutation stay forbidden |
 | v1.4 | 2026-11-02 | D11 / T22: HR revocation writes `access_revoked_at`, then calls `CancelNonterminal`. No migration, page, or expiry sweeper |
+| v1.5 | 2026-11-03 | D12 / T23: login deletes the account's other administrative sessions; T15 narrows to administrative-session cleanup (7 days, 500 rows, operator command, unblocked); no deletion or job for invitations and candidate sessions. Documents only |
 
 ## T18–T20 execution handoff
 

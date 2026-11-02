@@ -35,7 +35,7 @@ Agent concepts follow [Agent Configuration and Publication](./agent-configuratio
 |---|---|---|
 | Initialize the first administrative account | Deployment operator | Bootstrap ADMIN from environment-supplied credentials. |
 | Add an HR account | Authenticated ADMIN | Provision HR administrative login. |
-| Log in or log out | ADMIN or HR | Establish or revoke an administrative session. |
+| Log in or log out | ADMIN or HR | Establish or revoke an administrative session. A new login ends the account's earlier sessions. |
 | Access configuration, including publication replay | HR | Evaluate current HR authority before access. |
 | Record a candidate | HR | Establish a reusable candidate identity. |
 | Issue or replace an interview invitation | HR | Establish access to an existing assignment. |
@@ -91,7 +91,11 @@ Agent concepts follow [Agent Configuration and Publication](./agent-configuratio
 **When** the current-session logout operation succeeds
 **Then** that session cannot authorize subsequent requests.
 
-**Why:** Closing a browser view is insufficient when a previously issued credential could still be replayed.
+**Given** an account has an administrative session
+**When** the same account establishes another administrative session by logging in
+**Then** the earlier session cannot authorize subsequent requests, so an account has at most one live administrative session.
+
+**Why:** Closing a browser view is insufficient when a previously issued credential could still be replayed. A new login also ends credentials left behind on other devices. This does not apply to candidate sessions, which keep their own multi-device rule (BR-CORE-033).
 
 ### BR-CORE-026 — Current account eligibility governs administrative access
 
@@ -240,7 +244,8 @@ Not yet implemented — verify against code after implementation.
 - Resolved 2026-11-01 (T1 / CORE-IAM-001): Administrative email is canonicalized by trimming outer whitespace and Unicode lowercasing the entire address. Initial HR passwords are chosen by ADMIN at provisioning and delivered out of band; bootstrap uses environment credentials once. Self-service reset, account edits, role changes, and disable/reactivate endpoints are not approved by adding a status column.
 - Resolved 2026-11-01 (T10 / CORE-IAM-010): Candidate email uses the same canonicalization as administrative email and is never unique or used for upsert. Reuse is by known candidate identity on an Interview assignment. A valid invitation may be exchanged repeatedly until expiry or revocation; each exchange may create another session; a lost response is not exactly-once cookie recovery. The bearer link proves possession, not independently verified identity. Access reads Interview assignment facts after an assignment-first lock and never creates an assignment table.
 - Interview owner: supply the runtime `interview_assignments` table, adapter and admission/cancellation consumers. Consent and execution tables belong to that capability. Access contracts for those facts are approved in T10.
-- Product/data owner: decide candidate/contact/session retention and purge ordering before cleanup is implemented.
+- Resolved 2026-11-03 (D12): administrative sessions are replaced when the same account logs in again, and rows more than 7 days past expiry or revocation are removed by an operator-run cleanup in batches of 500; invitations and candidate sessions are never deleted and have no cleanup job; candidate contacts and administrative accounts have no automatic deletion until an erasure request or retention policy exists.
+- Open (Q7): who notices that a candidate session expired during an unfinished interview, and when. The Execution Lifecycle deadline does not end such an interview, so an abandoned interview stays open until HR revokes the assignment or Interview Runtime ends it.
 
 ## Related
 

@@ -26,7 +26,7 @@ Paths were inspected. Fit is limited to the pattern named in the last column.
 | `LoadRequirements` | `application/usecase/agentbindingusecase/requirements.go` | Not used | It reads document required fields. Calling it would put invoice-shaped data on the kernel path. |
 | `Clock` | `application/service/ports.go`, `infrastructure/service/clock/clock.go` | Trusted UTC time | Application truncates to milliseconds. Reuse the port. |
 | `schema.RequireCompatible`, `ReleaseVersion` | `infrastructure/database/schema/compatible.go`, `version.go` | Read-only startup gate | Today the constant is 7 and the error text says version 7. T3 moves both to 8. Startup still runs no DDL. |
-| `revokeAssignment` | `test/integration/access_candidate_fixture_test.go` | Only observed writer of `access_revoked_at` | A fixture, not a product command. The approved product writer is Identity and Access T22, which is not built. T10 stays blocked on that task. |
+| `revokeAssignment` | `test/integration/access_candidate_fixture_test.go` | Fixture marker writer | Retained fixture proof for T7/T8. Identity and Access T22 now owns the production writer; T10 exercises its HTTP route through the production runtime. |
 | Error catalog | `pkg/errs/codes.go`, `translations/errors.en.toml`, `translations/errors.id.toml` | Code and EN/ID message pattern | Add the execution codes. Do not reuse ACP publication codes for execution conflicts. |
 | Declaration and import tests | `test/architecture/documentation_test.go`, `dependencies_test.go` | Documentation and the domain import allowlist | New declarations must be commented. Domain stays on the allowlist. |
 | Mockery | `.mockery.yml`, `make mocks` | Generate port mocks | Register new interfaces. Do not hand-write mocks. |
@@ -69,7 +69,7 @@ Recommended review order. This does not authorize a branch, a commit, or a pull 
 4. PostgreSQL proof (T8) after the adapter and operations agree.
 5. Static gates (T9): architecture, contract, lint, and the runtime non-mount check.
 
-One commit per task when implementation is requested. Do not start T10 until Identity and Access T22 (`CORE-IAM-022`) is Done, and do not implement that route in this capability. Do not start T11 under this plan. Do not add an `authority_expired` detector here.
+One commit per task when implementation is requested. T10 is complete after Identity and Access T22 (`CORE-IAM-022`); its proof uses the existing route without implementing it in this capability. Do not start T11 under this plan. Do not add an `authority_expired` detector here.
 
 ## 5. Testing Strategy
 
@@ -113,3 +113,15 @@ Existing evidence, not lifecycle proof: `TestAgentConfigurationBindingConsumers`
 - Populated recovery: restore the backup, or ship a forward repair. `migrate.down` is not that repair.
 - Application rollback after a successful up: run a binary that accepts clean version 8. The previous version-7 binary will refuse the database. Unmounting is unnecessary because this slice adds no route; siblings simply must not call the operations if the slice is being withdrawn in code while the tables remain.
 - Disposable rehearsal: `make migrate.down MIGRATION_STEPS=1 MIGRATION_DISPOSABLE=yes` then `make migrate.up MIGRATION_VERSION=8`.
+
+## 7. T10 observed verification and assessment
+
+Ticket: `CORE-EXL-010`. Verified 2026-11-03. Only integration proof and T10 records changed.
+
+- Mapping retained: domain Execution owns transitions and terminal immutability; access revocation commits the marker, then delegates through `accesslifecycle.Canceller` to `CancelNonterminal`. Runtime owns real routing/authentication. No new ports, SQL mocks, handwritten interface mocks, schema or public contracts.
+- `test/integration/execution_revocation_http_test.go` uses the production `runtime.Run`, actual loopback HTTP, real login/CSRF, and PostgreSQL 17 at clean release schema 10. Existing Mockery fixtures supply clock/progress only for preparing the running execution; SQL and the HR cancellation path are real.
+- The test passes against existing production behavior, so behavioral RED and its SHA are not applicable. No failure was manufactured. An initial sandbox connection denial was an environment failure, not RED; rerunning with local network access passed.
+- From the repository root: `go test -race ./test/integration/... -run '^TestExecutionRevocationHTTPPostgres$' -count=1 -v` and `GOFLAGS='-run=^TestExecutionRevocationHTTPPostgres$' make test.integration` pass with `TEST_DATABASE_URL` set only to the isolated disposable container. Both CREATED and RUNNING cases pass. Smoke has no matching tests under this filter; the full database regression suite was not run.
+- `make test`, `env -u TEST_DATABASE_URL -u TEST_MIGRATION_DATABASE_URL make test.all`, `make test.contract`, and `make test.architecture` pass. Database suites in the all-package command are skipped, not claimed as database evidence.
+- `make lint` passes (0 issues) and `make test.security` passes (0 called vulnerabilities). Initial sandbox attempts could not load Go analysis or reach vuln.go.dev; both checks passed with the required cache/network access.
+- Assessment: retained existing ownership, assignment-before-execution locking, marker-then-cancellation ordering, detached snapshots and API. The added proof checks reissue before revocation, the HR actor/reason, exact repeat stability and refusal to restart. No production refactor is justified by this test-only task. Session-expiry detection and T11 remain outside this proof.

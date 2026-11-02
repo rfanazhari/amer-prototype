@@ -1,7 +1,6 @@
 package integration_test
 
 import (
-	"os"
 	"testing"
 	"time"
 
@@ -15,15 +14,14 @@ import (
 	"github.com/rfanazhari/amer-prototype/infrastructure/repository/agentconfigrepository"
 	"github.com/rfanazhari/amer-prototype/infrastructure/service/accessauthority"
 	"github.com/rfanazhari/amer-prototype/infrastructure/service/accesscredentials"
+	"github.com/rfanazhari/amer-prototype/test/testdata"
 	"github.com/stretchr/testify/require"
-	"gorm.io/gorm"
 )
 
-// newCandidateAccessHTTP installs the Interview-shaped assignment fixture and wires candidate operations.
+// newCandidateAccessHTTP wires candidate operations over the release schema, which already owns the candidate and assignment tables.
 func newCandidateAccessHTTP(t *testing.T) accessHTTP {
 	t.Helper()
 	graph := newAccessHTTP(t)
-	installInterviewAssignmentFixture(t, graph.db)
 	store := accessrepository.Store{DB: graph.db}
 	hasher := accesscredentials.Passwords{}
 	tokens := accesscredentials.Tokens{}
@@ -59,33 +57,18 @@ func newCandidateAccessHTTP(t *testing.T) accessHTTP {
 	return graph
 }
 
-// installInterviewAssignmentFixture creates candidate access tables plus a disposable Interview-shaped assignment table.
-func installInterviewAssignmentFixture(t *testing.T, db *gorm.DB) {
-	t.Helper()
-	t.Cleanup(func() {
-		require.NoError(t, db.Exec("DROP TABLE IF EXISTS candidate_sessions, interview_invitations, interview_assignments, candidates CASCADE").Error)
-	})
-	for _, file := range []string{"000004_candidates.up.sql", "000006_assignment_access.up.sql"} {
-		if file == "000006_assignment_access.up.sql" {
-			require.NoError(t, db.Exec(`CREATE TABLE interview_assignments (
-    id uuid PRIMARY KEY, candidate_id uuid NOT NULL REFERENCES candidates(id) ON DELETE RESTRICT ON UPDATE RESTRICT,
-    published_revision_id uuid NOT NULL, access_revoked_at timestamptz NULL, completed_at timestamptz NULL
-   )`).Error)
-		}
-		artifact, err := os.ReadFile("../../migrations/pgsql/" + file)
-		require.NoError(t, err)
-		require.NoError(t, db.Exec(string(artifact)).Error)
-	}
-
-}
-
-// insertAssignment writes one Interview-shaped assignment row for Access collaboration.
+// insertAssignment writes one release-schema assignment row, with its published instance and revision, for Access collaboration.
 func insertAssignment(t *testing.T, graph accessHTTP, candidateID string, revoked, completed bool) string {
 	t.Helper()
+	configStore := agentconfigrepository.Store{DB: graph.db}
+	account := insertACPAccount(t, graph.db)
+	doc := persistDocument(t, configStore, uuid.NewString(), []string{"total"})
+	instanceID := doc.Document.Snapshot().ID
+	validation := insertOwnedValidation(t, configStore, instanceID, 1, true)
+	revisionID := publishOwned(t, configStore, instanceID, validation, account.ID, uuid.NewString(), testdata.TokenHash)
 	id := uuid.NewString()
-	revision := uuid.NewString()
-	var revokedAt, completedAt *time.Time
 	now := graph.clock.Now()
+	var revokedAt, completedAt *time.Time
 	if revoked {
 		revokedAt = &now
 	}
@@ -93,9 +76,15 @@ func insertAssignment(t *testing.T, graph accessHTTP, candidateID string, revoke
 		completedAt = &now
 	}
 	require.NoError(t, graph.db.Exec(
-		`INSERT INTO interview_assignments (id, candidate_id, published_revision_id, access_revoked_at, completed_at) VALUES (?, ?, ?, ?, ?)`,
-		id, candidateID, revision, revokedAt, completedAt,
+		`INSERT INTO interview_assignments (id, candidate_id, instance_id, published_revision_id, access_revoked_at, completed_at, created_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		id, candidateID, instanceID, revisionID, revokedAt, completedAt, now, now,
 	).Error)
+	t.Cleanup(func() {
+		require.NoError(t, graph.db.Exec(`DELETE FROM candidate_sessions WHERE assignment_id = ?`, id).Error)
+		require.NoError(t, graph.db.Exec(`DELETE FROM interview_invitations WHERE assignment_id = ?`, id).Error)
+		require.NoError(t, graph.db.Exec(`DELETE FROM interview_assignments WHERE id = ?`, id).Error)
+	})
 	return id
 }
 
@@ -106,10 +95,10 @@ func revokeAssignment(t *testing.T, graph accessHTTP, assignmentID string) {
 	require.NoError(t, graph.db.Exec(`UPDATE interview_assignments SET access_revoked_at = ? WHERE id = ?`, now, assignmentID).Error)
 }
 
-// countExecutions reports Interview execution tables that Access must not create.
-func countExecutions(t *testing.T, graph accessHTTP) int64 {
+// countExecutions reports the Interview execution rows pinned to one assignment, which Access must never create.
+func countExecutions(t *testing.T, graph accessHTTP, assignmentID string) int64 {
 	t.Helper()
 	var n int64
-	require.NoError(t, graph.db.Raw(`SELECT COUNT(*) FROM pg_tables WHERE schemaname = 'public' AND tablename IN ('interview_executions','consent_records','interview_runs')`).Scan(&n).Error)
+	require.NoError(t, graph.db.Raw(`SELECT COUNT(*) FROM interview_executions WHERE assignment_id = ?`, assignmentID).Scan(&n).Error)
 	return n
 }

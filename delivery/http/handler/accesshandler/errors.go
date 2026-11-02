@@ -13,6 +13,13 @@ import (
 
 // sendError maps classified access failures onto safe localized HTTP envelopes.
 func (h Handler) sendError(w http.ResponseWriter, r *http.Request, err error) {
+	if errors.Is(err, service.ErrCancellationIncomplete) {
+		if h.LogError != nil {
+			h.LogError(err)
+		}
+		fail(w, r, http.StatusServiceUnavailable, errs.IADependencyUnavailable)
+		return
+	}
 	var technical errs.Technical
 	if errors.As(err, &technical) {
 		if h.LogError != nil {

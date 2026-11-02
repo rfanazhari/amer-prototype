@@ -95,13 +95,18 @@ func (t assignmentCollaborationTx) Facts(ctx context.Context) (accessport.Assign
 		}
 		return accessport.AssignmentFacts{}, err
 	}
-	return accessport.AssignmentFacts{
+	facts := accessport.AssignmentFacts{
 		AssignmentID:      id,
 		CandidateID:       candidateID,
 		RevisionID:        revisionID,
 		AccessRevoked:     revokedAt.Valid,
 		TerminalCompleted: completedAt.Valid,
-	}, nil
+	}
+	if revokedAt.Valid {
+		at := revokedAt.Time.UTC()
+		facts.AccessRevokedAt = &at
+	}
+	return facts, nil
 }
 
 // CurrentInvitations lists unrevoked invitations for the locked assignment.
@@ -121,9 +126,12 @@ func (t assignmentCollaborationTx) CurrentInvitations(ctx context.Context) ([]ac
 	return records, nil
 }
 
-// MarkAccessRevoked is not implemented yet.
-func (t assignmentCollaborationTx) MarkAccessRevoked(context.Context, time.Time) error {
-	return nil
+// MarkAccessRevoked writes access_revoked_at explicitly while it is still null and leaves every other column alone.
+func (t assignmentCollaborationTx) MarkAccessRevoked(ctx context.Context, revokedAt time.Time) error {
+	return t.tx.WithContext(ctx).Exec(
+		"UPDATE interview_assignments SET access_revoked_at = ? WHERE id = ? AND access_revoked_at IS NULL",
+		revokedAt.UTC(), t.assignmentID,
+	).Error
 }
 
 // RevokeInvitation writes revoked_at explicitly for an invitation owned by the locked assignment.

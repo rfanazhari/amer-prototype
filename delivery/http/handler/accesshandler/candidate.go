@@ -12,6 +12,7 @@ import (
 const (
 	candidatesPath       = "/admin/candidates"
 	invitationsPath      = "/invitations"
+	revocationPath       = "/revocation"
 	assignmentsPath      = "/admin/interview-assignments"
 	assignmentsRoot      = "/admin/interview-assignments/"
 	exchangePath         = "/candidate/access/exchange"
@@ -32,6 +33,9 @@ func (h Handler) dispatchCandidateRoutes(w http.ResponseWriter, r *http.Request)
 		return true
 	case strings.HasPrefix(r.URL.Path, assignmentsRoot) && strings.HasSuffix(r.URL.Path, invitationsPath):
 		h.issueInvitation(w, r)
+		return true
+	case strings.HasPrefix(r.URL.Path, assignmentsRoot) && strings.HasSuffix(r.URL.Path, revocationPath):
+		h.revokeAssignment(w, r)
 		return true
 	case r.URL.Path == exchangePath:
 		h.exchange(w, r)
@@ -303,10 +307,15 @@ func pathTail(path, prefix string) (string, bool) {
 
 // assignmentInvitationID extracts the assignment identity from the invitation issue path.
 func assignmentInvitationID(path string) (string, bool) {
-	if !strings.HasPrefix(path, assignmentsRoot) || !strings.HasSuffix(path, invitationsPath) {
+	return assignmentSubresourceID(path, invitationsPath)
+}
+
+// assignmentSubresourceID extracts the single assignment identity segment between the root and the suffix.
+func assignmentSubresourceID(path, suffix string) (string, bool) {
+	if !strings.HasPrefix(path, assignmentsRoot) || !strings.HasSuffix(path, suffix) {
 		return "", false
 	}
-	id := strings.TrimSuffix(strings.TrimPrefix(path, assignmentsRoot), invitationsPath)
+	id := strings.TrimSuffix(strings.TrimPrefix(path, assignmentsRoot), suffix)
 	if id == "" || strings.Contains(id, "/") {
 		return "", false
 	}

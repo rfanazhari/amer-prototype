@@ -2355,6 +2355,135 @@
         ]
       }
     },
+    "/admin/interview-assignments/{id}/revocation": {
+      "post": {
+        "operationId": "revokeInterviewAssignmentAccess",
+        "summary": "Withdraw assignment access, then cancel a nonterminal execution with reason access_revoked. Success is returned only after the cancellation call returns.",
+        "security": [
+          {
+            "AdminCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "example": "id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmptyObject"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Access revoked and any nonterminal execution cancelled. A repeat returns the original accessRevokedAt.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssignmentRevocationEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "INVALID_INPUT.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "IA_UNAUTHENTICATED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "IA_FORBIDDEN.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "IA_DEPENDENCY_UNAVAILABLE. Access was withdrawn but cancellation did not complete; repeat the request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "admin-hr"
+        ]
+      }
+    },
     "/candidate/access": {
       "get": {
         "operationId": "getCandidateInvitationLanding",
@@ -4928,6 +5057,42 @@
           },
           "data": {
             "$ref": "#/components/schemas/IssuedInvitation"
+          }
+        }
+      },
+      "AssignmentRevocation": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "accessRevokedAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "accessRevokedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "AssignmentRevocationEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "status",
+          "data"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "success"
+            ]
+          },
+          "data": {
+            "$ref": "#/components/schemas/AssignmentRevocation"
           }
         }
       },

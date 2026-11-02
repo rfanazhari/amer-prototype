@@ -155,7 +155,7 @@ func TestCandidateAccessHTTPProvesAssignmentIsolationAndRecovery(t *testing.T) {
 				token := issueInvitation(t, graph, hrCookie, csrf, assignmentID)
 				cookie := exchangeInvitation(t, graph, token)
 				require.Equal(t, assignmentID, readCandidateSession(t, graph, cookie).AssignmentID)
-				require.Zero(t, countExecutions(t, graph))
+				require.Zero(t, countExecutions(t, graph, assignmentID))
 			},
 		},
 		{
@@ -213,6 +213,7 @@ func createCandidate(t *testing.T, graph accessHTTP, cookie *http.Cookie, csrf s
 	}
 	require.NoError(t, json.Unmarshal(decodeAccess(t, rec).Data, &data))
 	require.NotEmpty(t, data.ID)
+	t.Cleanup(func() { require.NoError(t, graph.db.Exec(`DELETE FROM candidates WHERE id = ?`, data.ID).Error) })
 	return data.ID
 }
 

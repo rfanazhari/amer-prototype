@@ -1,5 +1,9 @@
 # API changelog
 
+## 0.13.0 — HR assignment access revocation (T22)
+
+Added `POST /admin/interview-assignments/{id}/revocation`. Current HR commits `access_revoked_at` once from the trusted clock, then the command cancels a nonterminal execution with reason `access_revoked`. Success is `200` with `id` and `accessRevokedAt` only after cancellation returns; a repeat returns the original instant. A cancellation failure after the marker commit is `503` `IA_DEPENDENCY_UNAVAILABLE` with no success body. No existing route, schema, or code changed. See [identity-access.md](identity-access.md) and [openapi.yaml](openapi.yaml).
+
 ## 0.12.0 — prototype voice routes removed (T7)
 
 Removed `GET /voice-session` and `POST /voice-sessions`. The process no longer registers them, and `docs/api/openapi.yaml` no longer lists the `/voice-sessions` path, its schemas or the `voice-sessions` tag. A request to either path now receives the standard `404 NOT_FOUND` envelope from the Task fallback, and a wrong method no longer returns `405` there. Task, access, configuration and candidate routes are unchanged. Consumers move to `POST /candidate/executions/{id}/session-attempts`. `SESSION_UNAVAILABLE` stays in use by that route. See [voice-session.md](voice-session.md) and [candidate-interview.md](candidate-interview.md).

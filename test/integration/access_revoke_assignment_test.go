@@ -52,32 +52,28 @@ func TestRevokeAssignmentAccessPostgres(t *testing.T) {
 	}
 }
 
-// executionState reads the stored state and terminal reason of the fixture assignment's execution.
-func executionState(t *testing.T, f executionFixture) (string, string) {
+// executionState reads the stored state and terminal reason of one pinned execution.
+func executionState(t *testing.T, f executionFixture, executionID string) (string, string) {
 	t.Helper()
-	var row struct {
-		State          string
-		TerminalReason string
-	}
-	require.NoError(t, f.db.Raw(`SELECT e.state, COALESCE(e.terminal_reason, '') AS terminal_reason FROM agent_executions e
-		JOIN interview_executions i ON i.id = e.id WHERE i.assignment_id = ?`, f.assignmentID).Scan(&row).Error)
-	return row.State, row.TerminalReason
+	stored, err := f.store.Find(context.Background(), executionID)
+	require.NoError(t, err)
+	return string(stored.State), stored.TerminalReason
 }
 
 // proveRevocationCancelsExecution shows CANCELLED after revocation and an unchanged original instant after a repeat.
 func proveRevocationCancelsExecution(t *testing.T, f executionFixture, _ accessport.AccountRecord, revoke accessusecase.RevokeAssignmentAccess) {
 	ctx := context.Background()
 	snap, fact := f.admit(t)
-	require.NoError(t, f.store.Insert(ctx, snap, fact))
+	require.NoError(t, f.store.InsertInterview(ctx, f.assignmentID, snap, fact))
 	first, err := revoke.Execute(ctx, f.assignmentID)
 	require.NoError(t, err)
-	state, reason := executionState(t, f)
+	state, reason := executionState(t, f, snap.ID)
 	require.Equal(t, string(execution.StateCancelled), state)
 	require.Equal(t, "access_revoked", reason)
 	repeat, err := revoke.Execute(ctx, f.assignmentID)
 	require.NoError(t, err)
 	require.True(t, first.AccessRevokedAt.Equal(repeat.AccessRevokedAt))
-	state, _ = executionState(t, f)
+	state, _ = executionState(t, f, snap.ID)
 	require.Equal(t, string(execution.StateCancelled), state)
 	require.EqualValues(t, 0, f.count(t, `SELECT COUNT(*) FROM interview_assignments WHERE id = ? AND completed_at IS NOT NULL`, f.assignmentID))
 }
@@ -91,19 +87,18 @@ func proveRevocationWithoutExecution(t *testing.T, f executionFixture, _ accessp
 }
 
 // proveReissueDoesNotCancel shows invitation issue leaves a nonterminal execution untouched.
-func proveReissueDoesNotCancel(t *testing.T, f executionFixture, hr accessport.AccountRecord, revoke accessusecase.RevokeAssignmentAccess) {
+func proveReissueDoesNotCancel(t *testing.T, f executionFixture, _ accessport.AccountRecord, revoke accessusecase.RevokeAssignmentAccess) {
 	ctx := context.Background()
 	snap, fact := f.admit(t)
-	require.NoError(t, f.store.Insert(ctx, snap, fact))
+	require.NoError(t, f.store.InsertInterview(ctx, f.assignmentID, snap, fact))
+	t.Cleanup(func() {
+		require.NoError(t, f.db.Exec(`DELETE FROM interview_invitations WHERE assignment_id = ?`, f.assignmentID).Error)
+	})
 	_, err := (accessusecase.IssueInvitation{
 		Assignments: revoke.Assignments, Current: revoke.Current, Tokens: accesscredentials.Tokens{}, Clock: wallClock{},
 	}).Execute(ctx, f.assignmentID)
 	require.NoError(t, err)
-	state, _ := executionState(t, f)
+	state, _ := executionState(t, f, snap.ID)
 	require.Equal(t, string(execution.StateCreated), state)
 	require.EqualValues(t, 0, f.count(t, `SELECT COUNT(*) FROM interview_assignments WHERE id = ? AND access_revoked_at IS NOT NULL`, f.assignmentID))
-	t.Cleanup(func() {
-		require.NoError(t, f.db.Exec(`DELETE FROM interview_invitations WHERE assignment_id = ?`, f.assignmentID).Error)
-	})
-	_ = hr
 }

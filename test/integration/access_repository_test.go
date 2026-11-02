@@ -52,9 +52,6 @@ func TestAdministrativeSchemaAndTransactionsProveTwoTableInstallation(t *testing
 				var tables []string
 				require.NoError(t, db.Raw(`SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename LIKE 'administrative%'`).Scan(&tables).Error)
 				require.ElementsMatch(t, []string{"administrative_accounts", "administrative_sessions"}, tables)
-				var candidates int64
-				require.NoError(t, db.Raw(`SELECT COUNT(*) FROM pg_tables WHERE schemaname = 'public' AND tablename IN ('candidates','interview_invitations','candidate_sessions','interview_assignments')`).Scan(&candidates).Error)
-				require.Zero(t, candidates)
 				assertNamedConstraint(t, db, "administrative_accounts", "administrative_accounts_role_check")
 				assertNamedConstraint(t, db, "administrative_accounts", "administrative_accounts_status_check")
 				assertNamedIndex(t, db, "administrative_accounts_email_INDEX")

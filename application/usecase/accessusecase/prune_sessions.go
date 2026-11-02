@@ -23,5 +23,19 @@ type PruneSessions struct {
 
 // Execute removes stale sessions batch by batch and returns the total number of rows removed.
 func (u PruneSessions) Execute(ctx context.Context) (int64, error) {
-	return 0, nil
+	cutoff := trustedNow(u.Clock).Add(-SessionRetentionGrace)
+	var total int64
+	for {
+		if err := ctx.Err(); err != nil {
+			return total, err
+		}
+		removed, err := u.Retention.DeleteStale(ctx, cutoff, SessionPruneBatchSize)
+		total += removed
+		if err != nil {
+			return total, err
+		}
+		if removed < SessionPruneBatchSize {
+			return total, nil
+		}
+	}
 }

@@ -22,46 +22,52 @@ Companion dependencies, not implemented by this plan:
 - DoD: verifiable
 - Blocked: not executable until the ready condition is true and this design is updated when the condition changes the contract
 
-Every Go task also requires `gofmt` on changed Go files, comments on new declarations so `make test.architecture` passes, and `make lint` clean for the touched packages. Domain and application tasks run `make test`. None of the tasks below are done.
+Every Go task also requires `gofmt` on changed Go files, comments on new declarations so `make test.architecture` passes, and `make lint` clean for the touched packages. Domain and application tasks run `make test`. T1, T2, T3, T10 and T11 are complete; all other tasks remain unchanged.
 
 ## Tasks
 
 ### Independent foundation
 
-- [ ] **T1. Encode interview progress rules** — Domain — L
+- [x] **T1. Encode interview progress rules** — Domain — L
   - Ticket ID: `CORE-IRT-001`
+  - Evidence: [T1 verification](t1-verification.md); implementation in `domain/interview`.
   - depends: none — ref: design §3–§4, decision-log D1, D5, D6, D7, D9.
   - DoD: public tests cover coverage edges, the three omission reasons, technical loss leaving the question un-omitted and blocking `Authorize`, follow-up cap 2 with citation required, fragment rejected as an answer, handoff required before a target stage, closing handoff with no next stage, soft-budget and 15-minute equality, reconnect counters, and `ReadyForCompletion`. `NewProgress` writes cap 2 from a revision fixture that has no cap field. `RestoreProgress` keeps a stored cap and does not call publication assessment. No execution status type, no provider client, no GORM. `make test` and `make test.architecture` pass.
 
-- [ ] **T2. Define lifecycle, driver, and progress ports** — Application — M
+- [x] **T2. Define lifecycle, driver, and progress ports** — Application — M
   - Ticket ID: `CORE-IRT-002`
+  - Evidence: [T2 verification](t2-verification.md); ports in `application/service` and `application/repository/interviewport`, with generated Mockery mocks.
   - depends: none — ref: design §1 lifecycle table, §4.
   - DoD: interfaces exist for the lifecycle calls, the driver operations, and the progress store. Signatures carry execution id, attempt id, expected version, and budgets 2×30s/90s, 120s, 2 attempts, 2 episodes. No HR stage field appears on the lifecycle port. Mockery config generates the mocks. `make mocks` output is committed as generated. Documentation comments exist. This task does not call a real provider or a real database.
 
 ### Workflow and schema that do not need event names
 
-- [ ] **T3. Orchestrate proposals, handoff order, and budgets with mocks** — Application — L
+- [x] **T3. Orchestrate proposals, handoff order, and budgets with mocks** — Application — L
   - Ticket ID: `CORE-IRT-003`
+  - Evidence: [T3 verification](t3-verification.md); mocked workflow in `application/usecase/interviewusecase`.
   - depends: T1, T2 — ref: design §5–§6, decision-log D1, D2, D3, D4.
   - DoD: mocked tests show an unauthorized proposal writes nothing; a successful proposal commits the handoff before any create-session call; summary failure still commits structured evidence; reconnect uses the same execution id and a new session; an old attempt id is dropped; activation passes the section 10 budget into the lifecycle port; the third activation attempt is not opened. Clock is injected. No live provider and no claim that a real fence exists.
 
-- [ ] **T4. Add SQL version 10** — Infrastructure schema — M
+- [x] **T4. Add SQL version 10** — Infrastructure schema — M
   - Ticket ID: `CORE-IRT-004`
   - depends: T1 — ref: design §3.
   - DoD: `migrations/pgsql/000010_interview_runtime.up.sql` and `.down.sql` match the eight-table design, including checks, partial unique indexes, and FKs to `interview_executions` and `interview_progress`. No FK to a missing attempt table. No seed inserts. `schema.ReleaseVersion` becomes 10 and the runner accepts target 10 only after this task. Startup still does not migrate. Disposable PostgreSQL proof, via `make test.docker` or an authorized integration database: clean upgrade from version 9 keeps existing pins, fresh up creates the tables, down drops only the new tables. If `TEST_DATABASE_URL` is absent, say the database proof was skipped. Do not describe that skip as a pass.
 
-- [ ] **T5. Persist classified progress with GORM** — Infrastructure — L
+- [x] **T5. Persist classified progress with GORM** — Infrastructure — L
   - Ticket ID: `CORE-IRT-005`
+  - Evidence: [T5 verification](t5-verification.md); store in `infrastructure/repository/interviewrepository`. PostgreSQL proof written but skipped (no `TEST_DATABASE_URL`, Docker daemon down). Version 10 also stores follow-up citations, reconnect counters and clarification/omission entry ids (design v3), so T14 and T15 are not blocked on schema.
   - depends: T1, T4 — ref: design §3 adapter and transactions.
   - DoD: store maps progress, coverage, sessions, handoffs, checkpoints, technical losses, and transcript rows that the caller already marked fragment or final. Explicit `Select` persists `clarification_count` 0 and null `closed_at` / `summary`. Rollback of a handoff leaves the source stage. Unique open session and unique handoff per stage are enforced by PostgreSQL tests. Restore of a corrupt state is a technical error. The store does not interpret provider event names. Same database-proof rule as T4.
 
-- [ ] **T6. Build the GPT-Live driver transport** — Infrastructure — L
+- [x] **T6. Build the GPT-Live driver transport** — Infrastructure — L
   - Ticket ID: `CORE-IRT-006`
+  - Evidence: [T6 verification](t6-verification.md); driver in `infrastructure/service/interviewvoice`. Fake-server tests only; sideband frame shapes for context and control are unverified against the live provider.
   - depends: T2 — ref: design §4 driver, §1 prototype table.
   - DoD: `interviewvoice` implements create, attach, observe, supply context, control, and close against the driver port. Create retains the provider session id and the SDP answer. A fake HTTP server covers success, empty key, and non-success. Close failure is returned and does not imply a database rollback. Observe yields an opaque event and does not mark coverage. Package tests do not call the public network. `H-01` is not claimed. RabbitMQ is not imported.
 
-- [ ] **T9. Build stage instructions without the salary ceiling** — Application — M
+- [x] **T9. Build stage instructions without the salary ceiling** — Application — M
   - Ticket ID: `CORE-IRT-009`
+  - Evidence: [T9 verification](t9-verification.md); builder in `application/usecase/interviewusecase/instructions.go`, follow-up cap in `domain/interview`. Fake-driver tests only; wording is not evaluated against a live model.
   - depends: T1, T2 — ref: design §6, decision-log D5, D6.
   - DoD: the context passed to `supply context` includes current-stage question text, topics, role name, remaining follow-ups, and `expectations_only`. The demo ceiling id and the field name `salaryCeilingRef` are absent. No amount parameter exists. Instructions do not ask the model for a hire or reject result. A test feeds a candidate sentence that asks for the ceiling and the outbound context still omits it. `make test` passes.
 
@@ -69,26 +75,30 @@ Every Go task also requires `gofmt` on changed Go files, comments on new declara
 
 Ready when Execution Lifecycle exposes activation, current-attempt fencing, complete, and fail, plus a same-transaction callback that checks nonterminal state, expected version, and attempt authority before the interview write. The operations must not require interview stages. Update this design's port names if the published signatures differ, before starting these tasks.
 
-- [ ] **T8. Mount session-attempt and readiness HTTP** — Delivery / application — L
+- [~] **T8. Mount session-attempt and readiness HTTP** — Delivery / application — L
   - Ticket ID: `CORE-IRT-008`
+  - Evidence: [T8 verification](t8-verification.md); operations in `application/usecase/interviewusecase`, handlers in `delivery/http/handler/candidateinterviewhandler`. Mocks only. **Pending before Done:** the `InterviewLifecycle` adapter (attempt id versus generation), a command store with migration `000011`, a revision reader, and composition in `infrastructure/runtime`. The routes are not mounted.
   - depends: T3, T5, T6 — ref: design §2, §7 — blocked by: Q3.
   - ready when: the lifecycle activate and fence calls exist and are wired.
   - DoD: `POST /candidate/executions/{id}/session-attempts` and `POST .../ready` match design §2. Candidate cookie and CSRF are required. Another assignment's execution is 404. Same idempotency key replays; a different intent conflicts. `ready` does not set coverage to asked or answered. Handler tests mock the operation. OpenAPI, `docs/api/CHANGELOG.md`, and an interview endpoint note are updated. `make test.contract` passes. English and Indonesian messages exist for `IRT_CONFLICT` and `IRT_NOT_READY`.
 
-- [ ] **T7. Remove the prototype voice routes from the process** — Delivery / runtime / contract — M
+- [x] **T7. Remove the prototype voice routes from the process** — Delivery / runtime / contract — M
   - Ticket ID: `CORE-IRT-007`
+  - Evidence: [T7 verification](t7-verification.md); routes removed in `infrastructure/runtime/router.go`. T8 routes are still unmounted, so the process currently serves no voice route.
   - depends: T8 — ref: design §2 prototype removal — blocked by: Q3, because it ships in the same change as T8.
   - ready when: T8 is ready to mount.
   - DoD: `infrastructure/runtime` no longer serves `GET /voice-session` or `POST /voice-sessions`. OpenAPI and `docs/api/voice-session.md` no longer describe them as available routes. Contract tests and router tests match that removal. `test/livevoice` still runs only as an opt-in probe. No interview call path remains on the old URLs.
 
-- [ ] **T10. Commit handoff and open the next session under the lifecycle lock** — Application / infrastructure — L
+- [x] **T10. Commit handoff and open the next session under the lifecycle lock** — Application / infrastructure — L
   - Ticket ID: `CORE-IRT-010`
+  - Evidence: [T10 verification](t10-verification.md); retry in `application/usecase/interviewusecase/open_stage.go`. PostgreSQL proof written but skipped (no `TEST_DATABASE_URL`); lifecycle double is pass-through, so no real fence is claimed.
   - depends: T3, T5, T8 — ref: design §3 transactions, §5 — blocked by: Q3.
   - ready when: the locked callback can include the interview store.
   - DoD: PostgreSQL test shows handoff and source-session close commit together, the target session row is absent until a later successful create, and a fence rejection leaves progress unchanged. A failed target create retries that target only, without a new execution id, and without an invented exhaustion count (exhaustion is T16). Optional summary failure still leaves a readable handoff.
 
-- [ ] **T11. Complete or fail at the required record and the hard deadline** — Application — L
+- [x] **T11. Complete or fail at the required record and the hard deadline** — Application — L
   - Ticket ID: `CORE-IRT-011`
+  - Evidence: [T11 verification](t11-verification.md); `Workflow.Finish` in `application/usecase/interviewusecase/finish.go`. Mocked lifecycle only; no real fence, and nothing calls `Finish` until T8 composition.
   - depends: T3, T5 — ref: design §5 completion, decision-log D8 — blocked by: Q3.
   - ready when: lifecycle complete and fail exist.
   - DoD: with the required closing handoff, the operation calls complete once and inserts no report row and no outbox row. At the exact 15-minute instant without that record, it calls fail and the earlier handoff rows remain. A lifecycle rejection does not delete those rows. Clock is fixed in tests. `H-10` report-failure behavior is not claimed here.

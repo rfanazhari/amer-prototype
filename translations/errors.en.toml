@@ -162,3 +162,9 @@ other = "at least one required invoice field must be selected"
 
 [CURRENCY_NOT_REQUIRED]
 other = "total is required without currency"
+
+[IRT_CONFLICT]
+other = "the interview session request conflicts with the current interview state"
+
+[IRT_NOT_READY]
+other = "the interview session is not ready"

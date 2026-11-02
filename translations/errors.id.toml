@@ -162,3 +162,9 @@ other = "setidaknya satu bidang faktur wajib harus dipilih"
 
 [CURRENCY_NOT_REQUIRED]
 other = "total diwajibkan tanpa mata uang"
+
+[IRT_CONFLICT]
+other = "permintaan sesi interview bertentangan dengan keadaan interview saat ini"
+
+[IRT_NOT_READY]
+other = "sesi interview belum siap"

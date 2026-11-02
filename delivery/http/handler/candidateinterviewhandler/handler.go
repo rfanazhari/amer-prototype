@@ -8,6 +8,7 @@ import (
 	"github.com/rfanazhari/amer-prototype/application/query/candidateinterviewquery"
 	"github.com/rfanazhari/amer-prototype/application/service"
 	"github.com/rfanazhari/amer-prototype/application/usecase/candidateinterviewusecase"
+	"github.com/rfanazhari/amer-prototype/application/usecase/interviewusecase"
 	"github.com/rfanazhari/amer-prototype/delivery/http/handler/accesshandler"
 	"github.com/rfanazhari/amer-prototype/domain/aggregate/candidateinterview"
 	"github.com/rfanazhari/amer-prototype/pkg/errs"
@@ -25,6 +26,8 @@ type Handler struct {
 	Start        candidateinterviewusecase.StartInterviewOperation
 	Takeover     candidateinterviewusecase.TakeoverOperation
 	Cancel       candidateinterviewusecase.CancelInterviewOperation
+	Attempt      interviewusecase.AttemptOperation
+	Ready        interviewusecase.ReadyOperation
 	Get          candidateinterviewquery.GetInterviewOperation
 	Accept       candidateinterviewusecase.AcceptNoticeOperation
 	Current      service.CurrentCandidateSession
@@ -86,6 +89,10 @@ func (h Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case consentsPath:
 		h.accept(w, r)
 	default:
+		if id, attemptID, action, ok := attemptRoute(r.URL.Path); ok {
+			h.sessionAttempt(w, r, id, attemptID, action)
+			return
+		}
 		if id, action, ok := executionRoute(r.URL.Path); ok {
 			h.execution(w, r, id, action)
 			return
@@ -217,6 +224,14 @@ func (h Handler) sendError(w http.ResponseWriter, r *http.Request, err error, de
 		fail(w, r, http.StatusConflict, errs.CINNotLive)
 	case errors.Is(err, service.ErrInterviewStartUncertain):
 		fail(w, r, http.StatusServiceUnavailable, errs.CINStartUncertain)
+	case errors.Is(err, interviewusecase.ErrAttemptInvalid):
+		fail(w, r, http.StatusBadRequest, errs.InvalidInput)
+	case errors.Is(err, interviewusecase.ErrAttemptConflict):
+		fail(w, r, http.StatusConflict, errs.IRTConflict)
+	case errors.Is(err, interviewusecase.ErrAttemptNotReady):
+		fail(w, r, http.StatusConflict, errs.IRTNotReady)
+	case errors.Is(err, interviewusecase.ErrProviderUnavailable):
+		fail(w, r, http.StatusServiceUnavailable, errs.SessionUnavailable)
 	case errors.Is(err, service.ErrInterviewDependencyUnavailable):
 		fail(w, r, http.StatusServiceUnavailable, dependencyCode)
 	default:

@@ -67,6 +67,14 @@ Body exactly `{ "controllerId": "<tab-id>", "expectedVersion": 1 }`. The body id
 
 Body exactly `{ "expectedVersion": 1 }` using a positive **execution** version. Requires `X-Interview-Controller` for the current tab. Returns `200` with the committed execution in state `CANCELLED`. Another assignment's id is `404 NOT_FOUND`; a non-controller is `403 CIN_NOT_CONTROLLER`. Terminal state is never relabelled. Controller persistence and lifecycle cancellation are composed.
 
+### POST `/candidate/executions/{id}/session-attempts`
+
+Interview Runtime route. Body exactly `{ "sdp", "intent", "expectedVersion", "controllerId", "idempotencyKey" }`: `sdp` non-blank, `intent` `activate` or `reconnect`, `expectedVersion` the positive **execution** version, `controllerId` the current tab, and a key of 1–128 token characters scoped to the candidate session and execution. Requires the candidate cookie, origin and CSRF. Returns `201` with `{ attemptId, sessionId, sdp, executionVersion, sessionCondition }` for a new attempt, or `200` with the original attempt and answer for the same key and intent. `sdp` is the provider answer only. The same key with another intent, a stale version, a controller that is not current, or an exhausted activation or reconnect budget is `409 IRT_CONFLICT` and creates nothing. A provider failure before a durable result is `503 SESSION_UNAVAILABLE`. Another assignment's execution is `404 NOT_FOUND`.
+
+### POST `/candidate/executions/{id}/session-attempts/{attempt_id}/ready`
+
+Body exactly `{ "controllerId", "expectedVersion" }`. Records browser media readiness for that attempt only and returns `200` with `{ attemptId, sessionId, executionVersion, sessionCondition }`. It never marks a question asked, heard or answered and never changes the stage. `sessionCondition` is `ready` only when the lifecycle says the attempt is current, the provider session id is stored and this flag is set; otherwise `pending`. An attempt that is not current or has no open session is `409 IRT_NOT_READY`.
+
 ### GET `/candidate/interview/page`
 
 Returns the candidate page as `text/html` with `Cache-Control: no-store` and `Referrer-Policy: no-referrer`. The page reads `GET /candidate/session`, then `GET /candidate/interview`, and displays only the offered accept/start/takeover/cancel actions. It stores the tab controller and start intent in `sessionStorage`, sends `X-Interview-Controller`, and retains the same start key and consent id after an uncertain response or refresh. Refresh never POSTs start. A second tab is read-only until takeover; cancel asks for confirmation. Live `CREATED`/`RUNNING` views poll the interview every two seconds; polling stops on access loss or a terminal outcome and superseded responses are ignored. `COMPLETED`, `FAILED`, and `CANCELLED` have distinct final screens. Without a cookie it shows the access-error state and no notice. It does not request a report or open a microphone. Other methods are `405` `METHOD_NOT_ALLOWED`. Production execution is supplied by lifecycle; progress and runtime fencing await T12. T10 browser evidence uses API fixtures; T11 separately proves production HTTP composition against PostgreSQL.
@@ -85,6 +93,7 @@ Precedence on the JSON routes:
 6. Policy: `409 CIN_CONSENT_REQUIRED`, `403 CIN_SESSION_COVERAGE`, `409 CIN_IDEMPOTENCY_CONFLICT` on start; `409 CIN_CONTROLLER_CONFLICT` for stale controller/execution versions; `403 CIN_NOT_CONTROLLER`; `409 CIN_TERMINAL` or `409 CIN_NOT_LIVE`.
 7. Empty notice catalog or acceptance read-back failure on consent: `503 CIN_NOTICE_UNAVAILABLE`. Unbound sibling adapters: `503 CIN_DEPENDENCY_UNAVAILABLE`. No consent is created by execution operations.
 8. Ambiguous lifecycle commit: `503 CIN_START_UNCERTAIN`, retry the same key.
+8a. Interview Runtime routes: `409 IRT_CONFLICT`, `409 IRT_NOT_READY`, and `503 SESSION_UNAVAILABLE` for a provider failure before a durable attempt. Messages exist in English and Indonesian.
 9. Corrupt stored data or any other technical failure: `500 INTERNAL_ERROR` without causes.
 
 Execution POSTs reject malformed JSON, duplicate/unknown/system-owned fields, invalid tab ids, bad keys, invalid consent UUIDs, nonpositive versions and mismatched takeover tab ids before session lookup. Messages exist in English and Indonesian.

@@ -45,6 +45,9 @@ packages:
       NoticeCatalog:
       ExecutionLifecycle:
       InterviewProgress:
+      InterviewLifecycle:
+      InterviewDriver:
+      InterviewSummarizer:
   github.com/rfanazhari/amer-prototype/application/usecase/taskusecase:
     config:
       dir: test/mocks
@@ -113,14 +116,6 @@ packages:
       InstanceOperation:
       RevisionOperation:
       ListInstancesOperation:
-  github.com/rfanazhari/amer-prototype/application/usecase/voicesession:
-    config:
-      dir: test/mocks
-      outpkg: mocks
-      filename: '{{.InterfaceName | snakecase}}_mock.go'
-    interfaces:
-      NegotiateOperation:
-      Negotiator:
   github.com/rfanazhari/amer-prototype/application/repository/agentconfigport:
     config:
       dir: test/mocks
@@ -203,3 +198,22 @@ packages:
     interfaces:
       GetInterviewOperation:
       GetExecutionOperation:
+  github.com/rfanazhari/amer-prototype/application/repository/interviewport:
+    config:
+      dir: test/mocks
+      outpkg: mocks
+      filename: 'interview_{{.InterfaceName | snakecase}}.go'
+    interfaces:
+      PinReader:
+      ProgressStore:
+      SessionCommands:
+      RevisionReader:
+  github.com/rfanazhari/amer-prototype/application/usecase/interviewusecase:
+    config:
+      dir: test/mocks
+      outpkg: mocks
+      filename: 'interview_{{.InterfaceName | snakecase}}.go'
+    interfaces:
+      AttemptOperation:
+      ReadyOperation:
+      SessionStarter:

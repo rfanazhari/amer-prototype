@@ -252,7 +252,7 @@ Not yet implemented — verify against code after implementation.
 - Sibling capabilities: [Agent Configuration and Publication](./agent-configuration-publication.md), especially `BR-CORE-003`.
 - Sibling capability: [Candidate Interview](./candidate-interview.md), `BR-CORE-040`..`BR-CORE-047` — consent and the candidate screen after a session exists.
 - Sibling capability: [Execution Lifecycle](./execution-lifecycle.md), `BR-CORE-050`..`BR-CORE-059` — the execution that access must not start or restart.
-- Source document: [Identity and Access technical design](../../identity-access/technical-design.md).
+- Source document: [Identity and Access technical design](../../features/identity-access/technical-design.md).
 - Source document: [Platform design, sections 9–10 and TD-21](../../../../design/core-ai/technical-design.md).
 - Existing flow reference: `application/service/agentconfiguration.go` — authority integration port already present; no real authentication adapter is supplied.
 - Source decisions: owner approvals in this conversation on 2026-11-01 cover ADMIN/HR separation, one company, invitation-based repeat candidate interviews, five access tables, and the `identity-access` name/block allocation. Rules use `BR-CORE-020..029` for administrative access and `BR-CORE-030..039` for candidate access; `040..049` remains unused within the approved candidate block.

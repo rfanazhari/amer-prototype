@@ -76,7 +76,7 @@ Down deletes affected tables/data; it is never a retained-data recovery mechanis
 
 `make test.docker` creates its own Compose project, PostgreSQL databases and random credentials, prepares SQL explicitly, runs real adoption/failure/restricted-role/runtime/admin/Task tests, then dumps a populated database and restores a clone. The clone drops metadata to represent legacy state, runs guarded baseline/up/status, compares all retained rows, and repeats Task/admin smoke. Cleanup removes only that project's containers/volumes. `make docker.verify` additionally verifies the packaged app and optional services.
 
-See [T18–T20 evidence](../services/core-ai/identity-access/t18-t20-evidence.md). These operations authorize no non-disposable target cutover. A real release still requires its inspected catalog, protected verified backup, provisioned roles and approved maintenance window.
+See [T18–T20 evidence](../services/core-ai/features/identity-access/t18-t20-evidence.md). These operations authorize no non-disposable target cutover. A real release still requires its inspected catalog, protected verified backup, provisioned roles and approved maintenance window.
 
 ## Version 8: execution lifecycle (CORE-EXL-003)
 

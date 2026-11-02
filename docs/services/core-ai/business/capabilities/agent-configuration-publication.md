@@ -196,7 +196,7 @@ Consent, execution start, a provider session, voice binding, Document Analyzer j
 ## Related
 
 - Sibling capability: [Identity and Access](./identity-access.md), BR-CORE-020..039 — owner-approved ADMIN/HR separation, current session authority, shared company scope, candidate exclusion, and invitation targeting an existing assignment (`BR-CORE-030`, `BR-CORE-031`).
-- Source document: [Agent Configuration technical design, section 11](../../agent-configuration-publication/technical-design.md#11-interview-assignment-create-contract-approved-t12) — approved interview-assignment create contract. T13 implements the route without new SQL.
+- Source document: [Agent Configuration technical design, section 11](../../features/agent-configuration-publication/technical-design.md#11-interview-assignment-create-contract-approved-t12) — approved interview-assignment create contract. T13 implements the route without new SQL.
 
 - Source document: [Core AI Agent Runtime — Design Direction v0.1](../../../../design/core-ai/core_ai_agent_runtime_v0.1.md) — reusable runtime direction and separation from agent-specific behavior.
 - Source document: [Shared AI Agent Execution Platform — Architecture Design v0.1](../../../../design/core-ai/shared_ai_agent_platform_architecture_design_v0.1.md) — shared terminology and configuration lifecycle; later explicit decisions take precedence where amended.

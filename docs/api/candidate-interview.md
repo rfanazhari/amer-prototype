@@ -2,7 +2,7 @@
 
 All responses use the standard JSON envelope. `Accept-Language: id` selects Indonesian. Request bodies are limited to 1 MiB. Unknown fields, duplicate keys, non-objects, and system-owned members are `400` `INVALID_INPUT`. Every JSON response sends `Cache-Control: no-store`.
 
-The machine-readable specification is [openapi.yaml](openapi.yaml); contract changes are recorded in [CHANGELOG.md](CHANGELOG.md). Design: [technical-design.md](../services/core-ai/candidate-interview/technical-design.md).
+The machine-readable specification is [openapi.yaml](openapi.yaml); contract changes are recorded in [CHANGELOG.md](CHANGELOG.md). Design: [technical-design.md](../services/core-ai/features/candidate-interview/technical-design.md).
 
 This document covers interview read, notice acceptance, the candidate page, start, execution polling, takeover, and cancel. Session-attempt, ready, and report routes are absent. Execution Lifecycle is bound to the PostgreSQL execution store. Start commits once per assignment, returns 200 on the same intent, and conflicts on a different client key or consent intent. Execution reads and cancellation use that stored lifecycle; unavailable dependencies still fail closed. Interview credential reads refuse assignment revocation.
 

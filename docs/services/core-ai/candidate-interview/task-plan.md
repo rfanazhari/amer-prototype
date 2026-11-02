@@ -103,7 +103,7 @@ Companion plans: [Identity and Access](../identity-access/task-plan.md) owns the
 - [x] **T12. Integrate candidate-safe progress and controller fencing** — Application / infrastructure — L
   - Ticket ID: `CORE-CIN-012`
   - depends: T8, T11 — ref: design §6.3, BR-CORE-043, BR-CORE-044.
-  - Blocked by: none for this task. Production composition of runtime progress still waits on Interview Runtime T8 (no `PinReader` adapter, routes unmounted).
+  - Blocked by: none for this task. Production composition of runtime progress still waits on the Interview Runtime T8 composition follow-up (no `PinReader` adapter, routes unmounted).
   - Evidence: `candidateprogress.Reader` projects only phase label and connection from the runtime progress store; `Ready` re-checks the current controller inside the lifecycle lock and refuses a replaced tab. Mocks only: no PostgreSQL proof, not composed in `NewCandidateInterview`, re-check not atomic with a takeover commit. `make test` and `make check` pass; database suites not run. RED `68f2474`; commands and limits: [t12-execution.md](t12-execution.md).
   - DoD: poll renders only that progress object. Takeover causes a subsequent advance with the previous id to be refused by runtime. The view still has no transcript body, salary, competence flag, or report. This task does not implement stages, voice sessions, or `session-attempts`. `make test` and, where the fence is stored, `make test.integration` or `make test.docker` pass.
 

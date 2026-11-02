@@ -13,7 +13,7 @@ Ticket: **CORE-CIN-012 — Integrate candidate-safe progress and controller fenc
 
 - The re-check is not atomic with a takeover: a takeover committing after the in-lock read is not excluded. Closing that needs a shared row lock on the controller row in the lifecycle transaction (design change to the controller port).
 - `Attempts` (activate/reconnect) keeps only the pre-check; its lock lives inside `Workflow`. Not changed here.
-- **Not composed in production.** `interviewrepository.Store` needs an `interviewport.PinReader`, which has no adapter yet, and the session-attempt routes are not mounted (Interview Runtime T8 is still `[~]`). `NewCandidateInterview` therefore still passes no `Progress`, and the page shows no progress until runtime composition lands. T13 must not claim a live progress demonstration until then.
+- **Not composed in production.** `interviewrepository.Store` needs an `interviewport.PinReader`, which has no adapter yet, and the session-attempt routes are not mounted (Interview Runtime T8 is Done only for operations and contract; its composition is a pending follow-up). `NewCandidateInterview` therefore still passes no `Progress`, and the page shows no progress until runtime composition lands. T13 must not claim a live progress demonstration until then.
 - Mocks only; no PostgreSQL proof for the new code. `TEST_DATABASE_URL` was not set; `make test.integration` and `make test.docker` were not run.
 
 ## RED

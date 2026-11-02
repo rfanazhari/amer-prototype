@@ -17,6 +17,8 @@ type Workflow struct {
 	Driver    service.InterviewDriver
 	Clock     service.Clock
 	Summary   service.InterviewSummarizer
+	// References resolves the role name for a pinned job-description version.
+	References service.AgentReferenceReader[service.AgentReferenceFact]
 }
 
 // Proposal carries lifecycle authority and the fixed successor proposed by the model.

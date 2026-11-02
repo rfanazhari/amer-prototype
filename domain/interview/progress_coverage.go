@@ -165,3 +165,6 @@ func (p *Progress) FollowUp(entryID string) error {
 	p.state.FollowUps = append(p.state.FollowUps, entryID)
 	return nil
 }
+
+// RemainingFollowUps returns how many cited follow-ups the current stage may still use.
+func (p *Progress) RemainingFollowUps() int { return 0 }

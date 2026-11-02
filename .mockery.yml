@@ -19,6 +19,7 @@ packages:
       Accounts:
       AccountTx:
       Sessions:
+      SessionRetention:
       LoginTx:
       SessionIssuance:
       AssignmentAccess:

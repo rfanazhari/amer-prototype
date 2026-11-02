@@ -45,6 +45,8 @@ packages:
       NoticeCatalog:
       ExecutionLifecycle:
       InterviewProgress:
+      InterviewLifecycle:
+      InterviewDriver:
   github.com/rfanazhari/amer-prototype/application/usecase/taskusecase:
     config:
       dir: test/mocks
@@ -203,3 +205,10 @@ packages:
     interfaces:
       GetInterviewOperation:
       GetExecutionOperation:
+  github.com/rfanazhari/amer-prototype/application/repository/interviewport:
+    config:
+      dir: test/mocks
+      outpkg: mocks
+      filename: 'interview_{{.InterfaceName | snakecase}}.go'
+    interfaces:
+      ProgressStore:

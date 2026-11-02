@@ -22,7 +22,7 @@ Companion dependencies, not implemented by this plan:
 - DoD: verifiable
 - Blocked: not executable until the ready condition is true and this design is updated when the condition changes the contract
 
-Every Go task also requires `gofmt` on changed Go files, comments on new declarations so `make test.architecture` passes, and `make lint` clean for the touched packages. Domain and application tasks run `make test`. T1 is complete; all other tasks remain unchanged.
+Every Go task also requires `gofmt` on changed Go files, comments on new declarations so `make test.architecture` passes, and `make lint` clean for the touched packages. Domain and application tasks run `make test`. T1 and T2 are complete; all other tasks remain unchanged.
 
 ## Tasks
 
@@ -34,8 +34,9 @@ Every Go task also requires `gofmt` on changed Go files, comments on new declara
   - depends: none — ref: design §3–§4, decision-log D1, D5, D6, D7, D9.
   - DoD: public tests cover coverage edges, the three omission reasons, technical loss leaving the question un-omitted and blocking `Authorize`, follow-up cap 2 with citation required, fragment rejected as an answer, handoff required before a target stage, closing handoff with no next stage, soft-budget and 15-minute equality, reconnect counters, and `ReadyForCompletion`. `NewProgress` writes cap 2 from a revision fixture that has no cap field. `RestoreProgress` keeps a stored cap and does not call publication assessment. No execution status type, no provider client, no GORM. `make test` and `make test.architecture` pass.
 
-- [ ] **T2. Define lifecycle, driver, and progress ports** — Application — M
+- [x] **T2. Define lifecycle, driver, and progress ports** — Application — M
   - Ticket ID: `CORE-IRT-002`
+  - Evidence: [T2 verification](t2-verification.md); ports in `application/service` and `application/repository/interviewport`, with generated Mockery mocks.
   - depends: none — ref: design §1 lifecycle table, §4.
   - DoD: interfaces exist for the lifecycle calls, the driver operations, and the progress store. Signatures carry execution id, attempt id, expected version, and budgets 2×30s/90s, 120s, 2 attempts, 2 episodes. No HR stage field appears on the lifecycle port. Mockery config generates the mocks. `make mocks` output is committed as generated. Documentation comments exist. This task does not call a real provider or a real database.
 

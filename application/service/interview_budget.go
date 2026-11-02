@@ -14,4 +14,10 @@ type InterviewBudgets struct {
 }
 
 // DefaultInterviewBudgets returns the platform section 10 activation and recovery limits.
-func DefaultInterviewBudgets() InterviewBudgets { return InterviewBudgets{} }
+func DefaultInterviewBudgets() InterviewBudgets {
+	return InterviewBudgets{
+		ActivationAttempts: 2, ActivationAttemptTimeout: 30 * time.Second,
+		ActivationWindow: 90 * time.Second, ReconnectWindow: 120 * time.Second,
+		ReconnectAttempts: 2, ReconnectEpisodes: 2,
+	}
+}

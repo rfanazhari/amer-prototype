@@ -43,6 +43,24 @@ func (_m *LoginTx) Account(ctx context.Context) (accessport.AccountRecord, error
 	return r0, r1
 }
 
+// DeleteOtherSessions provides a mock function with given fields: ctx, keepID
+func (_m *LoginTx) DeleteOtherSessions(ctx context.Context, keepID string) error {
+	ret := _m.Called(ctx, keepID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for DeleteOtherSessions")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) error); ok {
+		r0 = rf(ctx, keepID)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // InsertSession provides a mock function with given fields: ctx, record
 func (_m *LoginTx) InsertSession(ctx context.Context, record accessport.SessionRecord) error {
 	ret := _m.Called(ctx, record)

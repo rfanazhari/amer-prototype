@@ -26,6 +26,7 @@ type loginCase struct {
 	locked    accessport.AccountRecord
 	verifyErr error
 	commitErr error
+	deleteErr error
 	wantErr   error
 	wantDummy bool
 	wantLogin bool
@@ -46,6 +47,7 @@ func TestLoginRechecksEligibilityBeforeSessionCommit(t *testing.T) {
 		{name: "disabled account", email: "sinta@example.com", password: "correct-horse", found: true, account: disabled, verifyErr: nil, wantErr: service.ErrAuthenticationFailed},
 		{name: "stale hash after lock", email: "sinta@example.com", password: "correct-horse", found: true, account: account, locked: stale, wantErr: service.ErrAuthenticationFailed},
 		{name: "empty password is invalid input", email: "sinta@example.com", password: "", wantErr: service.ErrInvalidInput},
+		{name: "replacement failure withholds the new session", email: "sinta@example.com", password: "correct-horse", found: true, account: account, locked: account, deleteErr: assert.AnError, wantErr: assert.AnError},
 		{name: "uncertain commit is not success", email: "sinta@example.com", password: "correct-horse", found: true, account: account, locked: account, commitErr: uncertain, wantErr: uncertain},
 	}
 	for _, tt := range tests {
@@ -72,20 +74,25 @@ func TestLoginRechecksEligibilityBeforeSessionCommit(t *testing.T) {
 					hasher.On("Verify", mock.Anything, tt.account.PasswordHash, tt.password).Return(tt.verifyErr).Once()
 				}
 			}
-			if tt.wantLogin || tt.commitErr != nil || (tt.found && tt.verifyErr == nil && tt.account.Status == enum.Active && tt.locked.PasswordHash != account.PasswordHash) {
-				if tt.wantLogin || tt.commitErr != nil || tt.locked.PasswordHash != account.PasswordHash {
+			if tt.wantLogin || tt.commitErr != nil || tt.deleteErr != nil || (tt.found && tt.verifyErr == nil && tt.account.Status == enum.Active && tt.locked.PasswordHash != account.PasswordHash) {
+				if tt.wantLogin || tt.commitErr != nil || tt.deleteErr != nil || tt.locked.PasswordHash != account.PasswordHash {
 					clock.On("Now").Return(testdata.Now())
 					tokens.On("Issue", mock.Anything, service.CredentialAdministrative).Return("plain-session-secret", testdata.TokenHash, nil).Once()
 					issuance.On("WithinLogin", mock.Anything, account.ID, mock.Anything).Return(func(ctx context.Context, accountID string, fn func(accessport.LoginTx) error) error {
 						tx := mocks.NewLoginTx(t)
 						tx.On("Account", mock.Anything).Return(tt.locked, nil).Once()
 						if tt.locked.PasswordHash == account.PasswordHash && tt.locked.Status == enum.Active {
-							tx.On("InsertSession", mock.Anything, mock.MatchedBy(func(record accessport.SessionRecord) bool {
-								return record.AccountID == account.ID &&
-									record.TokenHash == testdata.TokenHash &&
-									record.ExpiresAt.Equal(testdata.Now().Add(2*time.Hour)) &&
-									record.RevokedAt == nil
-							})).Return(nil).Once()
+							replace := tx.On("DeleteOtherSessions", mock.Anything, mock.MatchedBy(func(keepID string) bool {
+								return keepID != ""
+							})).Return(tt.deleteErr).Once()
+							if tt.deleteErr == nil {
+								tx.On("InsertSession", mock.Anything, mock.MatchedBy(func(record accessport.SessionRecord) bool {
+									return record.AccountID == account.ID &&
+										record.TokenHash == testdata.TokenHash &&
+										record.ExpiresAt.Equal(testdata.Now().Add(2*time.Hour)) &&
+										record.RevokedAt == nil
+								})).Return(nil).Once().NotBefore(replace)
+							}
 						}
 						if tt.commitErr != nil {
 							_ = fn(tx)

@@ -18,5 +18,7 @@
   "000009_candidate_interview.down.sql": "2ad92faa7bfe6703259da7b01906531f98376b29f02450420c621db088b7f20f",
   "000009_candidate_interview.up.sql": "62358cb4826c1e61a21d863ab0ad0b703f914f728ea03b1ab37c01e1317d8b6c",
   "000010_interview_runtime.down.sql": "049a54c3f2191d627a9b9778ec542e441710cd2725457b6799ba38c4464a7fab",
-  "000010_interview_runtime.up.sql": "bf1bde8379e4f705be46a238bee5744e746380195a164b37fd73421d9e55cdce"
+  "000010_interview_runtime.up.sql": "bf1bde8379e4f705be46a238bee5744e746380195a164b37fd73421d9e55cdce",
+  "000011_interview_runtime_integration.down.sql": "5aaecaad8c6c3106261adaf9ac0ed51ac203aed18b93e879d7741516fe7390d1",
+  "000011_interview_runtime_integration.up.sql": "7a4c38363aec441b9c755abd456eef7a1e709f44d57da4f5317058326224c9f5"
 }

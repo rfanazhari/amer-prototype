@@ -77,7 +77,7 @@ type RecordAttemptInput struct {
 	ExpectedVersion int64
 	// OperationKey is the opaque key identifying the operation receiving the attempt.
 	OperationKey string
-	// Generation is the new attempt authority generation, which must exceed the current one.
+	// Generation is zero for allocation, or must equal the next execution-wide authority generation.
 	Generation int64
 }
 

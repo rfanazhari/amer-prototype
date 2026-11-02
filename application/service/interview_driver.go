@@ -21,8 +21,10 @@ type InterviewVoiceCreate struct {
 
 // InterviewVoiceCreated retains the provider identity and SDP answer required for readiness.
 type InterviewVoiceCreated struct {
-	Session InterviewVoiceSession
-	SDP     string
+	// ExecutionVersion is filled by workflow after the result transaction commits.
+	ExecutionVersion int64
+	Session          InterviewVoiceSession
+	SDP              string
 }
 
 // InterviewVoiceObservation is an opaque provider event or transport observation.

@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/rfanazhari/amer-prototype/application/repository/interviewport"
 	"github.com/rfanazhari/amer-prototype/domain/enum"
+	"github.com/rfanazhari/amer-prototype/infrastructure/database/transaction"
 	"gorm.io/gorm"
 )
 
@@ -19,7 +20,7 @@ func (s Store) Insert(ctx context.Context, req interviewport.ProgressWrite, reco
 	if err := representable(record); err != nil {
 		return err
 	}
-	return s.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	return transaction.Within(ctx, s.DB, func(ctx context.Context, tx *gorm.DB) error {
 		at := s.instant()
 		snap := record.Snapshot
 		row := ProgressModel{
@@ -38,7 +39,7 @@ func (s Store) Insert(ctx context.Context, req interviewport.ProgressWrite, reco
 // Update locks progress, checks the expected version, runs change on a detached record and writes only the
 // difference. Rows already committed may not be rewritten. The version moves only after every write succeeds.
 func (s Store) Update(ctx context.Context, req interviewport.ProgressWrite, change func(*interviewport.ProgressRecord) error) error {
-	return s.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	return transaction.Within(ctx, s.DB, func(ctx context.Context, tx *gorm.DB) error {
 		row, err := readProgress(tx, req.ExecutionID, true)
 		if err != nil {
 			return err

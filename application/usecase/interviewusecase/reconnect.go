@@ -3,6 +3,7 @@ package interviewusecase
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"time"
 
 	"github.com/rfanazhari/amer-prototype/application/repository/interviewport"
@@ -21,7 +22,7 @@ func (u Workflow) Disconnect(ctx context.Context, a service.InterviewAttempt, s 
 		return err
 	}
 	now := u.now()
-	return u.update(ctx, a, record.Version, func(r *interviewport.ProgressRecord) error {
+	err = u.update(ctx, a, record.Version, func(r *interviewport.ProgressRecord) error {
 		found := false
 		for _, current := range r.Sessions {
 			if current.ID == s.SessionID && current.AttemptID == a.AttemptID && current.ClosedAt == nil {
@@ -41,6 +42,12 @@ func (u Workflow) Disconnect(ctx context.Context, a service.InterviewAttempt, s 
 		r.Snapshot = p.Snapshot()
 		return nil
 	})
+	if errors.Is(err, interview.ErrBudget) {
+		if failErr := u.Lifecycle.Fail(ctx, service.InterviewFailure{Authority: a, Reason: "reconnect_budget_exhausted"}); failErr != nil {
+			return failErr
+		}
+	}
+	return err
 }
 
 // Reconnect consumes stored recovery capacity and replaces a session on the same execution.
@@ -49,7 +56,7 @@ func (u Workflow) Reconnect(ctx context.Context, req SessionRequest) (service.In
 	if !validSessionRequest(req) {
 		return service.InterviewVoiceCreated{}, interview.ErrInvalid
 	}
-	record, err := u.findCurrent(ctx, req.Authority)
+	record, err := u.Store.Find(ctx, req.Authority.ExecutionID)
 	if err != nil {
 		return service.InterviewVoiceCreated{}, err
 	}
@@ -62,6 +69,13 @@ func (u Workflow) Reconnect(ctx context.Context, req SessionRequest) (service.In
 	}
 	now := u.now()
 	if err = p.AttemptReconnect(now); err != nil {
+		if errors.Is(err, interview.ErrBudget) && len(record.Sessions) > 0 {
+			current := req.Authority
+			current.AttemptID = record.Sessions[len(record.Sessions)-1].AttemptID
+			if failErr := u.Lifecycle.Fail(ctx, service.InterviewFailure{Authority: current, Reason: "reconnect_budget_exhausted"}); failErr != nil {
+				return service.InterviewVoiceCreated{}, failErr
+			}
+		}
 		return service.InterviewVoiceCreated{}, err
 	}
 	if len(record.Sessions) == 0 {
@@ -69,34 +83,54 @@ func (u Workflow) Reconnect(ctx context.Context, req SessionRequest) (service.In
 	}
 	replaced := record.Sessions[len(record.Sessions)-1].ID
 	budgets := service.DefaultInterviewBudgets()
-	admitted, err := u.Lifecycle.Activate(ctx, service.InterviewActivation{Authority: req.Authority, Intent: "reconnect", IdempotencyKey: req.IdempotencyKey, DetectedAt: record.Snapshot.Reconnect.DetectedAt, Budgets: budgets})
-	if err != nil {
-		return service.InterviewVoiceCreated{}, err
+	if u.ProviderReady != nil && !u.ProviderReady() {
+		return service.InterviewVoiceCreated{}, ErrProviderUnavailable
 	}
-	if admitted.Replayed {
-		return service.InterviewVoiceCreated{}, interview.ErrConflict
-	}
-	if err = validateAdmission(req, admitted); err != nil {
-		return service.InterviewVoiceCreated{}, err
-	}
-	req.Authority = admitted.Authority
-	err = u.update(ctx, req.Authority, req.ProgressVersion, func(r *interviewport.ProgressRecord) error {
-		agg, err := interview.RestoreProgress(r.Snapshot)
+	err = u.prepare(ctx, func(ctx context.Context) error {
+		admitted, err := u.Lifecycle.Activate(ctx, service.InterviewActivation{Authority: req.Authority, Intent: "reconnect", IdempotencyKey: req.IdempotencyKey, DetectedAt: record.Snapshot.Reconnect.DetectedAt, Budgets: budgets})
 		if err != nil {
 			return err
 		}
-		if err = agg.AttemptReconnect(now); err != nil {
+		if admitted.Replayed {
+			return interview.ErrConflict
+		}
+		if err = validateAdmission(req, admitted); err != nil {
 			return err
 		}
-		r.Snapshot = agg.Snapshot()
-		closeSessions(r, now)
-		return appendSession(r, req, now, replaced)
+		req.Authority = admitted.Authority
+		if req.Check != nil {
+			if err = req.Check(ctx); err != nil {
+				return err
+			}
+		}
+		err = u.update(ctx, req.Authority, req.ProgressVersion, func(r *interviewport.ProgressRecord) error {
+			agg, err := interview.RestoreProgress(r.Snapshot)
+			if err != nil {
+				return err
+			}
+			if err = agg.AttemptReconnect(now); err != nil {
+				return err
+			}
+			r.Snapshot = agg.Snapshot()
+			closeSessions(r, now)
+			return appendSession(r, req, now, replaced)
+		})
+		if err != nil {
+			return err
+		}
+
+		return u.reserve(ctx, req)
 	})
 	if err != nil {
 		return service.InterviewVoiceCreated{}, err
 	}
 	text := recoveryContext(record, now)
-	recoveryCtx, cancel := context.WithTimeout(ctx, record.Snapshot.Reconnect.DetectedAt.Add(budgets.ReconnectWindow).Sub(now))
+	end := record.Snapshot.Reconnect.DetectedAt.Add(budgets.ReconnectWindow)
+	hardDeadline := record.Snapshot.RunningAt.Add(15 * time.Minute)
+	if hardDeadline.Before(end) {
+		end = hardDeadline
+	}
+	recoveryCtx, cancel := context.WithTimeout(ctx, end.Sub(u.now()))
 	defer cancel()
 	return u.createSession(recoveryCtx, req, req.ProgressVersion+1, true, text)
 }

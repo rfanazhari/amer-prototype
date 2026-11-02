@@ -25,7 +25,7 @@ func TestCurrentCandidateNoticeIsApproved(t *testing.T) {
 // TestCurrentCandidateNoticeMatchesDesignRecord verifies design section 6 names the exact version and full statement.
 func TestCurrentCandidateNoticeMatchesDesignRecord(t *testing.T) {
 	notice := appruntime.CurrentCandidateNotice()
-	design, err := os.ReadFile(filepath.Join("..", "..", "docs", "services", "core-ai", "candidate-interview", "technical-design.md"))
+	design, err := os.ReadFile(filepath.Join("..", "..", "docs", "services", "core-ai", "features", "candidate-interview", "technical-design.md"))
 	require.NoError(t, err)
 
 	require.NotEmpty(t, notice.Version)

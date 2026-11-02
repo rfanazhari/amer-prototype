@@ -121,7 +121,7 @@ VALUES ($1,$2,$3,'2026-01-02T00:05:00Z',$4)`, id, fixtureAssignment, version, se
 		resetSchema(t, db)
 		migrateTo(t, runner, 8)
 		migrateTo(t, runner, 9)
-		require.NoError(t, schema.RequireCompatible(ctx, db))
+		require.ErrorContains(t, schema.RequireCompatible(ctx, db), "clean version 11")
 		for _, table := range candidateInterviewTables {
 			require.Zero(t, countRows(t, db, table), table)
 		}

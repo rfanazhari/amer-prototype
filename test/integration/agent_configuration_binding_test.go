@@ -2,6 +2,7 @@ package integration_test
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -60,12 +61,20 @@ func TestAgentConfigurationBindingConsumers(t *testing.T) {
 	require.Equal(t, secondRev, later.RevisionID)
 }
 
-// installBindingConsumers creates Interview-shaped assignment and execution pin tables for T11 proof.
+// installBindingConsumers isolates the historical pin proof in a dedicated temporary schema, preserving release tables.
 func installBindingConsumers(t *testing.T, db *gorm.DB) {
 	t.Helper()
+	pool, err := db.DB()
+	require.NoError(t, err)
+	pool.SetMaxOpenConns(1)
+	pool.SetMaxIdleConns(1)
+	schemaName := "binding_probe_" + strings.ReplaceAll(uuid.NewString(), "-", "")
+	require.NoError(t, db.Exec("CREATE SCHEMA "+schemaName).Error)
 	t.Cleanup(func() {
-		require.NoError(t, db.Exec("DROP TABLE IF EXISTS interview_executions, interview_assignments CASCADE").Error)
+		require.NoError(t, db.Exec("SET search_path TO public").Error)
+		require.NoError(t, db.Exec("DROP SCHEMA "+schemaName+" CASCADE").Error)
 	})
+	require.NoError(t, db.Exec("SET search_path TO "+schemaName+", public").Error)
 	require.NoError(t, db.Exec(`CREATE TABLE interview_assignments (
 		id uuid PRIMARY KEY,
 		candidate_id uuid NOT NULL,
@@ -92,7 +101,7 @@ func replaceDocumentDraft(t *testing.T, store agentconfigrepository.Store, insta
 		if err != nil {
 			return err
 		}
-		if err := current.Document.ReplaceDraft(version, cfg, testdata.Now().Add(2*time.Minute)); err != nil {
+		if err := current.Document.ReplaceDraft(version, cfg, testdata.Now().Add(time.Minute)); err != nil {
 			return err
 		}
 		return tx.SaveInstance(context.Background(), current)

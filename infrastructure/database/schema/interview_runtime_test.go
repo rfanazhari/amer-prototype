@@ -131,14 +131,14 @@ func TestInterviewRuntimeChecksums(t *testing.T) {
 		require.Equal(t, want, sums[name], name)
 		require.Contains(t, manifest, want+"  migrations/pgsql/"+name)
 	}
-	require.Len(t, sums, 20, "versions 1 through 10, up and down")
+	require.Len(t, sums, 22, "versions 1 through 11, up and down")
 	require.Equal(t, "62358cb4826c1e61a21d863ab0ad0b703f914f728ea03b1ab37c01e1317d8b6c", sums["000009_candidate_interview.up.sql"])
 	require.Equal(t, "2ad92faa7bfe6703259da7b01906531f98376b29f02450420c621db088b7f20f", sums["000009_candidate_interview.down.sql"])
 }
 
-// TestReleaseVersionRequiresTen proves the clean schema floor, grants, and operator messages.
-func TestReleaseVersionRequiresTen(t *testing.T) {
-	require.Equal(t, 10, schema.ReleaseVersion)
+// TestReleaseVersionRequiresEleven proves the clean schema floor, grants, and operator messages.
+func TestReleaseVersionRequiresEleven(t *testing.T) {
+	require.Equal(t, 11, schema.ReleaseVersion)
 	require.Subset(t, schema.RuntimeGrantTables, interviewRuntimeTables)
 	require.Subset(t, schema.RuntimeGrantTables, candidateInterviewTables, "version 9 grants stay")
 
@@ -149,12 +149,12 @@ func TestReleaseVersionRequiresTen(t *testing.T) {
 		want    string
 		wantErr bool
 	}{
-		{name: "unreadable", err: errors.New("private"), want: "clean version 10", wantErr: true},
-		{name: "floor nine is refused", rows: sqlmock.NewRows([]string{"version", "dirty"}).AddRow(9, false), want: "require clean version 10", wantErr: true},
-		{name: "future is refused", rows: sqlmock.NewRows([]string{"version", "dirty"}).AddRow(11, false), want: "require clean version 10", wantErr: true},
-		{name: "dirty is refused", rows: sqlmock.NewRows([]string{"version", "dirty"}).AddRow(10, true), want: "require clean version 10", wantErr: true},
-		{name: "ambiguous", rows: sqlmock.NewRows([]string{"version", "dirty"}).AddRow(10, false).AddRow(10, false), want: "exactly one clean version 10", wantErr: true},
-		{name: "clean ten", rows: sqlmock.NewRows([]string{"version", "dirty"}).AddRow(10, false)},
+		{name: "unreadable", err: errors.New("private"), want: "clean version 11", wantErr: true},
+		{name: "floor nine is refused", rows: sqlmock.NewRows([]string{"version", "dirty"}).AddRow(9, false), want: "require clean version 11", wantErr: true},
+		{name: "future is refused", rows: sqlmock.NewRows([]string{"version", "dirty"}).AddRow(12, false), want: "require clean version 11", wantErr: true},
+		{name: "dirty is refused", rows: sqlmock.NewRows([]string{"version", "dirty"}).AddRow(11, true), want: "require clean version 11", wantErr: true},
+		{name: "ambiguous", rows: sqlmock.NewRows([]string{"version", "dirty"}).AddRow(11, false).AddRow(11, false), want: "exactly one clean version 11", wantErr: true},
+		{name: "clean eleven", rows: sqlmock.NewRows([]string{"version", "dirty"}).AddRow(11, false)},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -177,38 +177,38 @@ func TestReleaseVersionRequiresTen(t *testing.T) {
 	}
 
 	runner := schema.Runner{}
-	_, _, err := runner.Execute(context.Background(), schema.Options{Action: "up", Version: 11})
-	require.ErrorContains(t, err, "1 through 10")
-	_, _, err = runner.Execute(context.Background(), schema.Options{Action: "up", Version: 10})
+	_, _, err := runner.Execute(context.Background(), schema.Options{Action: "up", Version: 12})
+	require.ErrorContains(t, err, "1 through 11")
+	_, _, err = runner.Execute(context.Background(), schema.Options{Action: "up", Version: 11})
 	require.EqualError(t, err, "database required")
-	_, _, err = runner.Execute(context.Background(), schema.Options{Action: "down", Steps: 10, Disposable: true})
+	_, _, err = runner.Execute(context.Background(), schema.Options{Action: "down", Steps: 11, Disposable: true})
 	require.EqualError(t, err, "database required")
 }
 
-// TestOperationalFilesRequireVersionTen proves operator-facing files move to the same floor.
-func TestOperationalFilesRequireVersionTen(t *testing.T) {
+// TestOperationalFilesRequireVersionEleven proves operator-facing files move to the same floor.
+func TestOperationalFilesRequireVersionEleven(t *testing.T) {
 	makefile := readRepoFile(t, "Makefile")
-	require.Contains(t, makefile, "version=10 dirty=false")
-	require.Contains(t, makefile, "make docker.migrate MIGRATION_VERSION=10")
+	require.Contains(t, makefile, "version=11 dirty=false")
+	require.Contains(t, makefile, "make docker.migrate MIGRATION_VERSION=11")
 	require.NotContains(t, makefile, "version=9 dirty=false")
 	require.NotContains(t, makefile, "MIGRATION_VERSION=9")
 
 	compose := readRepoFile(t, "scripts", "verify_compose.py")
-	require.Contains(t, compose, "MIGRATION_VERSION=10")
+	require.Contains(t, compose, "MIGRATION_VERSION=11")
 	require.NotContains(t, compose, "MIGRATION_VERSION=9")
 	require.NotContains(t, compose, `"MIGRATION_VERSION"] = "9"`)
 	require.NotContains(t, compose, "retained version 9")
 
 	readme := readRepoFile(t, "README.md")
-	require.Contains(t, readme, "clean version 10")
-	require.Contains(t, readme, "MIGRATION_VERSION=10")
-	require.Contains(t, readme, "(version 10)")
+	require.Contains(t, readme, "clean version 11")
+	require.Contains(t, readme, "MIGRATION_VERSION=11")
+	require.Contains(t, readme, "(version 11)")
 	require.NotContains(t, readme, "clean version 9")
 	require.NotContains(t, readme, "MIGRATION_VERSION=9")
 	require.NotContains(t, readme, "1 through 9")
 
 	runbook := readRepoFile(t, "docs", "design", "database-migrations.md")
-	require.Contains(t, runbook, "clean version 10 only")
+	require.Contains(t, runbook, "clean version 11 only")
 	require.Contains(t, runbook, "CORE-IRT-004")
 	require.Contains(t, runbook, "## Version 10: interview runtime")
 	require.Contains(t, runbook, "000010_interview_runtime")
@@ -232,7 +232,7 @@ func TestInterviewRuntimeMigrationOnPostgres(t *testing.T) {
 		migrateTo(t, runner, 9)
 		require.Equal(t, 1, countRows(t, db, "interview_executions"))
 		migrateTo(t, runner, 10)
-		require.NoError(t, schema.RequireCompatible(ctx, db))
+		require.ErrorContains(t, schema.RequireCompatible(ctx, db), "clean version 11")
 		require.Equal(t, 1, countRows(t, db, "interview_executions"), "existing pins stay")
 		for _, table := range interviewRuntimeTables {
 			require.Zero(t, countRows(t, db, table), table)
@@ -245,8 +245,9 @@ func TestInterviewRuntimeMigrationOnPostgres(t *testing.T) {
 
 	t.Run("progress constraints", func(t *testing.T) {
 		resetSchema(t, db)
-		migrateTo(t, runner, 9)
+		migrateTo(t, runner, 7)
 		seedVersionSevenPin(t, db)
+		migrateTo(t, runner, 9)
 		migrateTo(t, runner, 10)
 		insert := func(stage string, limit int) error {
 			_, err := db.ExecContext(ctx, `INSERT INTO interview_progress(execution_id,follow_up_limit,current_stage,stage_activated_at,committed_version,created_at,updated_at)
@@ -261,8 +262,9 @@ VALUES ($1,$2,$3,'2026-01-02T00:00:00Z',1,'2026-01-02T00:00:00Z','2026-01-02T00:
 
 	t.Run("disposable down keeps earlier tables and up recreates", func(t *testing.T) {
 		resetSchema(t, db)
-		migrateTo(t, runner, 9)
+		migrateTo(t, runner, 7)
 		seedVersionSevenPin(t, db)
+		migrateTo(t, runner, 9)
 		migrateTo(t, runner, 10)
 		got, dirty, err := runner.Execute(ctx, schema.Options{Action: "down", Steps: 1, Disposable: true})
 		require.NoError(t, err)

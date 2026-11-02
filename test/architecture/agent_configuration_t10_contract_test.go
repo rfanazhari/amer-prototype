@@ -23,7 +23,7 @@ func TestAgentConfigurationDeploymentCompatibility(t *testing.T) {
 	cases := []agentConfigurationT10ContractCase{
 		{
 			name:    "design records retained restoration and restricted deployment policy",
-			relPath: filepath.Join("docs", "services", "core-ai", "agent-configuration-publication", "technical-design.md"),
+			relPath: filepath.Join("docs", "services", "core-ai", "features", "agent-configuration-publication", "technical-design.md"),
 			needles: []string{
 				"### 6.6 Historical deployment compatibility (approved T10)",
 				"Retain-and-restrict deployment",
@@ -33,7 +33,7 @@ func TestAgentConfigurationDeploymentCompatibility(t *testing.T) {
 		},
 		{
 			name:    "decision log records T10 Q4 closure",
-			relPath: filepath.Join("docs", "services", "core-ai", "agent-configuration-publication", "decision-log.md"),
+			relPath: filepath.Join("docs", "services", "core-ai", "features", "agent-configuration-publication", "decision-log.md"),
 			needles: []string{
 				"## D8: Historical template deployment compatibility is approved",
 				"CORE-ACP-010",
@@ -42,7 +42,7 @@ func TestAgentConfigurationDeploymentCompatibility(t *testing.T) {
 		},
 		{
 			name:    "task plan marks T10 done",
-			relPath: filepath.Join("docs", "services", "core-ai", "agent-configuration-publication", "task-plan.md"),
+			relPath: filepath.Join("docs", "services", "core-ai", "features", "agent-configuration-publication", "task-plan.md"),
 			needles: []string{
 				"- [x] **T10. Establish historical template deployment compatibility**",
 				"CORE-ACP-010",
@@ -50,7 +50,7 @@ func TestAgentConfigurationDeploymentCompatibility(t *testing.T) {
 		},
 		{
 			name:    "approval record maps T10 policy sections",
-			relPath: filepath.Join("docs", "services", "core-ai", "agent-configuration-publication", "t10-contract.md"),
+			relPath: filepath.Join("docs", "services", "core-ai", "features", "agent-configuration-publication", "t10-contract.md"),
 			needles: []string{
 				"CORE-ACP-010",
 				"Retain-and-restrict deployment",

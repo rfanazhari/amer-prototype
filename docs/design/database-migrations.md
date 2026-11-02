@@ -1,6 +1,6 @@
 # PostgreSQL migration operations
 
-Release target: **clean version 10 only**. Tickets: CORE-IAM-018–020, CORE-ACP-004, CORE-EXL-003, CORE-CIN-004, CORE-IRT-004, and Interview assignment/execution, shared execution lifecycle, candidate interview consent/controller, and interview runtime progress SQL; policy: Identity Access D8.
+Release target: **clean version 11 only**. Tickets: CORE-IAM-018–020, CORE-ACP-004, CORE-EXL-003, CORE-CIN-004, CORE-IRT-004, and Interview assignment/execution, shared execution lifecycle, candidate interview consent/controller, and interview runtime progress SQL; policy: Identity Access D8.
 The migration-aware application reads version/dirty metadata before binding HTTP or bootstrapping ADMIN. It never installs tables or metadata. Missing, empty, unreadable, dirty, older or newer metadata fails startup and closes acquired connections. Startup remains bounded to ten seconds; process shutdown to five seconds.
 
 ## Credentials and artifacts
@@ -19,16 +19,16 @@ The image includes `/migrate` and `/migrations/pgsql`; its working directory is 
 From the repository root after supplying both connections and the administrative settings documented in README:
 
 ```sh
-make migrate.up MIGRATION_VERSION=10
+make migrate.up MIGRATION_VERSION=11
 make migrate.status
-# Start the application only after version=10 dirty=false.
+# Start the application only after version=11 dirty=false.
 ```
 
 For Compose, configure the local environment, then explicitly prepare the database:
 
 ```sh
 docker compose up -d --wait database
-make docker.migrate MIGRATION_VERSION=10
+make docker.migrate MIGRATION_VERSION=11
 make docker.up
 ```
 
@@ -43,13 +43,13 @@ make docker.up
 
    | Observed state | Command | Expected |
    | --- | --- | --- |
-   | Empty owned schema | `make migrate.up MIGRATION_VERSION=10` | Clean 10 |
-   | Exact Task-only legacy, absent metadata | `make migrate.baseline`, then `make migrate.up MIGRATION_VERSION=10` | Baseline 1, clean 10, Task history retained |
-   | Exact three-table legacy, absent metadata | `make migrate.baseline`, then `make migrate.up MIGRATION_VERSION=10` | Baseline 2, clean 10, all existing rows retained |
-   | Recognized clean 1–10 | `make migrate.up MIGRATION_VERSION=10` | Upgrade or no-op |
+   | Empty owned schema | `make migrate.up MIGRATION_VERSION=11` | Clean 10 |
+   | Exact Task-only legacy, absent metadata | `make migrate.baseline`, then `make migrate.up MIGRATION_VERSION=11` | Baseline 1, clean 10, Task history retained |
+   | Exact three-table legacy, absent metadata | `make migrate.baseline`, then `make migrate.up MIGRATION_VERSION=11` | Baseline 2, clean 10, all existing rows retained |
+   | Recognized clean 1–10 | `make migrate.up MIGRATION_VERSION=11` | Upgrade or no-op |
    | Drift, partial/foreign schema, dirty/unsupported metadata | Stop and investigate | No guessed stamping or automatic force |
 
-5. Run `make migrate.status`; require `version=10 dirty=false`. Verify row equality, creator links, stored hash equality and original expiry/revocation. Baseline never updates business rows or seeds accounts. Empty configuration, candidate, assignment, execution, interview consent/controller and runtime progress tables are additive. Version 8 backfills one `CREATED` shared execution per existing `interview_executions` pin (same id, instance, revision and `created_at`; no commands, operations, attempts or transitions) before it adds `interview_executions_id_fkey`.
+5. Run `make migrate.status`; require `version=11 dirty=false`. Verify row equality, creator links, stored hash equality and original expiry/revocation. Baseline never updates business rows or seeds accounts. Empty configuration, candidate, assignment, execution, interview consent/controller and runtime progress tables are additive. Version 8 backfills one `CREATED` shared execution per existing `interview_executions` pin (same id, instance, revision and `created_at`; no commands, operations, attempts or transitions) before it adds `interview_executions_id_fkey`.
 6. Start the migration-aware binary with the restricted runtime role. Verify health, Task create/start/complete/read, ADMIN login → HR provisioning/login → session/logout, and restart. Bootstrap must preserve existing ADMIN credentials.
 7. Retain the backup, checksum manifest, catalog inspection and sanitized evidence. Release acceptance for candidates, ACP and Interview remains with those owners.
 
@@ -61,13 +61,13 @@ Stop rollout on error. Inspect metadata, SQL transaction outcome and the actual 
 
 Choose reviewed forward repair with explicit preconditions and verified catalog/data postconditions, or restore the verified backup into a separate target and redirect after validation. The disposable acceptance suite demonstrates a cancelled transactional down: proves the original catalog remains, explicitly restores the established version/clean metadata, then checks compatibility and no-op up. That repair is fixture-specific, not a universal production command.
 
-For application rollback, retain the migrated database and start a previously verified migration-aware binary that explicitly supports clean version 10, or unmount configuration routes and start a binary that still accepts the previous clean version while retaining the new tables. The full-stack rehearsal records the exact compatible image, stops it, and later recreates it by immutable image ID against retained version 10 before Task/admin HTTP smoke. A pre-cutover AutoMigrate binary is excluded. Do not run down against retained publication data.
+For application rollback, retain the migrated database and start a previously verified migration-aware binary that explicitly supports clean version 11, or unmount configuration routes and start a binary that still accepts the previous clean version while retaining the new tables. The full-stack rehearsal records the exact compatible image, stops it, and later recreates it by immutable image ID against retained version 11 before Task/admin HTTP smoke. A pre-cutover AutoMigrate binary is excluded. Do not run down against retained publication data.
 
 Destructive reversal is only for disposable databases, after stopping consumers:
 
 ```sh
 make migrate.down MIGRATION_STEPS=1 MIGRATION_DISPOSABLE=yes
-make migrate.up MIGRATION_VERSION=10
+make migrate.up MIGRATION_VERSION=11
 ```
 
 Down deletes affected tables/data; it is never a retained-data recovery mechanism.
@@ -89,3 +89,9 @@ See [T18–T20 evidence](../services/core-ai/features/identity-access/t18-t20-ev
 ## Version 10: interview runtime (CORE-IRT-004)
 
 `000010_interview_runtime` creates `interview_progress`, `interview_coverage_items`, `interview_technical_losses`, `interview_voice_sessions`, `interview_transcript_entries`, `interview_checkpoints`, `interview_handoffs`, and `interview_session_commands`. Progress references `interview_executions`; child tables reference progress. `attempt_id` columns are UUID facts without a foreign key to shared execution attempts. Progress also stores follow-up citations and reconnect counters, and coverage stores clarification and omission entry ids. It inserts no seed rows and adds no column to `interview_executions`. Stop writers and back up a populated database before applying version 10. A version-9 binary refuses a version-10 database, so apply version 10 before starting the new binary, and a version-10 binary refuses a version-9 database. Returning a populated database to version 9 is a restore, not `migrate.down`; the disposable down drops the eight new tables in child-to-parent order and keeps assignments, sessions, executions, consents and controllers. Grant the runtime role CRUD on the eight new tables and keep SELECT on `schema_migrations`; it must not receive CREATE.
+
+## Version 11: Interview Runtime integration (CORE-IRT-018)
+
+`000011_interview_runtime_integration` adds reservation state, original SDP, session ownership, original execution version and an update timestamp to session commands. Version-10 rows remain `legacy` with null replay fields and return `IRT_CONFLICT`; no original SDP is backfilled and no rows are deleted. Composite ownership prevents another execution/attempt's session being replayed. Execution-wide generation uniqueness is enforced; inspect any duplicate retained generations before upgrade rather than deleting authority records automatically. Versions 1–10 are unchanged and their checksums stay pinned.
+
+Stop writers, take a restorable backup, apply `make migrate.up MIGRATION_VERSION=11`, check clean status, then start the release requiring version 11. Runtime does not migrate. New columns use existing table grants. Disposable down removes only the new constraints, index and columns, retaining pins, progress and original command columns; successful replay data in the removed columns cannot be recovered by down. Restore or reviewed forward repair is required for retained production data. Database proof uses separate disposable integration and migration databases.

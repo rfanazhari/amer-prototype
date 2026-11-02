@@ -2,14 +2,15 @@ package executionusecase_test
 
 import (
 	"context"
+	"testing"
+	"time"
+
 	"github.com/rfanazhari/amer-prototype/application/repository/executionport"
 	"github.com/rfanazhari/amer-prototype/application/usecase/executionusecase"
 	"github.com/rfanazhari/amer-prototype/domain/aggregate/execution"
 	"github.com/rfanazhari/amer-prototype/test/mocks"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"testing"
-	"time"
 )
 
 // TestRecordAttempt verifies durable authority, exact budget boundaries and rejected writes.
@@ -42,7 +43,7 @@ func TestRecordAttempt(t *testing.T) {
 			ledger.On("List", mock.Anything, existingID, opKey).Return(history, nil).Maybe()
 			var inserted *executionport.Attempt
 			ledger.On("Insert", mock.Anything, mock.Anything).Return(func(_ context.Context, a executionport.Attempt) error { inserted = &a; return nil }).Maybe()
-			in := executionusecase.RecordAttemptInput{ExecutionID: existingID, AttemptID: existingID, ExpectedVersion: tt.version, OperationKey: opKey, RequestKey: "request", ActorRef: runtimeActor, Generation: 1, Limit: 2, Window: 90 * time.Second, AttemptTimeout: 30 * time.Second}
+			in := executionusecase.RecordAttemptInput{ExecutionID: existingID, AttemptID: existingID, ExpectedVersion: tt.version, OperationKey: opKey, RequestKey: "request", ActorRef: runtimeActor, Generation: int64(tt.previous + 1), Limit: 2, Window: 90 * time.Second, AttemptTimeout: 30 * time.Second}
 			if tt.expired {
 				in.WindowStart = trustedNow().Add(-90 * time.Second)
 			}

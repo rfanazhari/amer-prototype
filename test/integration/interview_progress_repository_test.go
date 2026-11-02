@@ -34,7 +34,7 @@ type progressFixture struct {
 // interviewTables lists the children deleted before the progress row, in foreign-key order.
 var interviewTables = []string{
 	"interview_checkpoints", "interview_technical_losses", "interview_session_commands",
-	"interview_transcript_entries", "interview_handoffs", "interview_voice_sessions", "interview_coverage_items",
+	"interview_handoffs", "interview_coverage_items", "interview_transcript_entries", "interview_voice_sessions",
 }
 
 // newProgressFixture admits an execution pin and wires the store to a mocked pin reader and clock.

@@ -2,11 +2,11 @@
 
 ## 1. Overview
 
-Mode A. This slice conducts the live HR interview on an execution that [Execution Lifecycle](../../business/capabilities/execution-lifecycle.md) owns (`BR-CORE-050`..`BR-CORE-059`). The capability authority is [Interview Runtime](../../business/capabilities/interview-runtime.md), rules `BR-CORE-060`..`BR-CORE-071`.
+Mode C revision of the original Mode A plan. This slice conducts the live HR interview on an execution that [Execution Lifecycle](../../business/capabilities/execution-lifecycle.md) owns (`BR-CORE-050`..`BR-CORE-059`). The capability authority is [Interview Runtime](../../business/capabilities/interview-runtime.md), rules `BR-CORE-060`..`BR-CORE-071`.
 
-Those rules are **planned**. Nothing in this document claims they are enforced. The current `interview_executions` row is an assignment pin. It has no lifecycle state, attempt, transcript, coverage, handoff, or voice session.
+The capability is partially implemented. T1–T11 are recorded Done within their documented verification limits; T8 covers operations, handlers, and contract, with production integration assigned to T18. `interview_executions` remains an assignment pin; lifecycle state and interview progress have separate owners and tables. A completed task does not establish live acceptance or a database proof that its evidence records as skipped.
 
-Date: 2026-11-02. Status: design for implementation planning. Provider event finality stays **deferred**.
+Updated: 2026-11-03. Status: partially implemented; T18 plans production integration. Provider event finality stays **deferred**.
 
 ### Goals
 
@@ -30,7 +30,7 @@ Date: 2026-11-02. Status: design for implementation planning. Provider event fin
 
 ### Verified context and authority
 
-Project instructions: root [AGENTS.md](../../../../../AGENTS.md). No root `../../../../../CLAUDE.md` is present. Go backend layout also follows the generator baseline in `.agents/skills/engineering-tripack-generator/references/backend-service-standard.md`, where it does not conflict with AGENTS.md or this repository. Observed handler tests and `test/architecture/documentation_test.go` override the baseline sentence that says delivery has no tests: new exported and unexported Go declarations need comments, and HTTP behavior is tested through mocked operation interfaces.
+Project instructions: root [AGENTS.md](../../../../../AGENTS.md) and `../../../../../CLAUDE.md` (matching repository guidance). Go backend layout also follows the generator baseline in `.agents/skills/engineering-tripack-generator/references/backend-service-standard.md`, where it does not conflict with AGENTS.md or this repository. Observed handler tests and `test/architecture/documentation_test.go` override the baseline sentence that says delivery has no tests: new exported and unexported Go declarations need comments, and HTTP behavior is tested through mocked operation interfaces.
 
 Precedence used here:
 
@@ -44,7 +44,7 @@ Module `github.com/rfanazhari/amer-prototype`. Go module in `../../../../../go.m
 
 Four root layers stay in place: `../../../../../domain`, `application/`, `delivery/`, `infrastructure/`. `cmd/app/` remains process configuration. Domain may import only the standard libraries allowed by `test/architecture/dependencies_test.go` and other `domain/` packages. Delivery does not import infrastructure. Only `infrastructure/runtime/` may import delivery.
 
-`schema.ReleaseVersion` in `../../../../../infrastructure/database/schema/version.go` is **7**. The newest applied pair is `migrations/pgsql/000007_interview_executions.{up,down}.sql`. Startup accepts a clean version 7 and does not run `AutoMigrate`. This slice does not take `000008`. Its pair is `000010_interview_runtime`, after execution-lifecycle `000008` and candidate-interview `000009`.
+`schema.ReleaseVersion` in `../../../../../infrastructure/database/schema/version.go` is **10**. The repository contains `000008_execution_lifecycle`, `000009_candidate_interview`, and `000010_interview_runtime`. Startup requires clean version 10 and does not run migrations. T18 proposes a new `000011_interview_runtime_integration` pair; implementation must recheck version availability before allocating it and update the release guard and operational references together.
 
 ### What the published revision actually stores
 
@@ -72,7 +72,7 @@ The follow-up cap is the later explicit platform rule: at most two follow-ups pe
 | `infrastructure/service/realtimecall/adapter.go` | Posts one GPT-Live `/v1/live/sessions` body (`gpt-live-1`, voice, WebRTC offer) and returns `transport.sdp`. The provider session id is discarded. Empty key and every provider failure become `ErrSessionUnavailable`. | Reuse the Live session URL, model default, and bearer setup as the approved target. The interview driver must retain the provider session id. |
 | `delivery/http/handler/voicesessionhandler` and `delivery/http/voicepage/page.html` | Unauthenticated `POST /voice-sessions` and `GET /voice-session`. The page gathers ICE (15 seconds), opens a microphone, plays remote audio, and sends `response.create` on the data channel. | Browser mechanics are input to the candidate-interview page. They are not mounted as the interview. |
 | `../../../../../infrastructure/service/liveprobe` and `test/livevoice/README.md` | Opt-in probe. Counts event type names. Does not retain transcript text. Documents that counts do not prove finality. S1–S4 are not passed. `session.started` is the one event name the harness page is written to observe. | Evidence that a sideband can be attached in a test harness. Not a finality map and not production authority. |
-| `infrastructure/runtime/voice.go` | Routes `/voice-session` and `/voice-sessions` with no candidate session. | Remains until the scoped session-attempt route replaces it. It is not an interview operation. |
+| Historical `infrastructure/runtime/voice.go` | Served the unauthenticated prototype routes before T7 removed their production registration. | Keep those routes absent. T18 mounts the scoped session-attempt route in the current `router.go`. |
 
 GPT-Live is the approved provider (technical-design TD-11), conditional on feasibility. This design does not record a live S1–S4 pass.
 
@@ -80,7 +80,7 @@ GPT-Live is the approved provider (technical-design TD-11), conditional on feasi
 
 Execution Lifecycle owns identity, the states accepted / running / completed / failed / cancelled, attempt authority, and the first terminal commit. This slice calls that capability. It does not add those states to `interview_executions` and it does not teach the lifecycle about stages, questions, or salary.
 
-The lifecycle operations this slice will call, once that capability publishes them:
+The interview-owned lifecycle contract requires the calls below. Generic activation and terminal operations exist in `application/usecase/executionusecase`; T18 supplies the missing interview adapter and persisted attempt authority. The signatures are not interchangeable merely because both expose activation.
 
 | Call | Required guarantee | HR knowledge allowed in the lifecycle |
 |---|---|---|
@@ -104,7 +104,7 @@ Interview traffic uses the candidate execution routes already named in technical
 | `POST /candidate/executions/{id}/session-attempts/{attempt_id}/ready` | Interview Runtime | Records browser media readiness for that attempt only. |
 | Fields contributed to `GET /candidate/executions/{id}` | Interview Runtime supplies the DTO. Candidate Interview owns the page and the route shell. | Stage, session condition, `nextAction`, safe coverage counts, version. |
 
-`GET /voice-session` and `POST /voice-sessions` stay registered only until `CORE-IRT-007` removes them in the same change that mounts the routes above. They are not an interview contract. Removing them updates `../../../../api/openapi.yaml`, `docs/api/voice-session.md`, and `docs/api/CHANGELOG.md` together.
+`CORE-IRT-007` already removed `GET /voice-session` and `POST /voice-sessions` and their availability claims. The replacement interview routes have a T8 contract but remain unmounted until T18. T18 keeps OpenAPI, endpoint availability documentation and the API changelog consistent with the mounted behavior.
 
 No admin route. No report route. No browser WebSocket for application state. The candidate page polls.
 
@@ -142,7 +142,7 @@ The runtime DTO may include stage name, coverage counts, session condition, dead
 
 ### Prototype removal
 
-`CORE-IRT-007` deletes the production registration of `GET /voice-session` and `POST /voice-sessions`, their OpenAPI paths, and the public voice-session document's claim that those routes are the voice API. Package code that only served them is removed in that task. `../../../../../test/livevoice` remains an opt-in probe and is not a production route.
+`CORE-IRT-007` removed the production registration of `GET /voice-session` and `POST /voice-sessions`, their OpenAPI paths, and the public voice-session document's claim that those routes are the voice API. Package code that only served them is removed in that task. `../../../../../test/livevoice` remains an opt-in probe and is not a production route.
 
 ## 3. Data Model & Schema Changes
 
@@ -185,7 +185,7 @@ If the hard deadline is reached and that record is missing, this slice calls lif
 
 ### Proposed tables
 
-Version **10**, proposed files `../../../../../migrations/pgsql/000010_interview_runtime.up.sql` and `000010_interview_runtime.down.sql`. Apply only after a clean version 9 (`000009_candidate_interview`, which follows execution-lifecycle `000008`). Hand-written SQL. No `AutoMigrate`.
+Version **10**, implemented files `../../../../../migrations/pgsql/000010_interview_runtime.up.sql` and `000010_interview_runtime.down.sql`. Apply only after a clean version 9 (`000009_candidate_interview`, which follows execution-lifecycle `000008`). Hand-written SQL. No `AutoMigrate`.
 
 All ids are UUID. Timestamps are `timestamptz`, written as UTC milliseconds. Columns are `NOT NULL` unless marked null. Foreign keys use `ON UPDATE RESTRICT ON DELETE RESTRICT`. No soft delete and no cascade.
 
@@ -194,7 +194,7 @@ All ids are UUID. Timestamps are `timestamptz`, written as UTC milliseconds. Col
 | `interview_progress` | `execution_id` PK, FK to `interview_executions(id)`; `follow_up_limit` int `CHECK (= 2)`; `current_stage` text `CHECK IN ('background','screening','compensation','closing')`; `stage_activated_at` timestamptz; `committed_version` bigint `CHECK (>= 1)`; `controller_id` uuid null; `follow_up_entry_ids` jsonb array of cited candidate entry ids, default `[]`; `reconnect_episodes` and `reconnect_attempts` int `CHECK (BETWEEN 0 AND 2)`, default 0; `reconnect_detected_at` timestamptz null, with attempts 0 and no detection instant while episodes is 0; `created_at`; `updated_at` `CHECK (updated_at >= created_at)` | PK is the execution. No execution status column. |
 | `interview_coverage_items` | `id` PK; `execution_id` FK progress; `question_id` text; `stage` text check as above; `state` text `CHECK IN ('pending','asked','answered','omitted')`; `omission_reason` text null, check in the three reasons when state is `omitted`, and null otherwise; `clarification_count` int `CHECK (0 <= clarification_count AND clarification_count <= 1)`; `answer_entry_id`, `clarification_entry_id`, `omission_entry_id` uuid null, the last two FK to `interview_transcript_entries(id)`, with `clarification_count = 1` exactly when `clarification_entry_id` is set; `updated_at` | Unique `(execution_id, question_id)`. |
 | `interview_technical_losses` | `id` PK; `execution_id` FK progress; `question_id` text; `session_id` uuid; `attempt_id` uuid; `resolved_at` timestamptz null; `created_at` | Index `(execution_id)` where `resolved_at` is null. |
-| `interview_voice_sessions` | `id` PK; `execution_id` FK progress; `stage` text check; `attempt_id` uuid; `provider_session_id` text null; `readiness_at` timestamptz null; `replaced_session_id` uuid null; `opened_at`; `closed_at` timestamptz null | Partial unique `(execution_id)` where `closed_at` is null. Partial unique `(provider_session_id)` where it is not null. `attempt_id` has no FK: the attempt table is not in version 7. |
+| `interview_voice_sessions` | `id` PK; `execution_id` FK progress; `stage` text check; `attempt_id` uuid; `provider_session_id` text null; `readiness_at` timestamptz null; `replaced_session_id` uuid null; `opened_at`; `closed_at` timestamptz null | Partial unique `(execution_id)` where `closed_at` is null. Partial unique `(provider_session_id)` where it is not null. Version 10 has no attempt FK; T18 assesses the mapping against the existing lifecycle attempt tables. |
 | `interview_transcript_entries` | `id` PK; `execution_id` FK progress; `session_id` FK voice session; `attempt_id` uuid; `speaker` text `CHECK IN ('candidate','model')`; `ordinal` int `CHECK (>= 1)`; `revision` int `CHECK (>= 1)`; `evidence_state` text `CHECK IN ('fragment','final')`; `body` text; `cites_entry_id` uuid null; `supersedes_entry_id` uuid null; `committed_at` | Unique `(session_id, ordinal, revision)`. No provider-event unique key. That predicate stays deferred with the finality map. |
 | `interview_checkpoints` | `id` PK; `execution_id` FK progress; `session_id` FK; `attempt_id` uuid; `through_ordinal` int; `created_at` | Index `(execution_id, created_at)`. |
 | `interview_handoffs` | `id` PK; `execution_id` FK progress; `source_stage` text check; `target_stage` text null, check when present, and null for closing; `revision` int `CHECK (>= 1)`; `summary` text null; `created_at` | Unique `(execution_id, source_stage)`. Unique `(execution_id, revision)`. |
@@ -241,9 +241,19 @@ Lock order when both stores exist: execution row, then `interview_progress`, the
 
 Restoration loads stored rows and checks internal consistency: known enums, omission reason only on `omitted`, answer citation only to a final entry in the same execution, handoff stage belonging to this run, a single open session. It does not re-apply the 300–600 publication total and it does not re-validate draft bounds. Corrupt rows fail as technical restoration errors. They are not `INVALID_INPUT`. Previously stored `follow_up_limit` is trusted. New runs write `2`.
 
+### T18 migration and replay handoff
+
+T18 implements the production integration deferred from T8. Implemented artifacts are `migrations/pgsql/000011_interview_runtime_integration.up.sql` and `.down.sql`, starting from the current version-10 schema. Do not edit applied version-10 SQL. No seed or reference-data inserts are needed: this task reads existing pins and immutable revisions.
+
+The version-11 `interviewport.SessionCommand` stores `session_id` (UUID), `answer_sdp` (text), and `execution_version` (positive bigint) that version 10 does not store. The implementation checkpoint below specifies durable reservation state so the scoped command identity and session shell commit together before provider I/O. A pending reservation has no successful answer to replay; a successful result must atomically persist the provider/session result and original replay fields. Preserve unique `(execution_id, idempotency_key)`, execution/session ownership, same-key/same-intent replay and different-intent conflict. Concurrent or interrupted setup must not allocate an unrelated execution or blindly repeat provider creation. Provider I/O stays outside the SQL transaction; cleanup failure cannot undo committed progress.
+
+The T18 checkpoint below records reservation states, nullability/checks, pending/failed responses and crash boundaries. Version-10 answers cannot be reconstructed. Owner-approved populated handling preserves those rows as legacy and returns 409 without recreating sessions; there is no fabricated replay or data deletion. Migration 11 was allocated after rechecking the migration directory.
+
+The migration task updates startup compatibility, runner target bounds, checksums, schema tests, Compose verification and migration runbooks for its allocated release version. Prove clean upgrade from 10 preserving pins/progress and fresh installation on disposable PostgreSQL. Down may remove only this migration's additions and is for disposable data; retained environments use a reviewed forward repair.
+
 ### Rule ownership and proof plan
 
-All proof is planned. No case below is an observed pass of `BR-CORE-060`..`BR-CORE-071`.
+The table below is the proof plan; observed results and skips belong to each task verification note. It does not claim full capability acceptance.
 
 | Material rule | Owner | Enforcement paths | Proof plan |
 |---|---|---|---|
@@ -270,7 +280,7 @@ All proof is planned. No case below is an observed pass of `BR-CORE-060`..`BR-CO
 |---|---|---|
 | `../../../../../domain/interview` | New | Owns coverage, omission, technical loss, handoff authorization, follow-up cap, and transcript evidence rules. |
 | `../../../../../domain/enum`, `domain/valueobject`, `domain/agentconfig` | Reused as-is | Stage enum and published HR shape. This slice does not change publication rules. |
-| `domain` execution lifecycle | Absent | Not implemented. This slice does not create it. |
+| `domain/aggregate/execution`, `application/usecase/executionusecase` | Reused; authority integration assessed in T18 | Generic state transitions exist. Persisted attempt/generation mapping and the interview locked callback still need integration; HR fields stay out of the lifecycle. |
 | `../../../../../application/usecase/interviewusecase` | New | Coordinates workflow, lifecycle calls, and the driver. Returns detached DTOs. |
 | `../../../../../application/repository/interviewport` | New | Progress transaction port. No GORM type in the signature. |
 | `../../../../../application/service` driver and lifecycle ports | New ports | Driver: create, attach, observe, supply context, control, close. Lifecycle: the calls in section 1. |
@@ -278,11 +288,11 @@ All proof is planned. No case below is an observed pass of `BR-CORE-060`..`BR-CO
 | `application/usecase/voicesession.Negotiate` | Reused as a rule source only | SDP normalization behavior. Not the interview operation. |
 | `../../../../../infrastructure/repository/interviewrepository` | New | GORM mapping and explicit updates. |
 | `../../../../../infrastructure/service/interviewvoice` | New | GPT-Live adapter that retains session id and classifies transport failures. Event-to-evidence mapping is not part of the first driver task. |
-| `infrastructure/service/realtimecall` | Reused as a behavior source | Live URL, model default, bearer call. Production `Exchange` stays the prototype path until `CORE-IRT-007`. |
+| `infrastructure/service/realtimecall` | Reused as a behavior source | Live URL, model default, bearer call. Historical behavior reference only; T7 removed the prototype production path. |
 | `../../../../../infrastructure/service/liveprobe` | Reused as-is | Opt-in probe only. |
-| `delivery/http/handler/interviewhandler` | New | Session-attempt and readiness. Mocked-operation tests. |
+| `delivery/http/handler/candidateinterviewhandler` | Implemented; composition pending | T8 supplies attempt/readiness operations and handlers. T18 wires them into the process. |
 | `delivery/http/voicepage`, `voicesessionhandler` | Removed from the production router by `CORE-IRT-007` | Prototype mechanics remain the reference for the candidate page, which this slice does not build. |
-| `../../../../../infrastructure/runtime` | Modified | Wire the interview handler. Remove prototype routes in the same change as the new routes. |
+| `../../../../../infrastructure/runtime` | Modified by T18 | Compose attempt/readiness and mount their paths. T7 already removed the prototype routes; preserve that removal. |
 | `../../../../../migrations/pgsql`, `infrastructure/database/schema` | Modified | Version 10 and the release guard. |
 | RabbitMQ / event queue | Out of this slice | Live voice does not publish or consume broker messages. |
 
@@ -298,6 +308,28 @@ A separate transcript aggregate would let a handoff commit while the transcript 
 
 **HTTP handler.** Parses the attempt and readiness bodies, maps errors, and writes the envelope. It does not decide stage changes.
 
+### T18 implementation checkpoint (CORE-IRT-018)
+
+- Attempt UUID is `agent_execution_attempts.id`; operation keys are `initial` or a recovery detection timestamp. Generations advance across all operations for an execution. Execution reload projects the maximum persisted operation generation. Generic `RecordAttempt` owns admission and lifecycle mutation; the interview adapter supplies frozen budgets. Replacement advances execution version; activation time remains fixed.
+- Execution, progress, pin and command adapters join one infrastructure transaction context. Execution is locked first. A write callback requires RUNNING, exact version and a matching current persisted attempt. Callback failure rolls back all joined writes. Complete verifies committed progress inside the same lock; fail remains allowed at the hard deadline.
+- Command states: `pending`, `succeeded`, `failed`, `legacy`. Identity is candidate-session scoped. Reservation and session shell commit together with attempt authority before provider I/O. Successful provider identity, original answer SDP and original execution version finalize together. Same-key pending returns `IRT_NOT_READY`; failed or changed intent returns `IRT_CONFLICT`. No automatic provider recreation for pending, failed or legacy keys.
+- An interrupted process can leave pending forever for its key. A new key may replace an expired setup within the original budget; an in-flight setup cannot be replaced before its deadline. An ambiguous external create is never claimed rolled back. Known setup failure marks the reservation failed; cleanup is bounded to five seconds independently of request cancellation.
+- Owner-approved retained-data policy (2026-11-03): version-10 commands remain `legacy` with null session/result/version, replay returns `IRT_CONFLICT` (409), and never calls the provider. No SDP is backfilled and no row deleted. New pending/failed rows have session and positive version but no answer; succeeded requires a nonblank answer. Composite session ownership is constrained; no FK is retrofitted onto arbitrary legacy attempt IDs.
+- Migration allocation rechecked: 000011 is free. Add only version 11; preserve applied versions 1–10. Down removes only integration columns/constraints and retains original rows. It cannot preserve successful SDP once those new columns are removed; down is disposable only.
+- Initial setup: two attempts, each at most 30 seconds, within 90 seconds of the first durable admission. Recovery remains two attempts per backend-detected episode within 120 seconds and at most two episodes. The domain owns recovery counters. All setup is bounded by 15 minutes from persisted activation. No post-handoff count or event classification is introduced.
+
+### T18 production integration assessment
+
+Source: [T8 verification](t8-verification.md), current `Attempts.Execute`, `Workflow.createSession`, `executionrepository.Store`, `interviewrepository.Store`, and `runtime.NewCandidateInterview` / `isCandidateExecutionPath`.
+
+- **Implemented and retained:** T8 operations, handler validation, public contract and candidate authorization; T7 prototype-route removal; domain progress rules. T18 is the named follow-up and does not reopen their Done status. No new interview domain rule is introduced.
+- **Reconciled by T18:** command reservation moved before provider setup, finalization joins the provider result and original replay fields, and all execution/progress/command/pin reads and writes join the infrastructure transaction context. Candidate session/controller rechecks also join that context, including with a one-connection pool. Runtime mounts Attempt and Ready with the production adapters.
+- **Attempt authority:** generic `executionusecase.RecordAttempt` and the GORM ledger persist attempt UUID, operation and execution-wide generation. Execution reads restore `CurrentGeneration` from operation authority. `FencedWrite` checks exact version, RUNNING state and current attempt before the callback under the execution lock. No interview stage enters the generic owner.
+- **Chosen boundary:** retain the four root layers and generic execution ownership. Join execution, command, and interview stores to one infrastructure-owned transaction context; lock the execution before progress/child rows. Check nonterminal state, expected version, and current attempt before invoking the write callback. Roll back every joined write on callback failure. A standalone `Fence` followed by an independent progress transaction is rejected because cancellation or replacement can win between those steps.
+- **Application reconciliation:** reserve command identity with the shell, finalize replay data with the session result, and map transport failures through existing safe errors. Read the execution's pinned revision and trusted running instant through `RevisionReader` / `PinReader`; never substitute the active revision. Preserve initial activation limits 2 × 30 seconds within 90 seconds, reconnect limits 120 seconds / 2 attempts / 2 episodes, and the fixed 15-minute deadline. The post-handoff retry count remains Q2/T16.
+- **Implementation checkpoint:** the preceding T18 checkpoint records the implemented mapping, state constraints, safe failure responses and owner-approved legacy policy. Domain invariants and lifecycle ownership are retained. No provider classifier, coverage update, candidate-page integration or live acceptance is included.
+- **Observed proof:** [T18 verification](t18-verification.md) records fake-provider production HTTP, original-answer replay, pending/interrupted/legacy refusal, concurrent setup, wrong assignment/controller, result-write rollback, authority reload, cancellation serialization, current-attempt/version/terminal fences, T10 handoff/source-close rollback and target retry, real complete/fail, and fresh/populated/down version-11 migration proof. Q3 is resolved for this integration; live H-01, provider finality and post-handoff exhaustion policy remain separate work.
+
 ### Material structure decisions and assessment
 
 | Choice | Reason and material alternatives | Authority and refinement boundary | Assessment outcome |
@@ -312,7 +344,7 @@ A separate transcript aggregate would let a handoff commit while the transcript 
 | Numeric salary comparison | No amount exists in the reference resolver or the revision. Non-disclosure is enforceable. A comparison would require inventing a number. | `BR-CORE-071` example: discuss expectations; do not speak or show the ceiling. | **Deferred** for any numeric clamp. Non-disclosure is **retained**. |
 | Next-stage activation count and a finalization reserve | Initial activation and reconnect numbers are in technical-design section 10. That section still says next-stage activation details and the finalization reserve are open. The handoff order does not need the missing count. Inventing "also 2 attempts" would close an item the later design left open. Finalization uses the same 15-minute deadline. | Blocks only `CORE-IRT-016`. | **Deferred.** |
 
-Ordinary create path: load pin and immutable revision, build pending coverage, commit progress, then ask the driver for a session. Failure path: provider error before the command row commits returns `503` and leaves no progress; provider error after the command row commits returns the same attempt on retry and does not open a second execution.
+Ordinary create path: load the immutable pin, commit attempt authority, pending command, coverage and session shell together, then call the provider outside SQL. Successful identity and original answer finalize atomically. Missing credentials return `503` before reservation. Known provider failure after reservation returns `409 IRT_CONFLICT` and retains a failed key; interrupted pending returns `409 IRT_NOT_READY`, without provider recreation. SQL result failure remains safe `500`.
 
 Ordinary handoff path: proposal in, `Authorize` in the aggregate, one transaction writes the handoff, then a later call opens the next session. Invalid proposal path: `Authorize` returns a conflict and the transaction does not open.
 
@@ -324,10 +356,10 @@ A domain service was not added. The rules sit on `Progress`. A factory `NewProgr
 
 1. Candidate session, consent, and the execution pin already exist. This slice does not create them.
 2. `POST .../session-attempts` with `intent=activate` authenticates the candidate and checks the execution is inside that assignment.
-3. Same idempotency key and same intent return the stored attempt.
+3. A succeeded command with the same key and intent returns the original answer; pending, failed and legacy follow the recorded reservation policy.
 4. The coordinator asks the lifecycle to open an attempt under the 2 × 30 second / 90 second budget.
-5. The coordinator reads the pinned revision, builds `Progress`, and commits coverage plus the session shell.
-6. Outside the transaction, the driver creates a GPT-Live session and stores the provider session id on success.
+5. The coordinator reads the pinned revision, builds `Progress`, and commits authority, pending command, coverage and the shell in the joined transaction.
+6. Outside SQL, the driver creates and attaches the GPT-Live session. Its retained identity and original replay fields finalize in one fenced transaction.
 7. The browser posts `ready`. That flag alone does not mark a question heard.
 8. When provider identity, backend control, and browser readiness match the same attempt, the stage is active. The lifecycle has already moved the execution to running on successful activation.
 
@@ -364,7 +396,7 @@ Public success envelope: `{"status":"success","data":{...}}`. Error envelope: `s
 
 | Path | Accepted inputs and normalization | Errors and failure timing | Side effects and compatibility | Proof plan |
 |---|---|---|---|---|
-| Create progress | Pinned revision id, question list, stage seconds, mode `expectations_only`, cap written as 2. Question ids are the stored ids. | Missing revision or unknown stage fails before insert. Provider failure before the command insert leaves no row. | One progress row per execution. Later active revision is not read. | Create, duplicate execution id, provider failure before and after insert. |
+| Create progress | Pinned revision id, question list, stage seconds, mode `expectations_only`, cap written as 2. Question ids are the stored ids. | Missing revision or unknown stage fails before insert. Missing credentials leave no row; provider failure after reservation retains the failed key and shell. | One progress row per execution. Later active revision is not read. | Create, duplicate execution id, provider failure before and after insert. |
 | Restore | Stored enums and citations as written. Cap and stage seconds are not recomputed from today's publication constants. | Unknown state or a citation to a missing or non-final row is a technical restore error after the read. | No writes on load. | Round-trip. Historical cap 2 remains 2. Corrupt state is not `INVALID_INPUT`. |
 | Coverage transition | `pending` to `asked` to `answered` or `omitted`. `asked` may return to a later `answered`. `omitted` and `answered` do not move again. | Illegal move writes nothing. Answer without a final entry writes nothing. | Citation stored on the coverage row. | Each legal edge and each illegal edge. |
 | Stage proposal | Current stage plus a proposal for the next fixed stage only. | Rejected proposal writes nothing and returns conflict. | No session id. | Skip a stage. Proposal with a technical loss. Proposal with a missing handoff. |
@@ -384,7 +416,7 @@ Runtime codes, added to `../../../../../pkg/errs` and both translation files:
 | `METHOD_NOT_ALLOWED` | 405 | Wrong method on a mounted path. |
 | `IRT_CONFLICT` | 409 | Stale version, wrong controller, same key with a different intent, illegal coverage or stage move, activation or reconnect budget exhausted after the lifecycle has recorded the failure. |
 | `IRT_NOT_READY` | 409 | `ready` for an attempt that is not current, or a session-attempt while a technical loss blocks the next stage. |
-| `SESSION_UNAVAILABLE` | 503 | Provider or missing key before a durable attempt exists. No provider body in the message. |
+| `SESSION_UNAVAILABLE` | 503 | Missing provider key before durable admission. Known setup failure after reservation is `IRT_CONFLICT`; no provider body is exposed. |
 | `INTERNAL_ERROR` | 500 | Technical and corrupt restoration. Log the cause. Response text stays generic. |
 
 Precedence: authentication, authorization, malformed input, not found, conflict, provider-before-accept, technical. A classified business error is never rewritten as `INTERNAL_ERROR`. `errs.Technical` still maps to 500.
@@ -421,15 +453,15 @@ Logs may include execution id, attempt id, local session id, stage, version, and
 |---|---|---|---|---|
 | Q1 | Which provider events are finalized speech, fragments, corrections, and stale-session duplicates? | Platform / provider feasibility | `CORE-IRT-012`, `CORE-IRT-013`, `CORE-IRT-014`, `CORE-IRT-015` | This design is revised with an explicit map: event name, fragment versus final, correction identity, ordering, and late events from a replaced session. The map cites a reviewed S1 record. A document-only guess does not clear the block. |
 | Q2 | How many provider attempts may open a stage after the handoff is committed, and is any time reserved inside the 15 minutes for finalization? | Product owner of technical-design section 10 | `CORE-IRT-016` | This design records the numbers. Until then, finalization uses the single 15-minute deadline and the next session is not opened with an invented retry count. |
-| Q3 | Execution Lifecycle has no activation, fence, or complete operation in this repository. | Execution Lifecycle capability | `CORE-IRT-007`, `CORE-IRT-008`, `CORE-IRT-010`, `CORE-IRT-011`, `CORE-IRT-015`, `CORE-IRT-017` | That capability exposes the calls in section 1 without HR stage fields, including a same-transaction progress callback. |
+| Q3 | **Resolved by T18 / CORE-IRT-018:** production adapter, durable attempt authority, shared callback transaction and mounted routes have disposable PostgreSQL and fake-provider proof. | Interview Runtime | None for integration; Q1 and Q2 still gate their own tasks | See [T18 verification](t18-verification.md). Earlier mocked-task evidence remains unchanged. |
 | Q4 | No numeric salary ceiling is stored. | Product | No implementation task. Non-disclosure proceeds. | A confidential amount and a rule for comparing it to a spoken expectation exist outside model context. This slice must not seed an amount. |
 | Q5 | Live S1–S4 and `H-01` are not evidenced. | Provider feasibility | `CORE-IRT-017` for a pass claim. `CORE-IRT-006` may still ship against a fake provider. | A sanitized record shows one interview-path WebRTC session with a retained provider session id. Event counts alone do not clear Q1. |
 
-Independent work that stays executable: domain rules, ports, mocked workflow, version 10 schema, GORM mapping of already classified rows, driver transport against a fake provider, and the salary-free instruction builder.
+Remaining work: S1 evidence for T12, the owner decision for Q2, and T17 live interview acceptance. T13–T15 remain blocked on reviewed provider finality. T18 resolves only integration Q3.
 
-Risk: the prototype route spends provider budget with no candidate session until `CORE-IRT-007`. That task waits on Q3 because the replacement route waits on Q3.
+T7 removed the prototype routes. T18 now mounts the candidate session-attempt and readiness replacements; prototype URLs remain absent.
 
-Risk: `attempt_id` has no foreign key until the lifecycle schema exists. Application code still treats an empty attempt id as illegal. A later migration may add the FK; this version 10 file must not point at a missing table.
+Version 10 remains immutable and has no attempt FK. Version 11 constrains command/session/execution/attempt ownership through the composite session key; arbitrary legacy attempt IDs remain retained without fabricated authority or SDP.
 
 ## 10. Revision History
 
@@ -438,3 +470,5 @@ Risk: `attempt_id` has no foreign key until the lifecycle schema exists. Applica
 | v1 | 2026-11-02 | Initial design | Mode A planning for `BR-CORE-060`..`BR-CORE-071`. |
 | v2 | 2026-11-02 | Assign `000010_interview_runtime` and clean floor 10 | assign a unique migration version after the parallel tripack collision on 000008 |
 | v3 | 2026-11-02 | Add follow-up citations, reconnect counters and clarification/omission entry ids to version 10 | `CORE-IRT-005` found the domain state had no storage; `T14` and `T15` need it. Follow-ups are a jsonb array without an FK; restore validates each citation through the aggregate |
+| v4 | 2026-11-03 | Assign T18 to production integration deferred from T8; assess authority, transaction, command replay and migration gaps | Preserve completed scopes while making the integration prerequisite explicit for T13, T15 and T17. Q1/Q2 remain open; no implementation or live proof is claimed |
+| v5 | 2026-11-03 | Implement T18 authority, joined transactions, reservation/replay, schema 11 and mounting; resolve Q3 with real proof | Preserve Q1/Q2 and live acceptance gates; retain owner-approved legacy commands |

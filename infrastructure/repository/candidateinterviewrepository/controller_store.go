@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/rfanazhari/amer-prototype/application/repository/candidateinterviewport"
 	"github.com/rfanazhari/amer-prototype/domain/aggregate/candidateinterview"
+	"github.com/rfanazhari/amer-prototype/infrastructure/database/transaction"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -33,7 +34,7 @@ func (ControllerModel) TableName() string { return "interview_controllers" }
 // Find returns the controller of the assignment, or ErrNotFound.
 func (s ControllerStore) Find(ctx context.Context, assignmentID string) (candidateinterview.ControllerSnapshot, error) {
 	var model ControllerModel
-	err := s.DB.WithContext(ctx).Where("assignment_id = ?", assignmentID).Take(&model).Error
+	err := transaction.Session(ctx, s.DB).Where("assignment_id = ?", assignmentID).Take(&model).Error
 	controller, err := restoreController(model, err)
 	if err != nil {
 		return candidateinterview.ControllerSnapshot{}, err

@@ -13,7 +13,7 @@ import (
 // TestIdentityAccessACPQtwoEvidence requires CORE-IAM-009 access evidence for ACP Q2.
 func TestIdentityAccessACPQtwoEvidence(t *testing.T) {
 	root := filepath.Join("..", "..")
-	path := filepath.Join(root, "docs", "services", "core-ai", "agent-configuration-publication", "q2-access-evidence.md")
+	path := filepath.Join(root, "docs", "services", "core-ai", "features", "agent-configuration-publication", "q2-access-evidence.md")
 	body, err := os.ReadFile(path)
 	require.NoError(t, err)
 	text := string(body)

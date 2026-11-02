@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/rfanazhari/amer-prototype/application/repository/executionport"
 	"github.com/rfanazhari/amer-prototype/domain/aggregate/execution"
+	"github.com/rfanazhari/amer-prototype/infrastructure/database/transaction"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -24,9 +25,6 @@ var (
 	_ executionport.ExecutionStore = Store{}
 	_ executionport.CommandStore   = Store{}
 )
-
-// txKey carries the open transaction through the context handed to an assignment callback.
-type txKey struct{}
 
 // nonterminalStates are the only states from which a terminal commit may move.
 var nonterminalStates = []string{string(execution.StateCreated), string(execution.StateRunning)}
@@ -47,18 +45,12 @@ func classify(err error) error {
 
 // session returns the context transaction when present, otherwise the pool, bound to ctx.
 func (s Store) session(ctx context.Context) *gorm.DB {
-	if tx, ok := ctx.Value(txKey{}).(*gorm.DB); ok {
-		return tx.WithContext(ctx)
-	}
-	return s.DB.WithContext(ctx)
+	return transaction.Session(ctx, s.DB)
 }
 
 // inTx joins the transaction carried by ctx or opens one, so callers always get all-or-nothing writes.
 func (s Store) inTx(ctx context.Context, fn func(tx *gorm.DB) error) error {
-	if tx, ok := ctx.Value(txKey{}).(*gorm.DB); ok {
-		return fn(tx.WithContext(ctx))
-	}
-	return s.DB.WithContext(ctx).Transaction(fn)
+	return transaction.Within(ctx, s.DB, func(_ context.Context, tx *gorm.DB) error { return fn(tx) })
 }
 
 // WithAssignment locks the assignment row before any execution lock and runs fn in the same transaction.
@@ -88,7 +80,7 @@ func (s Store) WithAssignment(ctx context.Context, assignmentID string, fn func(
 		if completedAt.Valid {
 			row.CompletedAt = utcPointer(&completedAt.Time)
 		}
-		return fn(context.WithValue(ctx, txKey{}, tx), row)
+		return fn(transaction.Context(ctx, tx), row)
 	})
 }
 
@@ -130,7 +122,7 @@ func isTerminal(state execution.State) bool {
 func (s Store) Update(ctx context.Context, id string, fn func(*execution.Snapshot) (*execution.TransitionFact, error)) error {
 	return s.inTx(ctx, func(tx *gorm.DB) error {
 		var model ExecutionModel
-		err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("id = ?", id).Take(&model).Error
+		err := tx.Select(executionProjection).Clauses(clause.Locking{Strength: "UPDATE"}).Where("id = ?", id).Take(&model).Error
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return executionport.ErrNotFound
 		}
@@ -177,7 +169,7 @@ func (s Store) Update(ctx context.Context, id string, fn func(*execution.Snapsho
 // Find returns the stored execution snapshot by id or ErrNotFound.
 func (s Store) Find(ctx context.Context, id string) (execution.Snapshot, error) {
 	var model ExecutionModel
-	err := s.session(ctx).Where("id = ?", id).Take(&model).Error
+	err := s.session(ctx).Select(executionProjection).Where("id = ?", id).Take(&model).Error
 	return mapRead(model, err)
 }
 
@@ -185,7 +177,7 @@ func (s Store) Find(ctx context.Context, id string) (execution.Snapshot, error) 
 func (s Store) FindByAssignment(ctx context.Context, assignmentID string) (execution.Snapshot, error) {
 	var model ExecutionModel
 	err := s.session(ctx).Model(&ExecutionModel{}).
-		Select(`"agent_executions".*`).
+		Select(executionProjection).
 		Joins("JOIN interview_executions ON interview_executions.id = agent_executions.id").
 		Where("interview_executions.assignment_id = ?", assignmentID).
 		Take(&model).Error
@@ -207,7 +199,7 @@ func mapRead(model ExecutionModel, err error) (execution.Snapshot, error) {
 // It joins the transaction already carried by ctx instead of opening a nested one.
 func (s Store) WithTransaction(ctx context.Context, fn func(ctx context.Context) error) error {
 	return s.inTx(ctx, func(tx *gorm.DB) error {
-		return fn(context.WithValue(ctx, txKey{}, tx))
+		return fn(transaction.Context(ctx, tx))
 	})
 }
 

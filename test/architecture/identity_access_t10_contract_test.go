@@ -25,7 +25,7 @@ func TestIdentityAccessCandidateContract(t *testing.T) {
 	cases := []identityAccessT10ContractCase{
 		{
 			name:    "design records resolved Q2 Q3 Q4 candidate schemas",
-			relPath: filepath.Join("docs", "services", "core-ai", "identity-access", "technical-design.md"),
+			relPath: filepath.Join("docs", "services", "core-ai", "features", "identity-access", "technical-design.md"),
 			needles: []string{
 				"### 6.6 Candidate contact and matching (approved F)",
 				"### 6.7 Invitation exchange reuse and recovery (approved G)",
@@ -40,7 +40,7 @@ func TestIdentityAccessCandidateContract(t *testing.T) {
 		},
 		{
 			name:    "decision log records T10 contract closure",
-			relPath: filepath.Join("docs", "services", "core-ai", "identity-access", "decision-log.md"),
+			relPath: filepath.Join("docs", "services", "core-ai", "features", "identity-access", "decision-log.md"),
 			needles: []string{
 				"## D9: Candidate contact, exchange reuse and assignment collaboration contracts are approved",
 				"CORE-IAM-010",
@@ -49,7 +49,7 @@ func TestIdentityAccessCandidateContract(t *testing.T) {
 		},
 		{
 			name:    "task plan marks T10 done and unblocks candidate dependents",
-			relPath: filepath.Join("docs", "services", "core-ai", "identity-access", "task-plan.md"),
+			relPath: filepath.Join("docs", "services", "core-ai", "features", "identity-access", "task-plan.md"),
 			needles: []string{
 				"- [x] **T10. Resolve candidate, exchange and actual assignment collaboration contracts**",
 				"Q2/Q3/Q4 resolved in T10",
@@ -75,7 +75,7 @@ func TestIdentityAccessCandidateContract(t *testing.T) {
 		})
 	}
 	t.Run("candidate and exchange examples are valid JSON objects", func(t *testing.T) {
-		body, err := os.ReadFile(filepath.Join(root, "docs", "services", "core-ai", "identity-access", "technical-design.md"))
+		body, err := os.ReadFile(filepath.Join(root, "docs", "services", "core-ai", "features", "identity-access", "technical-design.md"))
 		require.NoError(t, err)
 		text := string(body)
 		require.True(t, strings.Contains(text, "#### Candidate examples (accepted expectations)"), "missing candidate JSON examples heading")

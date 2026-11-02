@@ -105,6 +105,41 @@ func TestCandidatePersistenceSQL(t *testing.T) {
 			},
 		},
 		{
+			name: "facts expose the stored access revoked instant",
+			run: func(t *testing.T, store accessrepository.Store, mock sqlmock.Sqlmock) {
+				mock.ExpectBegin()
+				mock.ExpectExec(`(?i)SELECT id FROM interview_assignments WHERE id = .* FOR UPDATE`).WithArgs(testdata.AssignmentID).WillReturnResult(sqlmock.NewResult(0, 1))
+				mock.ExpectQuery(`(?i)SELECT .* FROM ["']?interview_assignments["']?`).WillReturnRows(
+					sqlmock.NewRows([]string{"id", "candidate_id", "published_revision_id", "access_revoked_at", "completed_at"}).
+						AddRow(facts.AssignmentID, facts.CandidateID, facts.RevisionID, revoked, nil),
+				)
+				mock.ExpectCommit()
+				err := store.WithAssignment(context.Background(), testdata.AssignmentID, func(tx accessport.AssignmentTx) error {
+					got, err := tx.Facts(context.Background())
+					require.NoError(t, err)
+					require.True(t, got.AccessRevoked)
+					require.NotNil(t, got.AccessRevokedAt)
+					require.True(t, revoked.Equal(*got.AccessRevokedAt))
+					return nil
+				})
+				require.NoError(t, err)
+			},
+		},
+		{
+			name: "mark access revoked updates only the marker while it is null",
+			run: func(t *testing.T, store accessrepository.Store, mock sqlmock.Sqlmock) {
+				mock.ExpectBegin()
+				mock.ExpectExec(`(?i)SELECT id FROM interview_assignments WHERE id = .* FOR UPDATE`).WithArgs(testdata.AssignmentID).WillReturnResult(sqlmock.NewResult(0, 1))
+				mock.ExpectExec(`(?i)^UPDATE ["']?interview_assignments["']? SET access_revoked_at = \S+ WHERE id = \S+ AND access_revoked_at IS NULL$`).
+					WithArgs(revoked, testdata.AssignmentID).WillReturnResult(sqlmock.NewResult(0, 1))
+				mock.ExpectCommit()
+				err := store.WithAssignment(context.Background(), testdata.AssignmentID, func(tx accessport.AssignmentTx) error {
+					return tx.MarkAccessRevoked(context.Background(), revoked)
+				})
+				require.NoError(t, err)
+			},
+		},
+		{
 			name: "candidate session insert is assignment scoped",
 			run: func(t *testing.T, store accessrepository.Store, mock sqlmock.Sqlmock) {
 				mock.ExpectBegin()

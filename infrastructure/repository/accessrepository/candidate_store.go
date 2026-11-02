@@ -121,6 +121,11 @@ func (t assignmentCollaborationTx) CurrentInvitations(ctx context.Context) ([]ac
 	return records, nil
 }
 
+// MarkAccessRevoked is not implemented yet.
+func (t assignmentCollaborationTx) MarkAccessRevoked(context.Context, time.Time) error {
+	return nil
+}
+
 // RevokeInvitation writes revoked_at explicitly for an invitation owned by the locked assignment.
 func (t assignmentCollaborationTx) RevokeInvitation(ctx context.Context, id string, revokedAt *time.Time) error {
 	return t.tx.WithContext(ctx).Model(&InvitationModel{}).Where("id = ? AND assignment_id = ?", id, t.assignmentID).

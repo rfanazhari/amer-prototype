@@ -78,6 +78,7 @@ packages:
       LogoutOperation:
       CreateCandidateOperation:
       IssueInvitationOperation:
+      RevokeAssignmentAccessOperation:
       ExchangeInvitationOperation:
   github.com/rfanazhari/amer-prototype/application/query/accessquery:
     config:

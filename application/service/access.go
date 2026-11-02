@@ -30,6 +30,8 @@ var (
 	ErrSessionUnbound = errors.New("administrative session is not bound to a current account")
 	// ErrInvalidInput reports rejected administrative name, email or password policy.
 	ErrInvalidInput = errors.New("invalid administrative input")
+	// ErrCancellationIncomplete reports that assignment access was withdrawn but the lifecycle cancellation failed.
+	ErrCancellationIncomplete = errors.New("assignment access was revoked but execution cancellation is incomplete")
 	// ErrForbidden reports a current administrative session that lacks the required role.
 	ErrForbidden = errors.New("administrative operation is forbidden")
 	// ErrBootstrapIncompatible reports existing administrative state that bootstrap must not overwrite.

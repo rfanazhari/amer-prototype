@@ -91,6 +91,12 @@ type IssuedInvitation struct {
 	Token        string
 }
 
+// AssignmentRevocation is the detached view of an assignment whose access marker is committed.
+type AssignmentRevocation struct {
+	ID              string
+	AccessRevokedAt time.Time
+}
+
 // CandidateAccess is the detached exchange or current-session view without execution material.
 type CandidateAccess struct {
 	Candidate    Candidate

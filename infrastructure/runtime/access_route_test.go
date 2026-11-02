@@ -41,6 +41,7 @@ func TestCandidateAccessRouteDispatch(t *testing.T) {
 		{name: "candidate exchange stays on access", method: http.MethodPost, path: "/candidate/access/exchange", wantStatus: http.StatusBadRequest},
 		{name: "candidate session stays on access", method: http.MethodGet, path: "/candidate/session", wantStatus: http.StatusBadRequest},
 		{name: "admin candidates stay on access", method: http.MethodPost, path: "/admin/candidates", wantStatus: http.StatusBadRequest},
+		{name: "assignment revocation stays on access", method: http.MethodPost, path: "/admin/interview-assignments/dddddddd-dddd-4ddd-8ddd-ddddddddddd1/revocation", wantStatus: http.StatusBadRequest},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

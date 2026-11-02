@@ -23,6 +23,7 @@ type Handler struct {
 	Candidate        accessquery.CandidateOperation
 	ListCandidates   accessquery.ListCandidatesOperation
 	IssueInvitation  accessusecase.IssueInvitationOperation
+	RevokeAssignment accessusecase.RevokeAssignmentAccessOperation
 	Exchange         accessusecase.ExchangeInvitationOperation
 	CandidateSession accessquery.CandidateSessionOperation
 	CSRF             service.CSRFTokens

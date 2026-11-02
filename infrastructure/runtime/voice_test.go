@@ -9,12 +9,8 @@ import (
 	"testing"
 
 	"github.com/SALT-Indonesia/salt-pkg/logmanager"
-	"github.com/rfanazhari/amer-prototype/delivery/http/handler/voicesessionhandler"
-	"github.com/rfanazhari/amer-prototype/delivery/http/voicepage"
 	appruntime "github.com/rfanazhari/amer-prototype/infrastructure/runtime"
 	"github.com/rfanazhari/amer-prototype/pkg/errs"
-	"github.com/rfanazhari/amer-prototype/test/mocks"
-	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -26,8 +22,6 @@ type routeCase struct {
 	body       string
 	wantStatus int
 	wantTask   bool
-	wantHTML   bool
-	wantSDP    string
 	wantCode   string
 }
 
@@ -77,21 +71,39 @@ type envelopeView struct {
 	} `json:"error"`
 }
 
-// composeRouter wires the prototype page and setup handlers ahead of a Task double.
-func composeRouter(t *testing.T, negotiate *mocks.NegotiateOperation, task http.Handler) appruntime.Router {
+// composeRouter wires only the Task double, because the process serves no prototype voice handler.
+func composeRouter(t *testing.T, task http.Handler) appruntime.Router {
 	t.Helper()
-	return appruntime.Router{
-		Page:  voicepage.Handler{},
-		Setup: voicesessionhandler.Handler{Negotiate: negotiate},
-		Task:  task,
+	return appruntime.Router{Task: task}
+}
+
+// TestRemovedVoicePathsFallThroughToTask checks the prototype voice paths are unrouted and reach the Task not-found response.
+func TestRemovedVoicePathsFallThroughToTask(t *testing.T) {
+	tests := []routeCase{
+		{name: "voice page", method: http.MethodGet, path: "/voice-session", wantStatus: http.StatusNotFound, wantTask: true, wantCode: errs.NotFound},
+		{name: "voice setup", method: http.MethodPost, path: "/voice-sessions", body: `{"sdp":"offer-sdp"}`, wantStatus: http.StatusNotFound, wantTask: true, wantCode: errs.NotFound},
+		{name: "voice setup wrong method", method: http.MethodGet, path: "/voice-sessions", wantStatus: http.StatusNotFound, wantTask: true, wantCode: errs.NotFound},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			task := &recordedTaskHandler{}
+			router := composeRouter(t, task)
+			recorder := httptest.NewRecorder()
+			router.ServeHTTP(recorder, httptest.NewRequest(tt.method, tt.path, strings.NewReader(tt.body)))
+			require.Equal(t, tt.wantStatus, recorder.Code)
+			require.True(t, task.called.Load())
+			require.Equal(t, tt.path, task.path.Load())
+			var view envelopeView
+			require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &view))
+			require.Equal(t, "error", view.Status)
+			require.Equal(t, tt.wantCode, view.Error.Code)
+		})
 	}
 }
 
-// TestVoiceAndTaskRouteDispatch checks voice paths reach voice handlers and other paths stay on Task.
-func TestVoiceAndTaskRouteDispatch(t *testing.T) {
+// TestTaskRouteDispatch checks health, task and unknown paths stay on Task.
+func TestTaskRouteDispatch(t *testing.T) {
 	tests := []routeCase{
-		{name: "voice page", method: http.MethodGet, path: "/voice-session", wantStatus: http.StatusOK, wantHTML: true},
-		{name: "voice setup", method: http.MethodPost, path: "/voice-sessions", body: `{"sdp":"offer-sdp"}`, wantStatus: http.StatusCreated, wantSDP: "v=0 answer"},
 		{name: "health", method: http.MethodGet, path: "/health", wantStatus: http.StatusOK, wantTask: true},
 		{name: "tasks", method: http.MethodPost, path: "/tasks", body: `{"title":"demo"}`, wantStatus: http.StatusCreated, wantTask: true},
 		{name: "unknown", method: http.MethodGet, path: "/missing", wantStatus: http.StatusNotFound, wantTask: true, wantCode: errs.NotFound},
@@ -99,11 +111,7 @@ func TestVoiceAndTaskRouteDispatch(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			task := &recordedTaskHandler{}
-			operation := mocks.NewNegotiateOperation(t)
-			if tt.wantSDP != "" {
-				operation.On("Execute", mock.Anything, "offer-sdp").Return(tt.wantSDP, nil)
-			}
-			router := composeRouter(t, operation, task)
+			router := composeRouter(t, task)
 			recorder := httptest.NewRecorder()
 			request := httptest.NewRequest(tt.method, tt.path, strings.NewReader(tt.body))
 			router.ServeHTTP(recorder, request)
@@ -112,19 +120,6 @@ func TestVoiceAndTaskRouteDispatch(t *testing.T) {
 			if tt.wantTask {
 				require.Equal(t, tt.path, task.path.Load())
 				require.Equal(t, tt.method, task.method.Load())
-			}
-			if tt.wantHTML {
-				require.Contains(t, recorder.Header().Get("Content-Type"), "text/html")
-				require.Contains(t, recorder.Body.String(), "Start Conversation")
-				require.NotContains(t, recorder.Body.String(), "OPENAI_API_KEY")
-			}
-			if tt.wantSDP != "" {
-				var view envelopeView
-				require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &view))
-				require.Equal(t, "success", view.Status)
-				var data map[string]string
-				require.NoError(t, json.Unmarshal(view.Data, &data))
-				require.Equal(t, map[string]string{"sdp": tt.wantSDP}, data)
 			}
 			if tt.wantCode != "" {
 				var view envelopeView
@@ -139,8 +134,8 @@ func TestVoiceAndTaskRouteDispatch(t *testing.T) {
 // TestShutdownAdmissionRejectsNewWork checks that stopped admission returns SHUTTING_DOWN before route handlers.
 func TestShutdownAdmissionRejectsNewWork(t *testing.T) {
 	tests := []admissionCase{
-		{name: "voice setup", method: http.MethodPost, path: "/voice-sessions", body: `{"sdp":"offer-sdp"}`},
-		{name: "voice page", method: http.MethodGet, path: "/voice-session"},
+		{name: "removed voice setup path", method: http.MethodPost, path: "/voice-sessions", body: `{"sdp":"offer-sdp"}`},
+		{name: "removed voice page path", method: http.MethodGet, path: "/voice-session"},
 		{name: "tasks", method: http.MethodPost, path: "/tasks", body: `{"title":"demo"}`},
 		{name: "health", method: http.MethodGet, path: "/health"},
 		{name: "unknown", method: http.MethodGet, path: "/missing"},
@@ -148,8 +143,7 @@ func TestShutdownAdmissionRejectsNewWork(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			task := &recordedTaskHandler{}
-			operation := mocks.NewNegotiateOperation(t)
-			router := composeRouter(t, operation, task)
+			router := composeRouter(t, task)
 			logs := logmanager.NewApplication(logmanager.WithAppName("runtime-test"))
 			transport := appruntime.HTTPServer(router, logs)
 			transport.StopAdmission()

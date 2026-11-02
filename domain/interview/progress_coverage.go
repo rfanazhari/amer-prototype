@@ -153,18 +153,25 @@ func (p *Progress) FollowUp(entryID string) error {
 	if !p.open() || !p.citation(entryID, p.state.CurrentStage, Candidate) {
 		return ErrEvidence
 	}
-	count := 0
-	for _, id := range p.state.FollowUps {
-		if p.citation(id, p.state.CurrentStage, Candidate) {
-			count++
-		}
-	}
-	if count >= p.state.FollowUpLimit {
+	if p.usedFollowUps() >= p.state.FollowUpLimit {
 		return ErrBudget
 	}
 	p.state.FollowUps = append(p.state.FollowUps, entryID)
 	return nil
 }
 
+// usedFollowUps counts cited candidate follow-ups already consumed in the current stage.
+func (p *Progress) usedFollowUps() int {
+	count := 0
+	for _, id := range p.state.FollowUps {
+		if p.citation(id, p.state.CurrentStage, Candidate) {
+			count++
+		}
+	}
+	return count
+}
+
 // RemainingFollowUps returns how many cited follow-ups the current stage may still use.
-func (p *Progress) RemainingFollowUps() int { return 0 }
+func (p *Progress) RemainingFollowUps() int {
+	return max(p.state.FollowUpLimit-p.usedFollowUps(), 0)
+}

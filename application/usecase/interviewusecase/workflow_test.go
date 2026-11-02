@@ -368,9 +368,10 @@ func TestWorkflowReconnect(t *testing.T) {
 			assert.Equal(t, 1, h.record.Snapshot.Reconnect.Episodes)
 			assert.Equal(t, 1, h.record.Snapshot.Reconnect.Attempts)
 			assert.Nil(t, h.record.Snapshot.Reconnect.DetectedAt)
-			require.Len(t, h.contexts, 1)
-			assert.JSONEq(t, `{"checkpointId":"checkpoint","entries":[{"ID":"committed","Stage":"background","Speaker":"candidate","State":"final","Body":"Checkpoint answer"}]}`, h.contexts[0].Text)
-			assert.NotContains(t, h.contexts[0].Text, "Outside checkpoint")
+			require.Len(t, h.contexts, 2)
+			assert.Contains(t, h.contexts[0].Text, "Experience?")
+			assert.JSONEq(t, `{"checkpointId":"checkpoint","entries":[{"ID":"committed","Stage":"background","Speaker":"candidate","State":"final","Body":"Checkpoint answer"}]}`, h.contexts[1].Text)
+			assert.NotContains(t, h.contexts[1].Text, "Outside checkpoint")
 			assert.Equal(t, "reconnect", h.budgetRequests[0].Intent)
 			// After replacement even the former current attempt must be dropped by the lifecycle fence.
 			h.fenceErr = interview.ErrConflict

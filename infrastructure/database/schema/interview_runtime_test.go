@@ -200,8 +200,8 @@ func TestReleaseVersionGuardsCleanTwelve(t *testing.T) {
 	}
 
 	runner := schema.Runner{}
-	_, _, err := runner.Execute(context.Background(), schema.Options{Action: "up", Version: 12})
-	require.ErrorContains(t, err, "1 through 11")
+	_, _, err := runner.Execute(context.Background(), schema.Options{Action: "up", Version: 13})
+	require.ErrorContains(t, err, "1 through 12")
 	_, _, err = runner.Execute(context.Background(), schema.Options{Action: "up", Version: 12})
 	require.EqualError(t, err, "database required")
 	_, _, err = runner.Execute(context.Background(), schema.Options{Action: "down", Steps: 12, Disposable: true})
@@ -237,7 +237,7 @@ func TestOperationalFilesRequireVersionTwelve(t *testing.T) {
 	require.Contains(t, runbook, "000010_interview_runtime")
 	require.Contains(t, runbook, "interview_progress")
 	require.Contains(t, runbook, "interview_session_commands")
-	require.Contains(t, runbook, "Versions 1–10 are immutable")
+	require.Contains(t, runbook, "Versions 1–11 are immutable")
 	require.NotContains(t, runbook, "MIGRATION_VERSION=9")
 	require.NotContains(t, runbook, "version=9")
 }

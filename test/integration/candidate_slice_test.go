@@ -147,7 +147,8 @@ func TestCandidateInterviewSlicePostgres(t *testing.T) {
 		view := f.screen(t, "tab-one")
 		require.Equal(t, "COMPLETED", view.Execution.State)
 		require.Empty(t, view.Actions)
-		require.Zero(t, f.count(t, `SELECT count(*) FROM pg_tables WHERE schemaname = 'public' AND tablename LIKE '%report%'`), "no report table exists")
+		require.Zero(t, f.count(t, `SELECT count(*) FROM pg_tables WHERE schemaname = 'public' AND tablename LIKE '%report%' AND tablename NOT IN ('interview_reports','interview_report_generations','interview_report_statements','interview_report_commands','interview_report_jobs','interview_report_attempts')`), "no report table exists beyond the version 12 reporting tables")
+		require.Zero(t, f.count(t, `SELECT count(*) FROM interview_reports`), "no report exists for the candidate-completed interview")
 	})
 }
 

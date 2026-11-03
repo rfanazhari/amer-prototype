@@ -1,6 +1,7 @@
 package interviewreportport
 
 import (
+	"context"
 	"errors"
 	"time"
 )
@@ -36,4 +37,18 @@ type OutboxMessage struct {
 	JobID string
 	// CreatedAt is the instant the intent was recorded.
 	CreatedAt time.Time
+}
+
+// JobClaimer claims report jobs for a worker.
+type JobClaimer interface {
+	// ClaimJob locks the next eligible job, inserts its next attempt and commits the claim fields.
+	// It returns ErrNothingToClaim when no job is eligible at now.
+	ClaimJob(ctx context.Context, now time.Time) (ClaimedJob, error)
+}
+
+// OutboxClaimer claims unconfirmed publish intents for the publisher.
+type OutboxClaimer interface {
+	// ClaimOutbox locks up to limit unconfirmed rows and stamps their claim instant.
+	// An empty batch is not an error.
+	ClaimOutbox(ctx context.Context, limit int, now time.Time) ([]OutboxMessage, error)
 }

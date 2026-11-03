@@ -6,14 +6,14 @@ Mode C revision of the original Mode A plan. This slice conducts the live HR int
 
 The capability is partially implemented. T1–T11 are recorded Done within their documented verification limits; T8 covers operations, handlers, and contract, with production integration assigned to T18. `interview_executions` remains an assignment pin; lifecycle state and interview progress have separate owners and tables. A completed task does not establish live acceptance or a database proof that its evidence records as skipped.
 
-Updated: 2026-11-03. Status: partially implemented; T18 plans production integration. Provider event finality stays **deferred**.
+Updated: 2026-11-04 (v13). Status: partially implemented; T18 production integration is Done (v5). Owner decisions D10 (one provider session per stage) and D11 (interim model-stated stage seal) were accepted on 2026-11-04 and this revision (`CORE-IRT-022`) aligns the design with them. The code that implements them (`CORE-IRT-023`..`025`) is not written. Provider event finality stays **deferred**.
 
 ### Goals
 
 - Run the bound published HR revision: stages `background`, `screening`, `compensation`, `closing`; that revision's stage seconds; its mandatory questions; compensation mode `expectations_only`.
-- Let the voice model propose a stage change. Let the interview workflow authorize it.
+- Let the voice model state or propose a stage change, and let the interview workflow check it: today by order, stage clock and hard deadline (interim, D11); with coverage and policy once finalized transcript exists (`BR-CORE-064`).
 - Commit the source handoff before any next-stage voice session.
-- Keep one voice session for each activated stage, and replace that session after a fault without creating another interview.
+- Keep one voice session for each activated stage, and replace that session after a fault without creating another interview. The previous session is closed before the next stage's session is appended (D10).
 - Resume the same execution after a lost connection, from the last committed checkpoint.
 - Store coverage as pending, asked, answered, or omitted. Treat lost audio as a technical failure.
 - Keep the salary ceiling on the server, outside model context and candidate-visible payloads.
@@ -44,7 +44,7 @@ Module `github.com/rfanazhari/amer-prototype`. Go module in `../../../../../go.m
 
 Four root layers stay in place: `../../../../../domain`, `application/`, `delivery/`, `infrastructure/`. `cmd/app/` remains process configuration. Domain may import only the standard libraries allowed by `test/architecture/dependencies_test.go` and other `domain/` packages. Delivery does not import infrastructure. Only `infrastructure/runtime/` may import delivery.
 
-`schema.ReleaseVersion` in `../../../../../infrastructure/database/schema/version.go` is **10**. The repository contains `000008_execution_lifecycle`, `000009_candidate_interview`, and `000010_interview_runtime`. Startup requires clean version 10 and does not run migrations. T18 proposes a new `000011_interview_runtime_integration` pair; implementation must recheck version availability before allocating it and update the release guard and operational references together.
+`schema.ReleaseVersion` in `../../../../../infrastructure/database/schema/version.go` is **13** as of 2026-11-04. This design was first written at **10** and the later migrations were allocated by their own tasks: `000010_interview_runtime`, `000011_interview_runtime_integration` (T18, Done), `000012_interview_reporting` and `000013_interview_report_retry_window` (Interview Reporting). Startup requires the clean release version and does not run migrations. Any new schema for this feature (session finalization state, raw transcript events) takes the next free number in `migrations/pgsql/` when it is written; do not allocate numbers from documents, and update the release guard, root `README.md` and migration runbook together.
 
 ### What the published revision actually stores
 
@@ -115,7 +115,7 @@ Request JSON object, unknown fields rejected, body limit 1 MiB, the same limit a
 | Field | Rule |
 |---|---|
 | `sdp` | Required non-blank string. Normalize line endings to CRLF and keep a trailing CRLF, the same rule as `normalizeSDP` in `negotiate.go`. |
-| `intent` | `activate` or `reconnect`. |
+| `intent` | `activate` or `reconnect` today. D10 plans a next-stage intent (working name `advance`, `CORE-CIN-014`). The stage is always derived from stored progress, never from the request or the browser. |
 | `expectedVersion` | Integer. The execution version the lifecycle must still hold. |
 | `controllerId` | Required. Opaque tab id. Possession of the id is not a credential. The candidate cookie is the credential. |
 | `idempotencyKey` | Required. Scoped to the candidate session and this execution. |
@@ -134,7 +134,7 @@ Success data:
 
 Browser readiness is not proof that a question was heard (technical-design TD-12 and `BR-CORE-068`). `ready` sets a flag on that attempt. Activation becomes ready only when three facts are true together: the lifecycle says the attempt is current, the driver has stored the provider session id, and this flag is set.
 
-After a committed handoff, the execution read exposes `nextAction=activate_session` with an opaque authorization bound to that handoff and the current controller. The browser prepares a new SDP. It does not choose the stage.
+After a committed handoff, the execution read exposes `nextAction=activate_session` with an opaque authorization bound to that handoff and the current controller. The browser prepares a new SDP. It does not choose the stage. Under D10 this is the transition signal that the page polls; its exact shape is set in `CORE-CIN-014` under D13 (accepted 2026-11-04): a candidate-safe transition state in the polled read, no SSE.
 
 ### Candidate-visible read
 
@@ -235,6 +235,8 @@ Network I/O stays outside the transaction. Provider session creation happens aft
 | Readiness | `readiness_at` on the current session | None |
 | Closing handoff | Final handoff with `target_stage` null | Lifecycle `Complete` or `Fail` |
 
+**Stage seal and stage advance (D10, D11).** Today `Progress.Attest` seals the source stage and makes the successor current in one step, and `CompleteStage` does so inside the same provider session. Under D10 these become two commits: the seal (a handoff row, treated as model-stated while coverage is absent) and the advance (`ActivateStage`, performed when `OpenStage` appends the next session shell), with the source session closed before the next shell is appended. `CompleteInterview` (candidate "Selesai") still seals every remaining stage and completes without opening sessions. How a handoff is marked model-stated (derived from unresolved coverage, or stored explicitly) is decided in `CORE-IRT-023`; do not assume either. Planned schema additions elsewhere, none allocated: session finalization state (`CORE-IRT-024`, decision D12 accepted 2026-11-04) and raw transcript events (Recording and Transcription T14, pending the proposed D5).
+
 The lifecycle locked callback wraps checkpoint, handoff, and closing commits. Until that callback exists, repository tests cover the interview writes alone, including rollback. They do not claim a cross-aggregate fence.
 
 Lock order when both stores exist: execution row, then `interview_progress`, then children. This repository does not lock `interview_assignments`.
@@ -261,10 +263,10 @@ The table below is the proof plan; observed results and skips belong to each tas
 | `BR-CORE-061` ask or omit; one relevant follow-up | Progress coverage methods and follow-up counter | Record omission only for the three reasons. Count a follow-up only when it cites a final candidate entry in the stage. Cap is the frozen limit. | Skip, silence after one clarification, soft-budget expiry, cap 2 then a rejected third, cited follow-up versus uncited text. Representative "relevant wording" for `H-02` is a scenario check, not a second model call. |
 | `BR-CORE-062` answer is not competence | Coverage state and schema | No competence field exists on the aggregate or the tables. | Repository mapping and instruction builder have no hire, reject, rank, or competence result. |
 | `BR-CORE-063` lost audio | Technical-loss entity | Loss insert leaves state `pending` or `asked` and blocks authorization. | Loss then proposal is rejected. The same question can later be answered. A loss is never read back as `omitted`. |
-| `BR-CORE-064` workflow authorizes | `Progress.Authorize` | Model proposal is an input. Unauthorized result writes nothing. | Proposal before coverage, after coverage, after a technical loss, at soft budget. |
-| `BR-CORE-065` handoff before next session | Application coordinator | Handoff commit succeeds before `OpenSession` for the target. Missing handoff returns no session id. Summary failure still commits when structured rows exist. | Mocked order test. PostgreSQL rollback leaves no target session. Summary error with a valid handoff still authorizes. |
-| `BR-CORE-066` one session per activated stage | Voice-session entity | One open session per execution. A new stage requires a new session id. Replacement keeps stage and execution. | Two stages, two provider ids. Fault replacement does not allocate a second execution id. |
-| `BR-CORE-067` canonical transcript | Transcript entity, once classification is supplied | Fragment is not evidence. A correction inserts a new revision and marks the old row superseded. | Fragment cannot answer. Revision 2 is the cited row. Live classification waits on the deferred map. |
+| `BR-CORE-064` workflow authorizes | `Progress.Authorize` | Model proposal is an input. Unauthorized result writes nothing. Interim (D11): until coverage exists, `Attest` checks order, stage clock and hard deadline only, and the stage is treated as model-stated. | Proposal before coverage, after coverage, after a technical loss, at soft budget. |
+| `BR-CORE-065` handoff before next session | Application coordinator | Handoff commit succeeds before `OpenSession` for the target. Missing handoff returns no session id. Summary failure still commits when structured rows exist. | Mocked order test. PostgreSQL rollback leaves no target session. Summary error with a valid handoff still authorizes. Under D10 the source session is closed before the target shell is appended (`CORE-IRT-023`). |
+| `BR-CORE-066` one session per activated stage | Voice-session entity | One open session per execution. A new stage requires a new session id (D10). Replacement keeps stage and execution. The same-session advance in `CompleteStage` is replaced for non-closing stages by `CORE-IRT-023`. | Two stages, two provider ids. Fault replacement does not allocate a second execution id. |
+| `BR-CORE-067` canonical transcript | Transcript entity, once classification is supplied | Fragment is not evidence. A correction inserts a new revision and marks the old row superseded. | Fragment cannot answer. Revision 2 is the cited row. Live classification waits on the deferred map. Whether the canonical transcript comes from live sideband events or stored recordings is under owner review in the Recording and Transcription proposal (D5). |
 | `BR-CORE-068` cite or do not treat as answered | Coverage `answered` requires a final entry id | Create and restore | Answer without an entry is rejected. Citation to a fragment is rejected. Missing entry stays unanswered or omitted. |
 | `BR-CORE-069` same execution on reconnect | Coordinator plus lifecycle fence | New session and new attempt, same execution id, context from the latest checkpoint only. | One episode resumes. A late observation with the old attempt id writes nothing. Hidden provider memory is not a stored column. |
 | `BR-CORE-070` finish with the record | `ReadyForCompletion` then lifecycle complete or fail | Deadline and explicit close | Record present calls complete. Record absent at 15:00.000 calls fail. Earlier handoffs remain. |
@@ -287,7 +289,7 @@ The table below is the proof plan; observed results and skips belong to each tas
 | `application/service.Clock` | Reused as-is | Trusted UTC milliseconds. |
 | `application/usecase/voicesession.Negotiate` | Reused as a rule source only | SDP normalization behavior. Not the interview operation. |
 | `../../../../../infrastructure/repository/interviewrepository` | New | GORM mapping and explicit updates. |
-| `../../../../../infrastructure/service/interviewvoice` | New | GPT-Live adapter that retains session id and classifies transport failures. Event-to-evidence mapping is not part of the first driver task. |
+| `../../../../../infrastructure/service/interviewvoice` | New | GPT-Live adapter that retains session id and classifies transport failures. Event-to-evidence mapping is not part of the first driver task. Planned: a bounded wait for close confirmation (`CORE-IRT-024`, decision D12). |
 | `infrastructure/service/realtimecall` | Reused as a behavior source | Live URL, model default, bearer call. Historical behavior reference only; T7 removed the prototype production path. |
 | `../../../../../infrastructure/service/liveprobe` | Reused as-is | Opt-in probe only. |
 | `delivery/http/handler/candidateinterviewhandler` | Implemented; composition pending | T8 supplies attempt/readiness operations and handlers. T18 wires them into the process. |
@@ -302,9 +304,9 @@ The table below is the proof plan; observed results and skips belong to each tas
 
 A separate transcript aggregate would let a handoff commit while the transcript commit fails. That breaks `BR-CORE-065`. One progress boundary is the smallest boundary that can keep the handoff and its evidence together.
 
-**Workflow operation.** One application type loads the pinned revision, calls `Progress`, and persists through the port. It passes lifecycle budgets. It does not contain SQL. It does not contain provider HTTP. Instruction text is built here so the salary rule has one owner before the driver.
+**Workflow operation.** One application type loads the pinned revision, calls `Progress`, and persists through the port. It passes lifecycle budgets. It does not contain SQL. It does not contain provider HTTP. Instruction text is built here so the salary rule has one owner before the driver. `OpenStage`, `CompleteStage` and `CompleteInterview` live here; `CORE-IRT-023` makes them compose for per-stage sessions.
 
-**Driver.** The port returns observations: session id, transport up or down, and opaque provider events. The first implementation may surface event type and raw payload to the application only behind the blocked classifier. It must not mark coverage. `close` is best effort, matching the probe's unconfirmed `session.close`. Failure to close does not roll back a committed handoff.
+**Driver.** The port returns observations: session id, transport up or down, and opaque provider events. The first implementation may surface event type and raw payload to the application only behind the blocked classifier. It must not mark coverage. `close` is best effort, matching the probe's unconfirmed `session.close`. Failure to close does not roll back a committed handoff. Planned (`CORE-IRT-024`): a bounded wait for the provider's close confirmation with an explicit "finalization unconfirmed" outcome, under decision D12 (accepted 2026-11-04); until `CORE-IRT-024` lands, close stays best effort. On timeout the session is flagged and the interview continues; the timeout value is not yet set.
 
 **HTTP handler.** Parses the attempt and readiness bodies, maps errors, and writes the envelope. It does not decide stage changes.
 
@@ -343,10 +345,12 @@ Source: [T8 verification](t8-verification.md), current `Attempts.Execute`, `Work
 | No RabbitMQ on the voice loop | Stage changes are request-driven and must commit before the next session. A broker hop adds delay and a second failure mode to a loop the platform assigns to the driver and workflow. Report dispatch stays with the reporting sibling. | Technical-design TD-09 limits the broker to document and report work. User decision. | **Retained.** |
 | Numeric salary comparison | No amount exists in the reference resolver or the revision. Non-disclosure is enforceable. A comparison would require inventing a number. | `BR-CORE-071` example: discuss expectations; do not speak or show the ceiling. | **Deferred** for any numeric clamp. Non-disclosure is **retained**. |
 | Next-stage activation count and a finalization reserve | Initial activation and reconnect numbers are in technical-design section 10. That section still says next-stage activation details and the finalization reserve are open. The handoff order does not need the missing count. Inventing "also 2 attempts" would close an item the later design left open. Finalization uses the same 15-minute deadline. | Blocks only `CORE-IRT-016`. | **Resolved by Q2 (2026-11-03):** same 2 × 30 seconds within 90 seconds per stage, no reserve. Enforcement is `CORE-IRT-016`. |
+| One provider session per stage (D10) | `BR-CORE-066` says a stage boundary is a real break in the provider conversation. One long session switched by `session.update` was rejected: the boundary would be an estimate on its timeline, an utterance crossing it needs an assignment rule, and the capability rule would change. Cost: about 2.4 seconds of setup per handoff (todo-gap G10, measured once). | Owner decision 2026-11-04; decision log D10. Refinement boundary: how the seal and the advance split is `CORE-IRT-023`. | **Retained**, and restored after the same-session advance added in T21. |
+| Interim model-stated stage seal (D11) | Coverage needs finalized transcript, which is blocked on Q1. Waiting for it would leave no way to change stages. Keeping the attest rule permanently would empty `BR-CORE-064`. | Owner decision 2026-11-04; decision log D11. Strict `Authorize` stays the target. | **Retained as interim**; reports label such stages as model-stated. |
 
 Ordinary create path: load the immutable pin, commit attempt authority, pending command, coverage and session shell together, then call the provider outside SQL. Successful identity and original answer finalize atomically. Missing credentials return `503` before reservation. Known provider failure after reservation returns `409 IRT_CONFLICT` and retains a failed key; interrupted pending returns `409 IRT_NOT_READY`, without provider recreation. SQL result failure remains safe `500`.
 
-Ordinary handoff path: proposal in, `Authorize` in the aggregate, one transaction writes the handoff, then a later call opens the next session. Invalid proposal path: `Authorize` returns a conflict and the transaction does not open.
+Ordinary handoff path: proposal in, `Authorize` in the aggregate, one transaction writes the handoff, then a later call opens the next session. Invalid proposal path: `Authorize` returns a conflict and the transaction does not open. Interim path (D11): a model statement is checked by `Attest` for order, stage clock and deadline, and the stage is sealed; the next session opens in a later call after the source session is closed (D10).
 
 A domain service was not added. The rules sit on `Progress`. A factory `NewProgress` builds the first pending coverage from the revision questions so callers do not assemble that set by hand. `RestoreProgress` is a separate function and does not call publication assessment.
 
@@ -363,17 +367,22 @@ A domain service was not added. The rules sit on `Progress`. A factory `NewProgr
 7. The browser posts `ready`. That flag alone does not mark a question heard.
 8. When provider identity, backend control, and browser readiness match the same attempt, the stage is active. The lifecycle has already moved the execution to running on successful activation.
 
-### Stage and handoff
+### Stage and handoff (target flow, D10 and D11)
 
-1. The driver delivers observations. Until event finality is mapped, those observations are not written as evidence.
-2. Once a classified final event is available, the coordinator updates coverage or follow-up count inside a fenced transaction and may write a checkpoint.
-3. The model proposes the next stage. `Authorize` checks coverage, technical losses, soft budget, and the frozen follow-up facts.
-4. The transaction commits the handoff. Optional summary failure keeps the structured handoff.
-5. A later session-attempt, or the `nextAction` already authorized, opens one new voice session for the target stage. Failed provider setup retries that committed target. It does not authorize a different stage and it does not create an execution. The retry limit is `CORE-IRT-016` and is blocked.
+Steps 1 and 2 describe current or blocked behavior. Steps 3 to 8 are the target; they are implemented by `CORE-IRT-021` (trigger), `CORE-IRT-023`..`025`, `CORE-CIN-014` and `CORE-CIN-015`, and none is built yet.
 
-### Model-stated stages (T21, decided 2026-11-03)
+1. The driver delivers observations. Until event finality is mapped (Q1), those observations are not written as evidence.
+2. Once classified final events exist, the coordinator updates coverage or follow-up count inside a fenced transaction and may write a checkpoint (T13, T14, blocked on Q1).
+3. The model states that the stage is finished through the `complete_stage` function call over the sideband (T21 provider part; a backend-owned fallback is decided separately). The browser never chooses the stage.
+4. The workflow checks the statement. Interim (D11): order, stage clock and hard deadline. Target: `Authorize` with coverage, technical losses and soft budget.
+5. One transaction seals the stage with its handoff. A repeated statement changes nothing.
+6. The source provider session is closed and its local row is closed before the next shell is appended. A bounded wait for the provider's close confirmation is planned (`CORE-IRT-024`, D12).
+7. The page learns that a transition is ready by polling (D13; shape set in `CORE-CIN-014`) and requests a session with a new SDP offer under the next-stage intent. `OpenStage` activates the target stage and appends the shell; the driver creates and attaches the session, supplies handoff context, and readiness follows as in activation. A failed create retries that committed target only. The retry limit is `CORE-IRT-016`: 2 attempts of 30 seconds within 90 seconds per stage.
+8. Sealing `closing` completes the interview through the lifecycle and closes the provider session.
 
-Transcription happens at the end of the interview, so stage completion cannot wait for coverage. The model states that a stage is finished; `Progress.Attest` checks only that the stage is open, its clock has started and the 15-minute deadline has not passed, seals the stage with a handoff that carries the coverage as stored, and makes the next stage current in the same session. `Workflow.CompleteStage` adds order checks (no skipped stage), treats an earlier stage as a no-op, and on `closing` closes the local session records and asks the lifecycle to complete. A repeated closing statement retries completion only. `Authorize` keeps requiring coverage for the evidence path, and restoring a snapshot no longer requires coverage on a sealed handoff. The report must treat such stages as stated by the model, not proven. Nothing calls `CompleteStage` until the provider part of T21 lands.
+### Model-stated stages (T21, decided 2026-11-03; interim since D11)
+
+Transcription happens after the interview, so stage completion cannot wait for coverage. The model states that a stage is finished; `Progress.Attest` checks only that the stage is open, its clock has started and the 15-minute deadline has not passed, and seals the stage with a handoff that carries the coverage as stored. `Workflow.CompleteStage` adds order checks (no skipped stage), treats an earlier stage as a no-op, and on `closing` closes the local session records and asks the lifecycle to complete. A repeated closing statement retries completion only. `Authorize` keeps requiring coverage for the evidence path, and restoring a snapshot no longer requires coverage on a sealed handoff. The report must treat such stages as stated by the model, not proven (D11). Today `Attest` also makes the successor current inside the same session; D10 replaces that for non-closing stages (`CORE-IRT-023`). `CompleteStage` is currently reached through `CompleteInterview`, which backs the candidate "Selesai" control; the model-triggered call is the provider part of T21 and is not wired.
 
 ### Reconnect
 
@@ -392,7 +401,9 @@ Transcription happens at the end of the interview, so stage completion cannot wa
 
 ## 6. Request / Response
 
-Session-attempt and readiness shapes are in section 2. Instruction context sent to the model (T20) is created with the provider session and supplied again after the sideband attaches. It contains an interim fixed position (`Project Manager`, todo-gap G1), the whole four-stage flow with planned durations and every stage's mandatory question text, the current stage, competency topic strings, the remaining follow-up count for the current stage, `expectations_only`, rules to greet once, to name each stage when moving on and to close the interview itself, a closing-stage rule that candidate questions are acknowledged as noted for the recruitment team and not answered, and the interview-only scope rules. The model paces the stages because no system trigger moves them yet (todo-gap G7). The job-description reader is still resolved to verify the pinned identity, but its role string is not rendered. The context excludes `salaryCeilingRef`, the demo ceiling id, and any amount.
+Session-attempt and readiness shapes are in section 2. Instruction context sent to the model (T20) is created with the provider session and supplied again after the sideband attaches. It contains an interim fixed position (`Project Manager`, todo-gap G1), the whole four-stage flow with planned durations and every stage's mandatory question text, the current stage, competency topic strings, the remaining follow-up count for the current stage, `expectations_only`, rules to greet once, to name each stage when moving on and to close the interview itself, a closing-stage rule that candidate questions are acknowledged as noted for the recruitment team and not answered, and the interview-only scope rules. Today the model paces the stages because no system trigger moves them yet (todo-gap G7); this describes the T20 behavior that `CORE-IRT-025` replaces. The job-description reader is still resolved to verify the pinned identity, but its role string is not rendered. The context excludes `salaryCeilingRef`, the demo ceiling id, and any amount.
+
+**Planned (`CORE-IRT-025`, D10).** Each stage's session receives that stage's prompt plus the committed handoff context for stages after the first, instead of the whole four-stage flow in one prompt. The instructions are written in the spoken language in the formal register ("Anda", D14), add role and tone, interruption and unclear-audio rules (clarify names, dates and numbers; keep listening during pauses) and short-turn guidance, keep the greeting as an instruction the model may paraphrase because consent is taken on the page before the session (D14), and settle whether the second delivery after attach is needed (todo-gap G3, G13). The scope rules, the salary rule and the closing-stage rule are kept. The pacing sentence "name the next stage and continue" is replaced by the end-of-stage statement tied to the T21 trigger, so it is not changed before that trigger is decided.
 
 Public success envelope: `{"status":"success","data":{...}}`. Error envelope: `status=error`, `data` an empty object, `error.code`, `error.message`. `Accept-Language: id` selects Indonesian.
 
@@ -450,6 +461,10 @@ Logs may include execution id, attempt id, local session id, stage, version, and
 - [ ] GORM models stay in infrastructure. Zero values are explicitly updated.
 - [ ] New Go declarations satisfy `../../../../../test/architecture/documentation_test.go`.
 - [ ] Provider event finality is not treated as known.
+- [ ] Each stage runs in its own provider session; the previous session is closed before the next shell is appended (D10).
+- [ ] A stage sealed without coverage is treated as model-stated, and strict authorization stays the target (D11).
+- [ ] The stage is derived from stored progress, never from the request or the browser.
+- [ ] First-session instructions follow the prompting review (`CORE-IRT-025`).
 
 ## 9. Risks & Open Questions
 
@@ -460,8 +475,12 @@ Logs may include execution id, attempt id, local session id, stage, version, and
 | Q3 | **Resolved by T18 / CORE-IRT-018:** production adapter, durable attempt authority, shared callback transaction and mounted routes have disposable PostgreSQL and fake-provider proof. | Interview Runtime | None for integration; Q1 and Q2 still gate their own tasks | See [T18 verification](t18-verification.md). Earlier mocked-task evidence remains unchanged. |
 | Q4 | No numeric salary ceiling is stored. | Product | No implementation task. Non-disclosure proceeds. | A confidential amount and a rule for comparing it to a spoken expectation exist outside model context. This slice must not seed an amount. |
 | Q5 | Live S1–S4 and `H-01` are not evidenced. | Provider feasibility | `CORE-IRT-017` for a pass claim. `CORE-IRT-006` may still ship against a fake provider. | A sanitized record shows one interview-path WebRTC session with a retained provider session id. Event counts alone do not clear Q1. |
+| Q6 | Which mechanism ends a stage in a running interview: the `complete_stage` function call over the sideband (needs delegation, billed separately), or a backend-owned fallback? (todo-gap G7, G8) | Interview Runtime / provider feasibility | `CORE-IRT-021` provider part; the pacing wording of `CORE-IRT-025` | One sanitized live spike confirms the call event reaches the sideband and the result returns, or the fallback is decided. |
+| Q7 | **Decided 2026-11-04 (D12):** after `session.close` the driver waits a bounded time for the provider's close confirmation. On timeout the session is marked "finalization unconfirmed", the interview continues, and recovery uses the stored recording; success is never reported for that session. The timeout value is not set. | Interview Runtime | `CORE-IRT-024` implementation | A measured confirmation time (Recording and Transcription `CORE-IRTREC-012`) or an owner-set value exists. |
+| Q8 | **Decided 2026-11-04 (D13):** the page learns of a stage transition by polling a candidate-safe transition state in `GET /candidate/executions/{id}`; no SSE. The exact shape is set in `CORE-CIN-014`. | Candidate Interview | `CORE-CIN-014` | Shape drafted together with the OpenAPI change. |
+| Q9 | Is the measured handoff pause acceptable? D10 assumes about 2.4 seconds per handoff (G10, measured once). | Product owner | None; revisit trigger for D10 | A multi-stage run records the pause (Recording and Transcription `CORE-IRTREC-012` or the first per-stage run). |
 
-Remaining work: S1 evidence for T12, the owner decision for Q2, and T17 live interview acceptance. T13–T15 remain blocked on reviewed provider finality. T18 resolves only integration Q3.
+Remaining work: S1 evidence for T12, the owner decision for Q2, and T17 live interview acceptance. T13–T15 remain blocked on reviewed provider finality. T18 resolves only integration Q3. Per-stage work is T22 (this revision), T23, T24 and T25; T24 needs only the timeout value from Q7.
 
 T7 removed the prototype routes. T18 now mounts the candidate session-attempt and readiness replacements; prototype URLs remain absent.
 
@@ -482,3 +501,6 @@ Version 10 remains immutable and has no attempt FK. Version 11 constrains comman
 | v9 | 2026-11-03 | T20 follow-up: at the closing stage the model acknowledges candidate questions as noted for the recruitment team and does not answer or invent company facts | A live session showed the model saying it had no information and keeping nothing. The note is wording only until the end-of-interview transcript exists (todo-gap G11) |
 | v10 | 2026-11-03 | T21 application part: model-stated stage completion (`Attest`, `CompleteStage`) and interview completion at closing; sealed handoffs no longer need coverage on restore | Owner decided G9 after learning that transcription happens at the end of the interview. The provider trigger is still unbuilt |
 | v11 | 2026-11-03 | Candidate finish control: `POST /candidate/executions/{id}/complete` and page button seal remaining stages, complete the lifecycle and close the provider session by stored id | Owner approved; the model-triggered ending remains for the spike |
+| v12 | 2026-11-04 | Record owner decisions D10 (one provider session per stage) and D11 (interim model-stated stage seal) in the decision log; add `CORE-IRT-022`..`025` | Sections 3, 5, 6 and 9 and the T20 prompt description (v8, whole flow in one prompt, model-paced stages) predate D10/D11 and are regenerated by `CORE-IRT-022`; until then the decision log wins on stage and session behavior |
+| v13 | 2026-11-04 | `CORE-IRT-022`: align goals, sections 1 to 6, the proof plan, the checklist and the open questions with D10 and D11; add Q6 to Q9; correct the release-version paragraph | Documentation only. No code, test or schema changed. T23..T25 are not implemented, and the proposed D6 and D8 are not accepted. Done scopes and recorded evidence are unchanged |
+| v14 | 2026-11-04 | Record D12 (close-confirmation wait), D13 (transition signal by polling) and D14 (formal register, paraphrasable greeting); resolve Q7 and Q8 | Owner approved the recommendations. The timeout value of D12 is still unset. No code, test or schema changed |

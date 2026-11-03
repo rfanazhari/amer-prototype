@@ -1,7 +1,7 @@
 # Traceability Matrix
 
-Date: 2026-11-03
-Branch at time of writing: `feat/irp`
+Date: 2026-11-04
+Branch at time of writing: `feat/irtrec`
 
 Traces each acceptance criterion and invariant of the platform design to the implementing task, the recorded evidence, and the remaining gap.
 
@@ -65,7 +65,7 @@ The largest gaps are: the whole Document Analyzer run, transcript ingestion and 
 | H-01 | Live voice through the reused WebRTC path | IRT BR-CORE-066 | IRT T6, T8, T17, T19 | IRT T17: one live session through `session-attempts` (201, SDP applied, sideband attached, readiness 200, reply confirmed by owner) | Implemented | One sanitized live session. Not a repeated or full-interview run. |
 | H-02 | Required questions asked or omissions recorded; at least one relevant follow-up | IRT BR-CORE-061, 062 | IRT T1, T20 | IRT T1 domain rules; T20 instructions | Partial | Coverage rules exist in the domain. No transcript-driven coverage update (T14 blocked). Follow-up behavior is prompt-level only (todo-gap G2). |
 | H-03 | Stage advance rejected when workflow authorization is invalid | IRT BR-CORE-064 | IRT T1, T3, T10 | IRT T3, T10, T18 (real-adapter rollback cases) | Implemented | Nothing drives proposals from a live session yet (todo-gap G7). |
-| H-04 | Each activated stage uses a separate model session | IRT BR-CORE-066 | IRT T10 | IRT T10, T18 | Partial | Mechanism exists. No live stage progression; per-stage pause of about 2.4 s noted (G10). |
+| H-04 | Each activated stage uses a separate model session | IRT BR-CORE-066 | IRT T10; planned IRT T23, T24; CIN T14, T15 | IRT T10, T18 | Partial | Mechanism exists. No live stage progression. Owner decision D10 (2026-11-04) confirms one session per stage and accepts the pause (about 2.4 s, G10, not re-measured). Stays Partial until a real multi-stage run is recorded. |
 | H-05 | Next-stage activation cannot precede committed handoff | IRT BR-CORE-065 | IRT T10 | IRT T10 | Implemented | |
 | H-06 | Backend keeps authoritative normalized transcript and progress references | IRT BR-CORE-067 | IRT T5 (progress); IRTREC T3–T9, T11 | IRT T5, T18; no IRTREC execution evidence | Partial | Progress references stored. Recording-based async transcript ingest is planned in IRTREC T1–T11, replacing G14's primary source; provider alignment/storage-policy proofs remain open. Existing IRT task statuses are unchanged. |
 | H-07 | Coverage and report statements linked to transcript evidence | IRT BR-CORE-068; IRP BR-CORE-083 | IRP T1, T14; IRTREC T5, T7, T10, T11 | IRP T1 statement rules; no IRTREC execution evidence | Partial | Finalized-evidence population and contract handoff are planned in IRTREC; IRP T14 still owns the production report read adapter. |
@@ -138,7 +138,7 @@ Rule text is in the capability documents and summarised in [`services/baseline.m
 | Provider | OpenAI Realtime (scope freeze) | GPT-Live (TD-11). |
 | Reporting dispatch | Document and report jobs through RabbitMQ with outbox | IRP T9–T12 are Done per current plan, with real RabbitMQ/PostgreSQL proof recorded in T11/T12. IRTREC plans its own outbox/consumer; its topology and real-broker proof remain open. |
 | Stage structure | Opening, role exploration, expectations and closing; at most six mandatory questions | Runtime plan uses four stages with `closing` last. Not reconciled against the design table. |
-| Stage progression | Model proposes, workflow validates | Today a stage is complete when the model states it; transcription is deferred to the end of the interview (owner decision, todo-gap G9). |
+| Stage progression | Model proposes, workflow validates | Today a stage is complete when the model states it; transcription is deferred to the end of the interview (owner decision, todo-gap G9). Owner decision D11 (2026-11-04) makes this explicitly interim: sealed stages are labelled model-stated in reports, and strict authorization with coverage remains the target. IRT T21's same-session advance is replaced for non-closing stages by D10. |
 | Transcript source and timing | Earlier G14 selected sideband transcript events; H-09 requires final transcript before completion | Owner now selects backend-only stored-recording download and transcription asynchronously after COMPLETED (IRTREC D1–D3). Source direction superseded; business wording reconciliation is IRTREC T2, not an acceptance pass. |
 | Backend and UI split | Backend and candidate UI now, admin UI later | Matches. Consequence: P-01, P-02, P-11 stay Partial until an HR/admin surface exists. |
 
@@ -172,6 +172,7 @@ Newest first. Add a row for every update, and change the date at the top of the 
 
 | Version | Date | Author | Change |
 | --- | --- | --- | --- |
+| 1.3 | 2026-11-04 | Claude | Add D10/D11 effects to H-04 and the stage-progression deviation; add planned IRT T22–T25, CIN T14–T15 and IRTREC T12 to the task notation context; no new evidence, so no criterion status or summary count changes. |
 | 1.2 | 2026-11-03 | Codex | Link IRTREC T1–T11 to CORE-IRTREC-001–011 planning ticket identities; no scope or delivery-status changes. |
 | 1.1 | 2026-11-03 | Codex | Trace planned IRTREC tasks to transcript/evidence/recovery gaps; record asynchronous H-09 reconciliation and G14 replacement. Refresh IRP T10–T12 status from current plan. No new acceptance pass or changed summary counts. |
 | 1.0 | 2026-11-03 | rfanazhari | Initial matrix: P-01–12, H-01–12, D-01–08, INV-01–09, negative-path set, rule-to-capability gaps, deviations. Based on baseline v1.0 and core v1.0. |

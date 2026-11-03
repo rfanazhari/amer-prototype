@@ -23,7 +23,7 @@ const (
 	defaultAttachURL   = "wss://api.openai.com/v1/live/sessions"
 	attachOrigin       = "https://api.openai.com"
 	defaultModel       = "gpt-live-1"
-	defaultVoice       = "marin"
+	defaultVoice       = "marin" // willow | marin |gleam
 	defaultTimeout     = 30 * time.Second
 	maxSetupBytes      = 1 << 20
 )

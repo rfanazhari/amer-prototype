@@ -81,6 +81,8 @@ The stage names and time budgets come from the published HR Interviewer revision
 
 **Why:** The model may suggest that the conversation is ready to move. HR's published rules decide whether it is.
 
+> **Interim reading (owner decision 2026-11-04, [D11](../../features/interview-runtime/decision-log.md)):** until finalized transcript and coverage exist, a stage is sealed by a model statement checked for order, stage time and the hard deadline, and the record labels it as model-stated. Coverage-based authorization remains the target of this rule.
+
 ### BR-CORE-065 — The next stage starts only after the current handoff is stored
 
 **Given** a stage change is authorized
@@ -89,6 +91,8 @@ The stage names and time budgets come from the published HR Interviewer revision
 
 **Why:** The next part of the interview has to rest on a record HR can inspect. A summary that failed to generate must not erase the evidence that did exist, and a missing record must not be invented.
 
+> **Interim reading (2026-11-04):** while coverage cannot be computed, the stored handoff holds the stage's recorded entries and technical losses without resolved coverage. See `BR-CORE-064` and decision D11.
+
 ### BR-CORE-066 — Each active stage has its own voice session
 
 **Given** a stage has been activated
@@ -96,6 +100,8 @@ The stage names and time budgets come from the published HR Interviewer revision
 **Then** the stage uses a voice session of its own. Replacing a session after a fault does not create another interview.
 
 **Why:** A stage boundary has to be a real break in the provider conversation, while the interview the candidate is in remains the same one.
+
+> **Confirmed (owner decision 2026-11-04, [D10](../../features/interview-runtime/decision-log.md)):** each stage opens its own provider session after the previous one is closed; reconnect inside a stage replaces the session without a new interview.
 
 ### BR-CORE-067 — The backend transcript is the record the interview relies on
 

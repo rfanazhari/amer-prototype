@@ -1,6 +1,6 @@
 # Task Plan: Interview Reporting
 
-Planning baseline: 2026-11-02, Mode A. No report implementation exists. Every task starts Todo. BR-CORE-080..086 are not enforced by this document.
+Planning baseline: 2026-11-02, Mode A. Status as of 2026-11-03: T1–T12 are Done and T13–T15 are Todo (report writer client, finalized-evidence read, runtime registration); the task list below is the status authority. This opening line originally said every task starts Todo. No report can be produced yet. BR-CORE-080..086 are not shown to be enforced by this document alone.
 
 ## Ticket Identity
 

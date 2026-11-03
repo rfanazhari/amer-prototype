@@ -31,3 +31,13 @@ Technical decisions in this feature that exist because of business decisions or 
 - **Trade-offs accepted:** The candidate does not receive a written summary of the interview. Cancelled, failed, and completed must stay visibly different so an early exit is not presented as a finished interview.
 - **Revisit when:** The product explicitly wants the candidate to see a closing summary. That summary still has to stay separate from the HR report.
 - **Status:** active
+
+## D4: One new notice version will cover recording, transcription and the interview-only topic limit
+
+- **Business driver:** `BR-CORE-040` (consent precedes the interview). Recording and transcription (Recording and Transcription feature) and the topic limit (Interview Runtime todo-gap G5) each need the candidate to be told something the current notice `notice-261102` does not say. Owner decision 2026-11-04.
+- **Technical decision:** Prepare a single new notice version that covers all three, instead of changing the consent contract once per topic. The wording and version id are not drafted. Until the retention and storage policy (Recording and Transcription `CORE-IRTREC-002`) is decided, `notice-261102` stays in force and recording stays off by default.
+- **What this means for the product:** Candidates accept one updated notice. Existing consents for the old notice are not rewritten.
+- **Alternatives considered:** Separate notice versions per topic mean repeated consent changes and repeated contract, OpenAPI and page updates.
+- **Trade-offs accepted:** The topic-limit notice (G5) waits for the retention policy to be ready.
+- **Revisit when:** The topic-limit notice becomes urgent before the policy decision, or a regulator or the owner requires a different consent flow.
+- **Status:** active (owner approved 2026-11-04). The notice text, version id and rollout are not started.

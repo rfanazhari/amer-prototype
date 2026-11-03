@@ -21,3 +21,12 @@ Open items found while implementing `CORE-IRT-020`. Each names the decision or s
 
 
 The G14 replacement changes the primary canonical source only. Sideband control, error handling and recording-close confirmation are still needed; IRT T12–T15 do not become Done. Stored audio availability and segment alignment require real proof, and notice/retention/business-wording reconciliation remain explicit gates in the [new design §9](../interview-recording-transcription/technical-design.md#9-risks--open-questions).
+
+## Updates, 2026-11-04
+
+- **G10 closed by owner decision:** [D10](decision-log.md#d10-each-stage-runs-in-its-own-provider-session) keeps one provider session per stage and accepts the handoff pause. The pause is still unmeasured on a multi-stage run. Work: `CORE-IRT-022`..`CORE-IRT-025`.
+- **G9 refined by [D11](decision-log.md#d11-until-coverage-exists-a-stage-is-sealed-by-a-model-statement-labelled-as-such):** the model-stated seal is explicitly interim. Strict `Authorize` with coverage is the target once finalized transcript and coverage exist. Reports label such stages as model-stated.
+- **G7/G8 unchanged:** the stage-end trigger (function call over the sideband) is still `CORE-IRT-021`'s provider part and needs its live spike; nothing moves stages in a running interview yet.
+- **G3/G13 and the first-session prompt:** the duplicate instruction delivery is tracked there and now also by `CORE-IRT-025`.
+- **Decisions of 2026-11-04 (afternoon):** [D12](decision-log.md) bounded wait for close confirmation (timeout value still unset), [D13](decision-log.md) transition signal by polling, [D14](decision-log.md) formal register and a paraphrasable greeting.
+- **G5 (notice does not say the conversation is limited to the interview):** the owner approved handling it inside a single new notice version together with recording and transcription (Candidate Interview decision D4). Wording and version are not drafted and nothing has changed for candidates.

@@ -1,7 +1,7 @@
 # Delivery Baseline
 
-Baseline date: 2026-11-03
-Branch at baseline: `feat/irp`
+Baseline date: 2026-11-04
+Branch at baseline: `feat/irtrec`
 Scope: every feature directory under `docs/services/`
 Project definition (what is built, concepts, goals): [docs/design/core.md](../design/core.md)
 
@@ -38,11 +38,11 @@ Where a capability document front matter says `status: planned`, it describes th
 | F2 | Identity and Access | core-ai | T1–T14, T15, T16, T18–T23 | T17 in progress | **Delivered**, one in-progress task |
 | F3 | Agent Configuration and Publication | core-ai | T1–T14 | none | **Delivered** |
 | F4 | Execution Lifecycle | core-ai | T1–T10 | T11 (needs Document Analyzer) | **Delivered** for interview; second-agent proof open |
-| F5 | Candidate Interview | core-ai | T1–T13 | none | **Delivered** |
-| F6 | Interview Runtime | core-ai | T1–T11, T17–T20 | T21 in progress; T12–T15 blocked; T16 todo | **Partial** |
+| F5 | Candidate Interview | core-ai | T1–T13 | T14–T15 Todo (added 2026-11-04, per-stage voice session) | **Delivered**; T14–T15 extension planned |
+| F6 | Interview Runtime | core-ai | T1–T11, T17–T20, T22 | T21 in progress; T12–T15 blocked; T16 todo; T23–T25 todo (T22–T25 added 2026-11-04) | **Partial** |
 | F7 | Interview Reporting | core-ai | T1–T12 | T13–T15 blocked/deferred | **Partial**, writer/evidence missing and HR routes not mounted |
 | F8 | Voice Session Lifecycle Prototype | live-conversation | T1–T7 | none | **Done as a prototype, then superseded**: its routes are removed from the process |
-| F9 | [Interview Recording and Transcription](core-ai/features/interview-recording-transcription/task-plan.md) | core-ai | none | IRTREC T1–T11 Todo; decision gates in design §9 | **Planned**, no download/transcription pipeline delivered |
+| F9 | [Interview Recording and Transcription](core-ai/features/interview-recording-transcription/task-plan.md) | core-ai | none | IRTREC T1 in progress, T2–T12 Todo (T12 live-event spike added 2026-11-04); decision gates in design §9 | **Planned**, no download/transcription pipeline delivered |
 
 Database schema: manual versioned migrations `000001`–`000013` exist in `migrations/pgsql/`. The root `README.md` states startup requires clean version 13. The Interview Reporting task plan records migration `000013_interview_report_retry_window` as delivered with T10. Recording/transcription proposes the next migration (currently 14), to be rechecked at implementation; that migration does not exist yet.
 
@@ -282,6 +282,8 @@ Sources: `business/capabilities/candidate-interview.md`, `features/candidate-int
 
 **Verification recorded.** `TestCandidateInterviewSlicePostgres` on disposable PostgreSQL 16 covers notice before start, one execution after lost start, coverage refusal at 14m59s vs acceptance at 15m30s, takeover with replaced-tab refusal, early cancel as `CANCELLED`/`candidate_early_stop`, refresh with one execution, and `COMPLETED` view with no report. Browser check used a stand-in session endpoint. The full database suite was not run for T11/T13.
 
+**Planned extension (2026-11-04).** Owner decision D10 (Interview Runtime) gives each stage its own voice session. `CORE-CIN-014` (next-stage session request and transition state) and `CORE-CIN-015` (page opens a new connection per stage) are Todo and depend on Interview Runtime T23/T24 and on decisions D12 and D13 (accepted 2026-11-04). Delivered T1–T13 are unchanged. Until those tasks are the open scope, F5 stays Delivered; it would then be read as Partial.
+
 ## 10. F6 — Interview Runtime (core-ai)
 
 Sources: `business/capabilities/interview-runtime.md`, `features/interview-runtime/task-plan.md`, `features/interview-runtime/todo-gap.md`.
@@ -326,8 +328,12 @@ Sources: `business/capabilities/interview-runtime.md`, `features/interview-runti
 | T14 | Update coverage from finalized speech | **Todo**, blocked on Q1 |
 | T15 | Prove one deliberate reconnect | **Todo**, blocked on Q1 |
 | T16 | Enforce post-handoff activation budget (2 attempts × 30 s within 90 s per stage; decided 2026-11-03) | **Todo** |
+| T22 | Regenerate the Interview Runtime tripack for per-stage sessions (D10, D11) | Done (documentation only, 2026-11-04) |
+| T23–T25 | Seal without advance and open the next stage in a new session; driver waits for close confirmation (decision D12 accepted; the timeout value is not set); per-stage first-session instructions | **Todo** |
 
 **What this means in practice.** A candidate can start a voice session from the page, and the interview can be ended by the candidate through "Selesai" (recorded `COMPLETED`). There is **no transcript ingest, no coverage update from speech, and no automatic stage progression** yet; coverage-based claims in BR-CORE-061 to BR-CORE-063, BR-CORE-067 and BR-CORE-068 are therefore not fully delivered. Open gaps G1–G14 in `todo-gap.md` include the hard-coded position (`Project Manager`), prompt-only scope rules, per-stage session pause (~2.4 s), unstored closing questions, and no implemented transcript source after session close. G14's earlier sideband-primary direction is superseded by the owner-approved F9 recording-source plan; sideband controls/errors remain separate work. F9 does not mark IRT T12–T15 Done.
+
+**Per-stage sessions (owner decisions 2026-11-04).** D10: one provider session per stage (closes G10; replaces the same-session advance of `CompleteStage` for non-closing stages). D11: an interim model-stated stage seal, labelled in reports, until coverage exists; strict `Authorize` stays the target, and the trigger is a model function call over the sideband still pending the T21 spike. New tasks: T22 (regenerate the tripack) is Done as documentation only on 2026-11-04; T23 (seal without advance, open next stage in a new session), T24 (driver waits for close confirmation; decision D12 accepted, timeout value not set) and T25 (first-session instructions) are Todo. No code for them is written. Stage progression is still not enforced in a running interview.
 
 ## 11. F7 — Interview Reporting (core-ai)
 
@@ -413,6 +419,8 @@ Sources: [technical design](core-ai/features/interview-recording-transcription/t
 
 **Plan:** T1 provider feasibility; T2 recording/notice/retention, dispatch and business-authority reconciliation; T3 domain/ports; T4 manual migration; T5 repository; T6 recording/finalization; T7 download/transcriber/worker; T8 durable broker; T9 completion/runtime wiring; T10 reporting contract handoff; T11 end-to-end proof. Provider timing/alignment and account access, storage/retention policy, broker isolation and pre-completion transcript wording remain explicit readiness gates. No new BR IDs are invented; BR-CORE-067/068 and reporting BR-CORE-083 are intended beneficiaries. Original H-09 semantics still need reconciliation because final transcription occurs after completion.
 
+**Update 2026-11-04.** `CORE-IRTREC-012` (live-event spike) was added. The per-stage proposal's D5, which would make live sideband events the primary transcript source and keep recordings for audit and recovery, is proposed and not accepted; the spike decides it. The owner-selected recording direction above stays active until then.
+
 ## 13. Cross-feature dependencies
 
 ```
@@ -494,6 +502,8 @@ Use-case IDs are introduced for this baseline (they are not in the source docume
 
 The sources disagree in places. This baseline follows the task plans (section 2). The items below should be fixed in the source documents.
 
+Items 1 to 4 (`core-ai/README.md`) were corrected on 2026-11-04 and are kept as a record. Items 5 to 7 are unchanged by that correction, except that the duplicate T17 entry in item 7 was no longer found in the Identity and Access task plan on that date (one `[~]` T17 line).
+
 | # | Document | Says | Task plan / other source says |
 | --- | --- | --- | --- |
 | 1 | `core-ai/README.md` | Startup accepts clean schema version 9; Interview Runtime and Reporting are "Planned. Nothing implemented." | Root `README.md` requires version 13. Runtime T1–T11, T17–T20 Done; Reporting T1–T12 Done per its current plan. |
@@ -533,6 +543,9 @@ Newest first. Add a row for every update, and change the date at the top of the 
 
 | Version | Date | Author | Change |
 | --- | --- | --- | --- |
+| 1.5 | 2026-11-04 | Claude | Record owner decisions D12 (bounded close-confirmation wait), D13 (transition signal by polling), D14 (formal register, paraphrasable greeting) and Candidate Interview D4 (single new notice version). D5 stays proposed. No implementation evidence. |
+| 1.4 | 2026-11-04 | Claude | Mark Interview Runtime T22 Done (tripack regenerated for D10/D11, documentation only); note the corrected `core-ai/README.md`. T23–T25 stay Todo. |
+| 1.3 | 2026-11-04 | Claude | Record owner decisions D10/D11 (per-stage sessions, interim model-stated seal); add planned IRT T22–T25, CIN T14–T15, IRTREC T12; set the date and branch. No implementation evidence; D5/D6/D8 remain proposed. |
 | 1.2 | 2026-11-03 | Codex | Record IRTREC ticket mapping CORE-IRTREC-001–011; all tasks remain Todo. |
 | 1.1 | 2026-11-03 | Codex | Add planned F9 and async backend-only recording/evidence dependencies; record G14 source replacement; refresh IRP T10–T12 status from current task plan and correct existing transcript-table fact. No new implementation evidence. |
 | 1.0 | 2026-11-03 | rfanazhari | Initial baseline of all features under `docs/services/` (F1–F8): rules, task status, routes, use case catalogue, documentation inconsistencies. |

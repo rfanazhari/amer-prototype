@@ -20,7 +20,7 @@ Business-driven technical decisions for the additional feature. These are planni
 - **Alternatives considered:** Keeping sideband transcript events as primary would retain G14 but would not implement the owner's chosen source. Running two independent primary transcripts would leave conflicting evidence to reconcile.
 - **Trade-offs accepted:** Provider storage permission, candidate notice, retention and transcription timing must be settled before rollout. Old sessions cannot be made recorded retroactively. No successful recording download is claimed yet.
 - **Revisit when:** Stored recording cannot preserve the required interview evidence or the approved data policy prohibits it.
-- **Status:** active; supersedes G14's source direction only. It does not supersede live control/error-reading requirements or claim streaming-finality Q1 is solved.
+- **Status:** active, under review: the [per-stage proposal](proposal-per-stage-live-transcript.md) (D5) would make live sideband events the primary source and keep recordings for audit and recovery. Nothing changes until the spike (`CORE-IRTREC-012`) result and an owner decision. Supersedes G14's source direction only. It does not supersede live control/error-reading requirements or claim streaming-finality Q1 is solved.
 
 ## D3: Download is a backend processing step
 

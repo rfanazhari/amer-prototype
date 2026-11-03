@@ -2,7 +2,7 @@
 
 Technical choices in this feature that exist because of business decisions. Each entry says why, what candidates and HR will experience, and when to reconsider it.
 
-The rules `BR-CORE-060` through `BR-CORE-071` are planned. These decisions do not mean the interview already behaves this way.
+The rules `BR-CORE-060` through `BR-CORE-071` are partially implemented; the task plan is the status authority. These decisions do not mean the interview already behaves this way, and D10 and D11 (2026-11-04) describe behavior that is planned, not built.
 
 ## D1: The interview workflow allows a stage change; the voice model only suggests it
 
@@ -93,3 +93,53 @@ The rules `BR-CORE-060` through `BR-CORE-071` are planned. These decisions do no
 - **Trade-offs accepted:** HR cannot set a different follow-up count per revision until configuration gains that field. The screening spare-time check used at publication remains a publishing rule, not a second live counter.
 - **Revisit when:** Product adds an explicit follow-up limit to the published revision. Runs already activated keep the limit they stored.
 - **Status:** active
+
+## D10: Each stage runs in its own provider session
+
+- **Business driver:** `BR-CORE-066` (a stage boundary is a real break in the provider conversation), `BR-CORE-065` (the next stage rests on a stored handoff), and `BR-CORE-067`/`BR-CORE-068` (the record and its evidence must be traceable per stage). Owner decision 2026-11-04, from the per-stage proposal in [Recording/Transcription](../interview-recording-transcription/proposal-per-stage-live-transcript.md).
+- **Technical decision:** Keep one provider Live session per stage. A stage ends by sealing its handoff, then closing the old session, then opening and activating the next one through `OpenStage`/`ActivateStage`. A replacement after a fault stays in the same stage (`BR-CORE-069`). The earlier option of one long session switched by `session.update` is rejected, and `Workflow.CompleteStage` must stop advancing the stage inside the same session for non-closing stages (see `CORE-IRT-023`).
+- **What this means for the product:** HR sees transcript and evidence tied to a stage without guessing where it began. The candidate hears a short pause and a new connection at each of the three handoffs.
+- **Alternatives considered:** One session for the whole interview with a stage marker on its timeline. It avoids the pause, but the marker is only an estimate and an utterance crossing the boundary needs an assignment rule. It would also have required changing `BR-CORE-066`.
+- **Trade-offs accepted:** About 2.4 seconds of setup per handoff (todo-gap G10, measured once, not re-measured), up to three pauses per interview, handoff context instead of provider memory, and possibly more provider cost (not measured). The candidate page should show a short "continuing to the next stage" cue during the pause (`CORE-CIN-015`).
+- **Revisit when:** The pause measured in a multi-stage run is unacceptable to the owner, or provider cost per session is material.
+- **Status:** active (owner approved 2026-11-04). Closes todo-gap G10. Implementation is Todo: `CORE-IRT-022`..`CORE-IRT-025`. Not yet reflected in [technical-design.md](technical-design.md) sections 3, 5, 6 and 9 or in the tactical strategy; they are regenerated under `CORE-IRT-022`.
+
+## D11: Until coverage exists, a stage is sealed by a model statement, labelled as such
+
+- **Business driver:** `BR-CORE-064` and `BR-CORE-065` define the target: the model proposes, and coverage, time and policy decide. Coverage cannot be computed yet because it needs finalized transcript (T13/T14, blocked on Q1). Owner decision 2026-11-04, confirming the G9 direction.
+- **Technical decision:** Two phases. Now: `Attest` seals the stage after checking order, the stage clock and the hard deadline, without coverage. Target: the strict `Authorize` path with coverage, enabled once finalized transcript and coverage exist. The trigger is a model function call over the sideband (`complete_stage`, T21 provider part), validated by the backend; the browser never chooses the stage (todo-gap G7). If that call cannot be proven on the account, a backend-owned trigger is the fallback and is decided separately.
+- **What this means for the product:** Interviews can move through all four stages. Reports label a stage sealed this way as model-stated, not as coverage-verified, and an unanswered question stays visible as unanswered.
+- **Alternatives considered:** Waiting for strict coverage first leaves no way to change stages. Keeping `Attest` permanently would empty `BR-CORE-064`.
+- **Trade-offs accepted:** `BR-CORE-064`/`BR-CORE-065` are met only in their interim reading until coverage exists; the capability document carries a matching interim note. A model statement is not evidence that a question was answered (todo-gap G9).
+- **Revisit when:** Finalized transcript and coverage (T13/T14) exist, then enable `Authorize` and retire the interim reading.
+- **Status:** active (owner approved 2026-11-04). The provider-facing trigger is still `CORE-IRT-021` and needs its live spike. The proposal's D6 (finalization wait) and D8 (transition signal by polling) were accepted afterwards on 2026-11-04 as D12 and D13.
+
+## D12: The driver waits a bounded time for the provider's close confirmation, then moves on
+
+- **Business driver:** `BR-CORE-065` (the next stage rests on a stored record), `BR-CORE-067` (the record must say what is known and what is missing), and the candidate not being held indefinitely during a handoff. Owner decision 2026-11-04 (the per-stage proposal's D6).
+- **Technical decision:** After the source session is asked to close, the driver waits a bounded time for the provider's close confirmation (`session.closed`) while still reading events. If it does not arrive, the session is marked "finalization unconfirmed", the interview continues to the next stage, and the gap is recoverable from the stored recording. Success is never reported for that session. The timeout value is not set; it comes from a measured confirmation time (Recording and Transcription `CORE-IRTREC-012`) or an owner-set value.
+- **What this means for the product:** The candidate does not wait on a provider that never confirms. HR sees an honest "not confirmed" marker instead of a silent assumption.
+- **Alternatives considered:** Waiting without a limit can hold the candidate indefinitely. Not waiting at all, as `Driver.Close` does today, loses events that arrive after the request and cannot tell a finalized session from an unconfirmed one.
+- **Trade-offs accepted:** Events arriving after a timeout may be absent from the live record; the recording is the recovery source. The confirmation event name is confirmed against a reviewed record, not assumed.
+- **Revisit when:** Measured confirmation times show the wait is routinely too short or too long, or the provider documents a different finalization signal.
+- **Status:** active (owner approved 2026-11-04). Implementation `CORE-IRT-024` is Todo and still needs the timeout value.
+
+## D13: The page learns of a stage transition by polling
+
+- **Business driver:** `BR-CORE-046` (refreshing returns to the same interview) and `BR-CORE-043` (the candidate sees only this interview). Owner decision 2026-11-04 (the per-stage proposal's D8).
+- **Technical decision:** The candidate-safe state returned by `GET /candidate/executions/{id}` gains a transition state. The page polls it, as it already polls progress; no SSE or push channel is added. The browser never chooses the stage, and the state carries no transcript text, coverage, salary or report. The exact shape is set in `CORE-CIN-014` together with the OpenAPI, endpoint documentation and changelog.
+- **What this means for the product:** A refresh during a handoff returns to the same point; the page needs no new connection type.
+- **Alternatives considered:** SSE or WebSocket push is faster but adds a transport and a reconnect path the page does not have.
+- **Trade-offs accepted:** The page notices a transition up to one polling interval late.
+- **Revisit when:** Measured delay at handoff matters to the pause the candidate perceives (D10, Q9).
+- **Status:** active (owner approved 2026-11-04). Implementation `CORE-CIN-014`/`015` is Todo.
+
+## D14: First-session instructions use the formal register, and the greeting may be paraphrased
+
+- **Business driver:** An HR interview is a formal setting; consent is taken on the page before any session starts (`BR-CORE-040`), so the spoken opening does not need to be verbatim. Owner decision 2026-11-04, following the prompting review in the per-stage proposal (section 5a).
+- **Technical decision:** Instructions are written in the spoken language (Bahasa Indonesia) addressing the candidate formally ("Anda"). The opening stays an instruction line that the model may paraphrase. If a future disclosure must be spoken verbatim, use application-controlled playback for that text only.
+- **What this means for the product:** The interviewer sounds consistent and formal. The exact greeting wording can vary between interviews.
+- **Alternatives considered:** The informal "kamu" the model used in an earlier sample, and application-played fixed greetings (more control, more moving parts).
+- **Trade-offs accepted:** No two greetings are word-for-word identical.
+- **Revisit when:** A legal or policy text must be heard exactly, or HR asks for a different register.
+- **Status:** active (owner approved 2026-11-04). Implementation is part of `CORE-IRT-025`.

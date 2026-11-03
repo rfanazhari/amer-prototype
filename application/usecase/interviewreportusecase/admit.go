@@ -5,7 +5,6 @@ import (
 	"errors"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/rfanazhari/amer-prototype/application/dto"
 	"github.com/rfanazhari/amer-prototype/application/repository/interviewreportport"
 	"github.com/rfanazhari/amer-prototype/application/service"
@@ -80,12 +79,7 @@ func (u Admit) Execute(ctx context.Context, input AdmitInput) (*dto.ReportGenera
 }
 
 // mint returns the next identity from NewID, or a random UUID when none is injected.
-func (u Admit) mint() string {
-	if u.NewID != nil {
-		return u.NewID()
-	}
-	return uuid.NewString()
-}
+func (u Admit) mint() string { return mintID(u.NewID) }
 
 // trustedNow returns the clock instant as UTC at millisecond precision.
 func trustedNow(clock service.Clock) time.Time { return clock.Now().UTC().Truncate(time.Millisecond) }

@@ -82,3 +82,32 @@ func NewReportGeneration(g interviewreport.Generation) ReportGeneration {
 	}
 	return view
 }
+
+// NewReportAccount copies the statements of a succeeded generation into a detached account.
+// A statement presented as an answer becomes an observation with its citation. A gap carries no
+// evidence. Every other statement, including an observation that is not presented as an answer,
+// becomes an uncertainty so it is never rendered as an answer.
+func NewReportAccount(g interviewreport.Generation) ReportAccount {
+	account := ReportAccount{
+		GenerationID: g.ID, Observations: []ReportObservation{}, Gaps: []ReportGap{}, Uncertainties: []ReportUncertainty{},
+	}
+	for _, st := range g.Statements {
+		citation := st.Citation()
+		switch {
+		case st.Kind() == interviewreport.KindGap:
+			account.Gaps = append(account.Gaps, ReportGap{Body: st.Body()})
+		case st.PresentsAsAnswer():
+			account.Observations = append(account.Observations, ReportObservation{
+				Body: st.Body(), EvidenceEntryID: citation.EntryID, EvidenceRevision: citation.Revision,
+			})
+		default:
+			uncertainty := ReportUncertainty{Body: st.Body()}
+			if citation != nil {
+				uncertainty.EvidenceEntryID = &citation.EntryID
+				uncertainty.EvidenceRevision = &citation.Revision
+			}
+			account.Uncertainties = append(account.Uncertainties, uncertainty)
+		}
+	}
+	return account
+}

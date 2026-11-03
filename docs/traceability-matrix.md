@@ -27,7 +27,7 @@ Criteria text is from the [scope freeze §7](design/core-ai/shared_ai_agent_plat
 
 **Acceptance is a separate question.** The technical design (§13) states that all planned evidence mappings are not yet established, and that skipped database tests are not database verification. No row below is an accepted pass of the MVP gate. "Implemented" means the capability exists with recorded task-level evidence, not that the criterion was formally signed off.
 
-Task notation: `ACP` Agent Configuration and Publication, `IAM` Identity and Access, `EXL` Execution Lifecycle, `CIN` Candidate Interview, `IRT` Interview Runtime, `IRP` Interview Reporting, `IRTREC` [Interview Recording and Transcription](services/core-ai/features/interview-recording-transcription/task-plan.md) (planned). IRTREC IDs are local planning IDs without allocated implementation tickets. `T11` after a prefix means task 11 of that feature, for example `ACP T11` is `CORE-ACP-011`.
+Task notation: `ACP` Agent Configuration and Publication, `IAM` Identity and Access, `EXL` Execution Lifecycle, `CIN` Candidate Interview, `IRT` Interview Runtime, `IRP` Interview Reporting, `IRTREC` [Interview Recording and Transcription](services/core-ai/features/interview-recording-transcription/task-plan.md) (planned). IRTREC T1–T11 map to repository planning tickets `CORE-IRTREC-001`–`CORE-IRTREC-011`; no external tracker tickets have been created. `T11` after a prefix means task 11 of that feature, for example `ACP T11` is `CORE-ACP-011`.
 
 ## 2. Summary
 
@@ -172,5 +172,6 @@ Newest first. Add a row for every update, and change the date at the top of the 
 
 | Version | Date | Author | Change |
 | --- | --- | --- | --- |
+| 1.2 | 2026-11-03 | Codex | Link IRTREC T1–T11 to CORE-IRTREC-001–011 planning ticket identities; no scope or delivery-status changes. |
 | 1.1 | 2026-11-03 | Codex | Trace planned IRTREC tasks to transcript/evidence/recovery gaps; record asynchronous H-09 reconciliation and G14 replacement. Refresh IRP T10–T12 status from current plan. No new acceptance pass or changed summary counts. |
 | 1.0 | 2026-11-03 | rfanazhari | Initial matrix: P-01–12, H-01–12, D-01–08, INV-01–09, negative-path set, rule-to-capability gaps, deviations. Based on baseline v1.0 and core v1.0. |

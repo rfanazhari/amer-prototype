@@ -405,7 +405,7 @@ Sources: `live-conversation/business/capabilities/voice-session-lifecycle-protot
 
 Sources: [technical design](core-ai/features/interview-recording-transcription/technical-design.md), [strategy](core-ai/features/interview-recording-transcription/tactical-strategy.md), [task plan](core-ai/features/interview-recording-transcription/task-plan.md), [decision log](core-ai/features/interview-recording-transcription/decision-log.md).
 
-**Status:** Planned. IRTREC T1–T11 are all Todo; no live download, transcription, migration or worker verification is claimed. This is an additive extension of F6, with its own post-completion lifecycle, not the report writer of F7 T13.
+**Status:** Planned. IRTREC T1–T11 map to repository planning tickets `CORE-IRTREC-001`–`CORE-IRTREC-011` (no external tracker tickets created) and are all Todo; no live download, transcription, migration or worker verification is claimed. This is an additive extension of F6, with its own post-completion lifecycle, not the report writer of F7 T13.
 
 **Owner-selected behavior (2026-11-03):** after COMPLETED commits, background workers wait for finalized stored recordings, download all provider sessions (including before reconnect), transcribe both audio channels and publish a complete evidence revision. Candidate completion does not wait. Downloads are backend-only: no HR/candidate download endpoint or UI. Recording replaces G14's primary sideband transcript source; it does not replace control/error handling.
 
@@ -533,5 +533,6 @@ Newest first. Add a row for every update, and change the date at the top of the 
 
 | Version | Date | Author | Change |
 | --- | --- | --- | --- |
+| 1.2 | 2026-11-03 | Codex | Record IRTREC ticket mapping CORE-IRTREC-001–011; all tasks remain Todo. |
 | 1.1 | 2026-11-03 | Codex | Add planned F9 and async backend-only recording/evidence dependencies; record G14 source replacement; refresh IRP T10–T12 status from current task plan and correct existing transcript-table fact. No new implementation evidence. |
 | 1.0 | 2026-11-03 | rfanazhari | Initial baseline of all features under `docs/services/` (F1–F8): rules, task status, routes, use case catalogue, documentation inconsistencies. |

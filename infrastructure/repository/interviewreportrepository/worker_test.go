@@ -30,6 +30,7 @@ func expectWorkerReport(m sqlmock.Sqlmock) {
 // TestStoreFinishAttempt proves report-only atomic writes, stale fences, failed output and rollback error propagation with sqlmock.
 func TestStoreFinishAttempt(t *testing.T) {
 	failure := errors.New("write failed")
+	// testCase describes one independent public behavior scenario.
 	type testCase struct {
 		name      string
 		wantErr   bool
@@ -101,6 +102,22 @@ func TestStoreWorkerWaiting(t *testing.T) {
 		m.ExpectExec(`UPDATE "interview_report_jobs" SET`).WithArgs(0, nil, nil, admittedAt.Add(30*time.Second), int64(1), "waiting", admittedAt, nil, jobID).WillReturnResult(sqlmock.NewResult(0, 1))
 		m.ExpectCommit()
 		_, err := s.ClaimAttempt(context.Background(), jobID, false, admittedAt)
+		assert.ErrorIs(t, err, interviewreportport.ErrNothingToClaim)
+	}}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) { s, m := sqlStore(t); tt.run(t, s, m) })
+	}
+}
+
+// TestStoreTerminalWorkerDuplicate proves timezone normalization cannot reopen or rewrite an expired generation.
+func TestStoreTerminalWorkerDuplicate(t *testing.T) {
+	tests := []storeCase{{name: "expired duplicate is a read-only no-op", run: func(t *testing.T, s interviewreportrepository.Store, m sqlmock.Sqlmock) {
+		local := admittedAt.In(time.FixedZone("database", 7*3600))
+		m.ExpectBegin()
+		m.ExpectQuery(`SELECT .* FROM "interview_report_generations".*FOR UPDATE`).WithArgs(jobID, 1).WillReturnRows(sqlmock.NewRows(generationColumns).AddRow(generationID, reportID, 1, "failed", "evidence_unavailable", local, local.Add(30*time.Minute)))
+		m.ExpectQuery(`FROM interview_report_jobs WHERE id = \$1 FOR UPDATE SKIP LOCKED`).WithArgs(jobID).WillReturnRows(sqlmock.NewRows(jobColumns).AddRow(jobID, generationID, "expired", 0, int64(1), local, local.Add(30*time.Minute), nil, nil, local, nil, local.Add(30*time.Minute)))
+		m.ExpectCommit()
+		_, err := s.ClaimAttempt(context.Background(), jobID, true, admittedAt.Add(31*time.Minute))
 		assert.ErrorIs(t, err, interviewreportport.ErrNothingToClaim)
 	}}}
 	for _, tt := range tests {

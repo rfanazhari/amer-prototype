@@ -154,14 +154,14 @@ func TestInterviewRuntimeChecksums(t *testing.T) {
 		require.Equal(t, want, sums[name], name)
 		require.Contains(t, manifest, want+"  migrations/pgsql/"+name)
 	}
-	require.Len(t, sums, 24, "versions 1 through 12, up and down")
+	require.Len(t, sums, 26, "versions 1 through 13, up and down")
 	require.Equal(t, "62358cb4826c1e61a21d863ab0ad0b703f914f728ea03b1ab37c01e1317d8b6c", sums["000009_candidate_interview.up.sql"])
 	require.Equal(t, "2ad92faa7bfe6703259da7b01906531f98376b29f02450420c621db088b7f20f", sums["000009_candidate_interview.down.sql"])
 }
 
-// TestReleaseVersionGuardsCleanTwelve proves the clean schema floor, grants, and operator messages.
-func TestReleaseVersionGuardsCleanTwelve(t *testing.T) {
-	require.Equal(t, 12, schema.ReleaseVersion)
+// TestReleaseVersionGuardsCleanThirteen proves the clean schema floor, grants, and operator messages.
+func TestReleaseVersionGuardsCleanThirteen(t *testing.T) {
+	require.Equal(t, 13, schema.ReleaseVersion)
 	require.Subset(t, schema.RuntimeGrantTables, interviewRuntimeTables)
 	require.Subset(t, schema.RuntimeGrantTables, candidateInterviewTables, "version 9 grants stay")
 
@@ -172,12 +172,12 @@ func TestReleaseVersionGuardsCleanTwelve(t *testing.T) {
 		want    string
 		wantErr bool
 	}{
-		{name: "unreadable", err: errors.New("private"), want: "clean version 12", wantErr: true},
-		{name: "floor nine is refused", rows: sqlmock.NewRows([]string{"version", "dirty"}).AddRow(9, false), want: "require clean version 12", wantErr: true},
-		{name: "future is refused", rows: sqlmock.NewRows([]string{"version", "dirty"}).AddRow(13, false), want: "require clean version 12", wantErr: true},
-		{name: "dirty is refused", rows: sqlmock.NewRows([]string{"version", "dirty"}).AddRow(12, true), want: "require clean version 12", wantErr: true},
-		{name: "ambiguous", rows: sqlmock.NewRows([]string{"version", "dirty"}).AddRow(12, false).AddRow(12, false), want: "exactly one clean version 12", wantErr: true},
-		{name: "clean twelve", rows: sqlmock.NewRows([]string{"version", "dirty"}).AddRow(12, false)},
+		{name: "unreadable", err: errors.New("private"), want: "clean version 13", wantErr: true},
+		{name: "floor nine is refused", rows: sqlmock.NewRows([]string{"version", "dirty"}).AddRow(9, false), want: "require clean version 13", wantErr: true},
+		{name: "future is refused", rows: sqlmock.NewRows([]string{"version", "dirty"}).AddRow(14, false), want: "require clean version 13", wantErr: true},
+		{name: "dirty is refused", rows: sqlmock.NewRows([]string{"version", "dirty"}).AddRow(13, true), want: "require clean version 13", wantErr: true},
+		{name: "ambiguous", rows: sqlmock.NewRows([]string{"version", "dirty"}).AddRow(13, false).AddRow(13, false), want: "exactly one clean version 13", wantErr: true},
+		{name: "clean thirteen", rows: sqlmock.NewRows([]string{"version", "dirty"}).AddRow(13, false)},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -200,38 +200,38 @@ func TestReleaseVersionGuardsCleanTwelve(t *testing.T) {
 	}
 
 	runner := schema.Runner{}
-	_, _, err := runner.Execute(context.Background(), schema.Options{Action: "up", Version: 13})
-	require.ErrorContains(t, err, "1 through 12")
+	_, _, err := runner.Execute(context.Background(), schema.Options{Action: "up", Version: 14})
+	require.ErrorContains(t, err, "1 through 13")
 	_, _, err = runner.Execute(context.Background(), schema.Options{Action: "up", Version: 12})
 	require.EqualError(t, err, "database required")
 	_, _, err = runner.Execute(context.Background(), schema.Options{Action: "down", Steps: 12, Disposable: true})
 	require.EqualError(t, err, "database required")
 }
 
-// TestOperationalFilesRequireVersionTwelve proves operator-facing files move to the same floor.
-func TestOperationalFilesRequireVersionTwelve(t *testing.T) {
+// TestOperationalFilesRequireVersionThirteen proves operator-facing files move to the same floor.
+func TestOperationalFilesRequireVersionThirteen(t *testing.T) {
 	makefile := readRepoFile(t, "Makefile")
-	require.Contains(t, makefile, "version=12 dirty=false")
-	require.Contains(t, makefile, "make docker.migrate MIGRATION_VERSION=12")
+	require.Contains(t, makefile, "version=13 dirty=false")
+	require.Contains(t, makefile, "make docker.migrate MIGRATION_VERSION=13")
 	require.NotContains(t, makefile, "version=9 dirty=false")
 	require.NotContains(t, makefile, "MIGRATION_VERSION=9")
 
 	compose := readRepoFile(t, "scripts", "verify_compose.py")
-	require.Contains(t, compose, "MIGRATION_VERSION=12")
+	require.Contains(t, compose, "MIGRATION_VERSION=13")
 	require.NotContains(t, compose, "MIGRATION_VERSION=9")
 	require.NotContains(t, compose, `"MIGRATION_VERSION"] = "9"`)
 	require.NotContains(t, compose, "retained version 9")
 
 	readme := readRepoFile(t, "README.md")
-	require.Contains(t, readme, "clean version 12")
-	require.Contains(t, readme, "MIGRATION_VERSION=12")
-	require.Contains(t, readme, "(version 12)")
+	require.Contains(t, readme, "clean version 13")
+	require.Contains(t, readme, "MIGRATION_VERSION=13")
+	require.Contains(t, readme, "(version 13)")
 	require.NotContains(t, readme, "clean version 9")
 	require.NotContains(t, readme, "MIGRATION_VERSION=9")
 	require.NotContains(t, readme, "1 through 9")
 
 	runbook := readRepoFile(t, "docs", "design", "database-migrations.md")
-	require.Contains(t, runbook, "clean version 12 only")
+	require.Contains(t, runbook, "clean version 13 only")
 	require.Contains(t, runbook, "CORE-IRT-004")
 	require.Contains(t, runbook, "## Version 10: interview runtime")
 	require.Contains(t, runbook, "000010_interview_runtime")
@@ -255,7 +255,7 @@ func TestInterviewRuntimeMigrationOnPostgres(t *testing.T) {
 		migrateTo(t, runner, 9)
 		require.Equal(t, 1, countRows(t, db, "interview_executions"))
 		migrateTo(t, runner, 10)
-		require.ErrorContains(t, schema.RequireCompatible(ctx, db), "clean version 12")
+		require.ErrorContains(t, schema.RequireCompatible(ctx, db), "clean version 13")
 		require.Equal(t, 1, countRows(t, db, "interview_executions"), "existing pins stay")
 		for _, table := range interviewRuntimeTables {
 			require.Zero(t, countRows(t, db, table), table)

@@ -18,6 +18,7 @@ import (
 func TestWorkerExecute(t *testing.T) {
 	now := time.Date(2026, 11, 3, 0, 0, 0, 0, time.UTC)
 	failure := errors.New("dependency failed")
+	// testCase describes one independent public behavior scenario.
 	type testCase struct {
 		name                    string
 		wantErr                 bool
@@ -86,6 +87,7 @@ func TestWorkerExecute(t *testing.T) {
 
 // TestWorkerReconcile rechecks finalized evidence and schedules jobs without spending a provider attempt.
 func TestWorkerReconcile(t *testing.T) {
+	// testCase describes one independent public behavior scenario.
 	type testCase struct {
 		name    string
 		final   bool
@@ -107,7 +109,9 @@ func TestWorkerReconcile(t *testing.T) {
 			}
 			evidence.On("Finalized", mock.Anything, "execution").Return(entries, nil)
 			store.On("ReconcileJob", mock.Anything, "job", tt.final, now).Return(nil)
-			assert.NoError(t, u.Reconcile(context.Background(), 10))
+			err := u.Reconcile(context.Background(), 10)
+			assert.Equal(t, tt.wantErr, err != nil)
+			assert.NoError(t, err)
 			writer.AssertNotCalled(t, "Write", mock.Anything, mock.Anything)
 		})
 	}

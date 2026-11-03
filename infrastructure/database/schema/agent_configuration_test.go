@@ -196,7 +196,8 @@ func TestPopulatedVersionThreeBaselinesWithoutRewrite(t *testing.T) {
 	require.NoError(t, err)
 	version, dirty, err = runner.Execute(context.Background(), schema.Options{Action: "baseline"})
 	require.NoError(t, err)
-	require.Equal(t, schema.ReleaseVersion, version)
+	// Table-based reporting adoption stamps 12; the constraint-only correction is safely reapplied below.
+	require.Equal(t, 12, version)
 	require.False(t, dirty)
 	version, dirty, err = runner.Execute(context.Background(), schema.Options{Action: "up", Version: schema.ReleaseVersion})
 	require.NoError(t, err)

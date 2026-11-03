@@ -126,7 +126,7 @@ func TestInterviewReportingChecksums(t *testing.T) {
 		require.Equal(t, want, sums[name], name)
 		require.Contains(t, manifest, want+"  migrations/pgsql/"+name)
 	}
-	require.Len(t, sums, 24, "versions 1 through 12, up and down")
+	require.Len(t, sums, 26, "versions 1 through 13, up and down")
 	require.Equal(t, "bf1bde8379e4f705be46a238bee5744e746380195a164b37fd73421d9e55cdce", sums["000010_interview_runtime.up.sql"])
 	require.Equal(t, "8af2b71e7103d14326e475b885dc86c4c2ec558e124c3c20846c45e73f81702f", sums["000010_interview_runtime.down.sql"])
 	require.Equal(t, "7a4c38363aec441b9c755abd456eef7a1e709f44d57da4f5317058326224c9f5", sums["000011_interview_runtime_integration.up.sql"])
@@ -135,12 +135,12 @@ func TestInterviewReportingChecksums(t *testing.T) {
 
 // TestReportingReleaseGrantsAndRunbook proves the schema floor and runtime grants include reporting.
 func TestReportingReleaseGrantsAndRunbook(t *testing.T) {
-	require.Equal(t, 12, schema.ReleaseVersion)
+	require.Equal(t, 13, schema.ReleaseVersion)
 	require.Subset(t, schema.RuntimeGrantTables, interviewReportingTables)
 	require.Subset(t, schema.RuntimeGrantTables, interviewRuntimeTables, "version 10 grants stay")
 
 	runbook := readRepoFile(t, "docs", "design", "database-migrations.md")
-	require.Contains(t, runbook, "clean version 12 only")
+	require.Contains(t, runbook, "clean version 13 only")
 	require.Contains(t, runbook, "000012_interview_reporting")
 	require.Contains(t, runbook, "Versions 1–11 are immutable")
 }
@@ -160,7 +160,7 @@ func TestInterviewReportingMigrationOnPostgres(t *testing.T) {
 		require.False(t, present, table+" is absent at version 11")
 	}
 	migrateTo(t, runner, 12)
-	require.NoError(t, schema.RequireCompatible(ctx, db))
+	require.ErrorContains(t, schema.RequireCompatible(ctx, db), "clean version 13")
 	for _, table := range interviewReportingTables {
 		require.Equal(t, 0, countRows(t, db, table), table+" starts empty")
 	}
@@ -219,7 +219,7 @@ func TestInterviewReportingMigrationOnPostgres(t *testing.T) {
 	require.Equal(t, 1, countRows(t, db, "interview_executions"), "down keeps the execution pin")
 	require.Equal(t, 1, countRows(t, db, "interview_assignments"), "down keeps the assignment")
 	migrateTo(t, runner, 12)
-	require.NoError(t, schema.RequireCompatible(ctx, db))
+	require.ErrorContains(t, schema.RequireCompatible(ctx, db), "clean version 13")
 
 	t.Run("baseline recognizes reporting tables", func(t *testing.T) {
 		require.NoError(t, exec(t, `DROP TABLE schema_migrations`))

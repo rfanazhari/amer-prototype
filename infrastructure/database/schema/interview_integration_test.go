@@ -15,7 +15,7 @@ func TestInterviewIntegrationMigrationPostgres(t *testing.T) {
 	t.Run("fresh install creates the release", func(t *testing.T) {
 		resetSchema(t, db)
 		migrateTo(t, runner, 11)
-		migrateTo(t, runner, 12)
+		migrateTo(t, runner, schema.ReleaseVersion)
 		require.NoError(t, schema.RequireCompatible(ctx, db))
 	})
 	t.Run("populated ten upgrade and disposable down preserve pins and original rows", func(t *testing.T) {
@@ -48,7 +48,7 @@ func TestInterviewIntegrationMigrationPostgres(t *testing.T) {
 		require.Equal(t, 1, countRows(t, db, "interview_progress"))
 		require.Equal(t, 1, countRows(t, db, "interview_executions"))
 		migrateTo(t, runner, 11)
-		migrateTo(t, runner, 12)
+		migrateTo(t, runner, schema.ReleaseVersion)
 		require.NoError(t, schema.RequireCompatible(ctx, db))
 	})
 	t.Run("baseline recognizes integration columns", func(t *testing.T) {

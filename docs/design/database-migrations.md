@@ -1,6 +1,6 @@
 # PostgreSQL migration operations
 
-Release target: **clean version 12 only**. Tickets: CORE-IAM-018–020, CORE-ACP-004, CORE-EXL-003, CORE-CIN-004, CORE-IRT-004, CORE-IRP-003, and Interview assignment/execution, shared execution lifecycle, candidate interview consent/controller, and interview runtime progress SQL; policy: Identity Access D8.
+Release target: **clean version 13 only**. Tickets: CORE-IAM-018–020, CORE-ACP-004, CORE-EXL-003, CORE-CIN-004, CORE-IRT-004, CORE-IRP-003, CORE-IRP-010, and Interview assignment/execution, shared execution lifecycle, candidate interview consent/controller, and interview runtime progress SQL; policy: Identity Access D8.
 The migration-aware application reads version/dirty metadata before binding HTTP or bootstrapping ADMIN. It never installs tables or metadata. Missing, empty, unreadable, dirty, older or newer metadata fails startup and closes acquired connections. Startup remains bounded to ten seconds; process shutdown to five seconds.
 
 ## Credentials and artifacts
@@ -22,16 +22,16 @@ Owner-approved exception (2026-11-03, `CORE-IRT-018` follow-up): correct only th
 From the repository root after supplying both connections and the administrative settings documented in README:
 
 ```sh
-make migrate.up MIGRATION_VERSION=12
+make migrate.up MIGRATION_VERSION=13
 make migrate.status
-# Start the application only after version=12 dirty=false.
+# Start the application only after version=13 dirty=false.
 ```
 
 For Compose, configure the local environment, then explicitly prepare the database:
 
 ```sh
 docker compose up -d --wait database
-make docker.migrate MIGRATION_VERSION=12
+make docker.migrate MIGRATION_VERSION=13
 make docker.up
 ```
 
@@ -46,13 +46,13 @@ make docker.up
 
    | Observed state | Command | Expected |
    | --- | --- | --- |
-   | Empty owned schema | `make migrate.up MIGRATION_VERSION=12` | Clean 12 |
-   | Exact Task-only legacy, absent metadata | `make migrate.baseline`, then `make migrate.up MIGRATION_VERSION=12` | Baseline 1, clean 12, Task history retained |
-   | Exact three-table legacy, absent metadata | `make migrate.baseline`, then `make migrate.up MIGRATION_VERSION=12` | Baseline 2, clean 12, all existing rows retained |
-   | Recognized clean 1–11 | `make migrate.up MIGRATION_VERSION=12` | Upgrade or no-op |
+   | Empty owned schema | `make migrate.up MIGRATION_VERSION=13` | Clean 13 |
+   | Exact Task-only legacy, absent metadata | `make migrate.baseline`, then `make migrate.up MIGRATION_VERSION=13` | Baseline 1, clean 13, Task history retained |
+   | Exact three-table legacy, absent metadata | `make migrate.baseline`, then `make migrate.up MIGRATION_VERSION=13` | Baseline 2, clean 13, all existing rows retained |
+   | Recognized clean 1–12 | `make migrate.up MIGRATION_VERSION=13` | Upgrade or no-op |
    | Drift, partial/foreign schema, dirty/unsupported metadata | Stop and investigate | No guessed stamping or automatic force |
 
-5. Run `make migrate.status`; require `version=12 dirty=false`. Verify row equality, creator links, stored hash equality and original expiry/revocation. Baseline never updates business rows or seeds accounts. Empty configuration, candidate, assignment, execution, interview consent/controller and runtime progress tables are additive. Version 8 backfills one `CREATED` shared execution per existing `interview_executions` pin (same id, instance, revision and `created_at`; no commands, operations, attempts or transitions) before it adds `interview_executions_id_fkey`.
+5. Run `make migrate.status`; require `version=13 dirty=false`. Verify row equality, creator links, stored hash equality and original expiry/revocation. Baseline never updates business rows or seeds accounts. Empty configuration, candidate, assignment, execution, interview consent/controller and runtime progress tables are additive. Version 8 backfills one `CREATED` shared execution per existing `interview_executions` pin (same id, instance, revision and `created_at`; no commands, operations, attempts or transitions) before it adds `interview_executions_id_fkey`.
 6. Start the migration-aware binary with the restricted runtime role. Verify health, Task create/start/complete/read, ADMIN login → HR provisioning/login → session/logout, and restart. Bootstrap must preserve existing ADMIN credentials.
 7. Retain the backup, checksum manifest, catalog inspection and sanitized evidence. Release acceptance for candidates, ACP and Interview remains with those owners.
 
@@ -64,13 +64,13 @@ Stop rollout on error. Inspect metadata, SQL transaction outcome and the actual 
 
 Choose reviewed forward repair with explicit preconditions and verified catalog/data postconditions, or restore the verified backup into a separate target and redirect after validation. The disposable acceptance suite demonstrates a cancelled transactional down: proves the original catalog remains, explicitly restores the established version/clean metadata, then checks compatibility and no-op up. That repair is fixture-specific, not a universal production command.
 
-For application rollback, retain the migrated database and start a previously verified migration-aware binary that explicitly supports clean version 12, or unmount configuration routes and start a binary that still accepts the previous clean version while retaining the new tables. The full-stack rehearsal records the exact compatible image, stops it, and later recreates it by immutable image ID against retained version 11 before Task/admin HTTP smoke. A pre-cutover AutoMigrate binary is excluded. Do not run down against retained publication data.
+For application rollback, retain the migrated database and start a previously verified migration-aware binary that explicitly supports clean version 13, or unmount configuration routes and start a binary that still accepts the previous clean version while retaining the new tables. The full-stack rehearsal records the exact compatible image, stops it, and later recreates it by immutable image ID against retained version 11 before Task/admin HTTP smoke. A pre-cutover AutoMigrate binary is excluded. Do not run down against retained publication data.
 
 Destructive reversal is only for disposable databases, after stopping consumers:
 
 ```sh
 make migrate.down MIGRATION_STEPS=1 MIGRATION_DISPOSABLE=yes
-make migrate.up MIGRATION_VERSION=12
+make migrate.up MIGRATION_VERSION=13
 ```
 
 Down deletes affected tables/data; it is never a retained-data recovery mechanism.
@@ -104,3 +104,9 @@ Stop writers, take a restorable backup, apply `make migrate.up MIGRATION_VERSION
 `000012_interview_reporting` adds seven tables: `interview_reports`, `interview_report_generations`, `interview_report_statements`, `interview_report_commands`, `interview_report_jobs`, `interview_report_attempts` and `outbox_messages`. Apply it only after clean version 11: `make migrate.up MIGRATION_VERSION=12`, then `make migrate.status` must show `version=12 dirty=false`. No existing table is altered, no row is backfilled and nothing is seeded. Foreign keys are RESTRICT. A partial unique index allows at most one pending or running generation per report. Statement checks refuse an answer without evidence and a gap with evidence. `outbox_messages.job_kind` admits only `interview_report` in this version.
 
 The application role needs CRUD on the seven new tables in addition to the list above. Startup still performs no DDL. Disposable down drops only these seven tables in dependency order; it never touches assignments, executions, accounts or runtime rows. Populated environments do not run down: keep version 12 and unwire the report workers, or restore a backup taken before version 12. A binary that requires clean version 11 refuses to start on version 12, which is the existing startup guard.
+
+## Version 13: report retry window (CORE-IRP-010)
+
+Owner-approved correction (2026-11-03): `000013_interview_report_retry_window` replaces only `interview_report_jobs_unwindowed_states_check`. A retry in `pending` or `published` retains the five-minute window from its first claim. An unattempted job or a `waiting` job still has no window. The existing five-minute window and two-attempt constraints remain. Versions 1–12 are unchanged. No table, column, seed, or data rewrite is added. Apply from clean 12 with `make migrate.up MIGRATION_VERSION=13` and require `version=13 dirty=false` before startup.
+
+The down migration reinstates the original stricter constraint and deliberately fails if windowed retries remain; it does not clear windows or delete jobs. Use disposable databases only. For application rollback, retain clean 13 and use a verified compatible binary with report workers unwired. Table-based baseline adoption still stamps reporting catalogs as 12; applying 13 again safely reinstalls the corrected check.

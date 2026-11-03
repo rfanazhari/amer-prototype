@@ -21,6 +21,7 @@ func budgetJob(t *testing.T) *interviewreport.Job {
 
 // TestJobBudget proves accepted attempt limits, exact boundaries, fencing and asynchronous evidence timing.
 func TestJobBudget(t *testing.T) {
+	// testCase describes one independent public behavior scenario.
 	type testCase struct {
 		name string
 		run  func(*testing.T, *interviewreport.Job)
@@ -72,12 +73,17 @@ func TestJobBudget(t *testing.T) {
 			require.True(t, j.Claim(true, jobEpoch.Add(time.Minute)))
 			assert.Equal(t, jobEpoch.Add(6*time.Minute), *j.Snapshot().DeadlineAt)
 		}},
-		{name: "evidence give up at thirty minutes even on late final arrival", run: func(t *testing.T, j *interviewreport.Job) {
+		{name: "evidence give up at thirty minutes remains terminal on late final arrival", run: func(t *testing.T, j *interviewreport.Job) {
 			assert.False(t, j.Claim(false, jobEpoch))
-			assert.False(t, j.Claim(true, jobEpoch.Add(30*time.Minute)))
+			assert.False(t, j.Claim(false, jobEpoch.Add(30*time.Minute)))
+			assert.False(t, j.Claim(true, jobEpoch.Add(30*time.Minute+time.Second)))
 			assert.Equal(t, "expired", j.Snapshot().State)
 			assert.Equal(t, "evidence_unavailable", j.FailureReason())
 			assert.Zero(t, j.Snapshot().AttemptCount)
+		}},
+		{name: "final evidence at the wait boundary may start before give up is recorded", run: func(t *testing.T, j *interviewreport.Job) {
+			require.True(t, j.Claim(true, jobEpoch.Add(30*time.Minute)))
+			assert.Equal(t, jobEpoch.Add(35*time.Minute), *j.Snapshot().DeadlineAt)
 		}},
 		{name: "attempt deadline equality rejects successful late output and fences old holder", run: func(t *testing.T, j *interviewreport.Job) {
 			require.True(t, j.Claim(true, jobEpoch))

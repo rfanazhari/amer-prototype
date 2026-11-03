@@ -28,6 +28,7 @@
   <button id="voice" type="button" hidden>Start voice</button>
   <p id="voice-status" role="status" aria-live="polite" hidden></p>
   <audio id="remote-audio" autoplay></audio>
+  <button id="complete" type="button" hidden>Selesai</button>
   <button id="cancel" type="button" hidden>Cancel interview</button>
   <button id="refresh" type="button" hidden>Refresh interview</button>
   <script>
@@ -39,7 +40,7 @@
       var error = document.getElementById("error");
       var refresh = document.getElementById("refresh");
       var buttons = {};
-      ["accept", "start", "takeover", "cancel"].forEach(function (name) {
+      ["accept", "start", "takeover", "complete", "cancel"].forEach(function (name) {
         buttons[name] = document.getElementById(name);
       });
       var voiceButton = document.getElementById("voice");
@@ -179,6 +180,7 @@
       function mutate(action) {
         if (busy || !view || view.actions.indexOf(action) < 0) return;
         if (action === "cancel" && !window.confirm("Cancel this interview and leave early?")) return;
+        if (action === "complete" && !window.confirm("Finish the interview now? You cannot resume it afterwards.")) return;
         var path, body;
         var headers = { "Content-Type": "application/json", "X-CSRF-Token": csrfToken, "X-Interview-Controller": controllerID };
         try {
@@ -216,7 +218,7 @@
             }
             return response.json().then(function (body) {
               if (request !== generation) return;
-              if (action === "cancel") {
+              if (action === "cancel" || action === "complete") {
                 render({ notice: view.notice, consent: view.consent, execution: body.data, actions: [], progress: null });
               } else {
                 return load();

@@ -349,3 +349,41 @@ func TestDriverClose(t *testing.T) {
 		})
 	}
 }
+
+// TestDriverCloseReattaches proves a close after a restart attaches with the stored provider id and sends session.close.
+func TestDriverCloseReattaches(t *testing.T) {
+	// reattachCase names the session identity handed to a driver that holds no connection for it.
+	type reattachCase struct {
+		name       string
+		providerID string
+		wantAttach bool
+	}
+	tests := []reattachCase{
+		{name: "stored provider id attaches then closes", providerID: providerID, wantAttach: true},
+		{name: "no provider id has nothing to close"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := newProvider(t, http.StatusCreated, "")
+			d := p.driver(testKey)
+			s := session()
+			s.ProviderSessionID = tt.providerID
+
+			err := d.Close(context.Background(), s)
+
+			require.NoError(t, err)
+			if !tt.wantAttach {
+				assert.Empty(t, p.attachID)
+				return
+			}
+			select {
+			case frame := <-p.received:
+				assert.JSONEq(t, `{"type":"session.close"}`, frame)
+			case <-time.After(2 * time.Second):
+				t.Fatal("no session.close reached the provider")
+			}
+			assert.Equal(t, providerID, p.attachID)
+			assert.Equal(t, "Bearer "+testKey, p.attachKey)
+		})
+	}
+}

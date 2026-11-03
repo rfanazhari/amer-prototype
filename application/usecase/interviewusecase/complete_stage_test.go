@@ -127,3 +127,90 @@ func (w StageOutcomeWant) outcome() interviewusecase.StageOutcome {
 	}
 	return interviewusecase.InterviewCompleted
 }
+
+// providerClosed returns the identities the driver was asked to close, from the recorded mock calls.
+func providerClosed(h *harness) []service.InterviewVoiceSession {
+	var out []service.InterviewVoiceSession
+	for _, call := range h.driver.Calls {
+		if call.Method == "Close" {
+			out = append(out, call.Arguments.Get(1).(service.InterviewVoiceSession))
+		}
+	}
+	return out
+}
+
+// TestWorkflowCompleteStageClosesProvider proves the closing statement ends the provider session by its stored id.
+func TestWorkflowCompleteStageClosesProvider(t *testing.T) {
+	h := newHarness(t, false)
+	h.record.Snapshot = stageProgress(t, enum.StageClosing, false)
+	h.record.Version = 9
+	id := "provider-session"
+	h.record.Sessions[0].ProviderSessionID = &id
+	clock := mocks.NewClock(t)
+	clock.On("Now").Return(finishRunning().Add(5 * time.Minute)).Maybe()
+	h.workflow.Clock = clock
+	h.lifecycle.On("Complete", mock.Anything, service.InterviewCompletion{Authority: authority(), ProgressReference: "execution"}).Return(nil).Once()
+
+	_, err := h.workflow.CompleteStage(context.Background(), interviewusecase.CompleteStageRequest{Authority: authority(), Stage: enum.StageClosing})
+
+	require.NoError(t, err)
+	closed := providerClosed(h)
+	require.Len(t, closed, 1)
+	assert.Equal(t, service.InterviewVoiceSession{ExecutionID: "execution", AttemptID: "old-attempt", SessionID: "old-session", ProviderSessionID: id}, closed[0])
+}
+
+// TestWorkflowCompleteInterview proves the candidate's finish seals what is left and completes, resumably.
+func TestWorkflowCompleteInterview(t *testing.T) {
+	running := finishRunning()
+	rejected := errors.New("lifecycle rejected")
+	// finishCase selects the stored stage, whether a session exists and the failing port.
+	type finishCase struct {
+		name         string
+		current      enum.QuestionStage
+		sealClosing  bool
+		noSessions   bool
+		fenceErr     error
+		completeErr  error
+		wantErr      error
+		wantComplete bool
+		wantHandoffs int
+	}
+	tests := []finishCase{
+		{name: "from the first stage everything is sealed", current: enum.StageBackground, wantComplete: true, wantHandoffs: 4},
+		{name: "a partial run resumes from its stage", current: enum.StageCompensation, wantComplete: true, wantHandoffs: 4},
+		{name: "a sealed closing stage retries completion only", current: enum.StageClosing, sealClosing: true, wantComplete: true, wantHandoffs: 4},
+		{name: "without any session there is no attempt to complete", current: enum.StageBackground, noSessions: true, wantErr: interview.ErrConflict, wantHandoffs: 0},
+		{name: "a stale attempt writes nothing", current: enum.StageBackground, fenceErr: interview.ErrConflict, wantErr: interview.ErrConflict, wantHandoffs: 0},
+		{name: "lifecycle rejection keeps the sealed record", current: enum.StageBackground, completeErr: rejected, wantErr: rejected, wantComplete: true, wantHandoffs: 4},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			h := newHarness(t, false)
+			h.record.Snapshot = stageProgress(t, tt.current, tt.sealClosing)
+			h.record.Version = 9
+			id := "provider-session"
+			h.record.Sessions[0].ProviderSessionID = &id
+			if tt.noSessions {
+				h.record.Sessions = nil
+			}
+			h.fenceErr = tt.fenceErr
+			clock := mocks.NewClock(t)
+			clock.On("Now").Return(running.Add(5 * time.Minute)).Maybe()
+			h.workflow.Clock = clock
+			if tt.wantComplete {
+				h.lifecycle.On("Complete", mock.Anything, service.InterviewCompletion{Authority: authority(), ProgressReference: "execution"}).Return(tt.completeErr).Once()
+			}
+
+			err := h.workflow.CompleteInterview(context.Background(), "execution", authority().ExpectedVersion)
+
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+			} else {
+				require.NoError(t, err)
+			}
+			p, restoreErr := interview.RestoreProgress(h.record.Snapshot)
+			require.NoError(t, restoreErr)
+			assert.Len(t, p.Snapshot().Handoffs, tt.wantHandoffs)
+		})
+	}
+}

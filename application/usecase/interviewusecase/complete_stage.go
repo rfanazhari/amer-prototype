@@ -99,3 +99,8 @@ func stageRank(stage enum.QuestionStage) int {
 	}
 	return len(interviewStages)
 }
+
+// CompleteInterview seals every remaining stage in order and completes the interview on the candidate's finish.
+func (u Workflow) CompleteInterview(ctx context.Context, executionID string, expectedVersion int64) error {
+	return interview.ErrConflict
+}

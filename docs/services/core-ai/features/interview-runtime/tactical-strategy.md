@@ -4,13 +4,15 @@
 
 Mode C revision, 2026-11-03: name the production integration deferred from T8 as T18. The assessed design is [technical-design.md](technical-design.md) §3–§4. T1–T11 retain their recorded Done status and verification limits; their original evidence does not establish live acceptance. T18 now provides mounted runtime and real database integration proof in [T18 verification](t18-verification.md).
 
+Mode C revision, 2026-11-04 (`CORE-IRT-022`): align the strategy with owner decisions D10 (one provider session per stage) and D11 (interim model-stated stage seal), recorded in the [decision log](decision-log.md). The new work is `CORE-IRT-023` (seal without advance, next stage in a new session), `CORE-IRT-024` (driver waits for close confirmation, D12) and `CORE-IRT-025` (first-session instructions), plus Candidate Interview `CORE-CIN-014`/`015` and the Recording and Transcription items that depend on the proposed D5. This revision changes documents only; none of that code exists, and T1–T21 retain their recorded status and evidence.
+
 Implement the domain workflow, the version 10 tables, the GORM adapter, the driver transport, and the instruction builder without waiting for provider event names. Call Execution Lifecycle for activation, fencing, and completion. Do not add the five execution states to this slice. Leave report generation to Interview Reporting.
 
 T7 already removed the prototype voice routes. T18 composes T8's operations and mounts `POST /candidate/executions/{id}/session-attempts` and the readiness route after supplying real attempt authority, command persistence and shared transactions. Keep prototype routes absent.
 
 The live voice loop does not use RabbitMQ. GPT-Live is the driver target. Tests of `CORE-IRT-006` use a fake HTTP server. A live `H-01` pass is `CORE-IRT-017` and stays blocked.
 
-Schema installation follows the manual migration stream. The current release floor is clean version 11. T18 implements `000011_interview_runtime_integration.{up,down}.sql`, allocation rechecked before implementation, with startup/runner/checksum/runbook updates in the same task. Startup must keep refusing to migrate. No seed artifact is required.
+Schema installation follows the manual migration stream. The current release floor is clean version 13: T18 added `000011_interview_runtime_integration`, and Interview Reporting added `000012` and `000013`. Startup must keep refusing to migrate. Any new schema for per-stage work (session finalization state, raw transcript events) takes the next free number in `migrations/pgsql/` when it is written, with startup, runner, checksum and runbook updates in the same task. No seed artifact is required.
 
 ## 2. Code Reuse Map
 
@@ -35,6 +37,10 @@ Paths were read during planning. They describe current behavior.
 | T8 operations and handlers | `../../../../../application/usecase/interviewusecase`, `delivery/http/handler/candidateinterviewhandler` | Attempt/readiness and transport contract | Implemented. Reconcile command reservation/finalization and compose in T18; keep existing authorization and safe errors. |
 | Execution lifecycle and repository | `../../../../../application/usecase/executionusecase`, `infrastructure/repository/executionrepository` | Generic transitions and execution lock | Reuse state ownership. T18 implements RecordAttempt, persisted generation restoration and shared transaction callbacks. |
 | Progress store and driver | `../../../../../infrastructure/repository/interviewrepository`, `infrastructure/service/interviewvoice` | Existing persistence and provider transport | T18 makes the store join the lifecycle transaction and wires the driver with bounded cleanup. Fake-provider tests do not establish live feasibility. |
+| `Propose`, `CommitHandoff`, `OpenStage`, `ActivateStage` | `domain/interview/progress_stages.go`, `interviewusecase/propose.go`, `interviewusecase/open_stage.go` | Strict handoff, then a new stage session (D10) | Implemented, no production caller. `OpenStage` takes a `CurrentStage == target` branch that conflicts with `Attest` advancing the stage, and `appendSession` refuses a new shell while a session is open. `CORE-IRT-023` makes them compose. |
+| `Attest`, `CompleteStage`, `CompleteInterview` | `domain/interview/progress_attest.go`, `interviewusecase/complete_stage.go` | Interim model-stated seal and the candidate "Selesai" finish (D11) | `Attest` seals and advances inside one session; D10 replaces the advance for non-closing stages. `CompleteInterview` seals every remaining stage and completes, and keeps working. |
+| `createSession`, `closeCreated`, `Driver.Close` | `interviewusecase/session.go`, `infrastructure/service/interviewvoice/driver_sideband.go` | Create, attach, supply context, orphan cleanup, close | `Driver.Close` sends `session.close` and releases at once; `CORE-IRT-024` adds the bounded wait (D12, accepted 2026-11-04). |
+| `stageInstructions` | `interviewusecase/instructions.go` | First-session prompt | Renders the whole four-stage flow in English; `CORE-IRT-025` replaces it with per-stage prompts per the prompting review. The scope, salary and closing rules are kept. |
 | Architecture tests | `../../../../../test/architecture/dependencies_test.go`, `documentation_test.go` | Import direction and comments on every new declaration | Domain stays inside the allowed standard-library set. |
 | Mockery | `../../../../../.mockery.yml`, `make mocks` | Generate port mocks | Register new interfaces. Do not hand-write mocks. |
 | Task event queue and RabbitMQ compose | `../../../../../infrastructure/service/eventqueue`, `make docker.rabbitmq` | Unrelated | Not in the interview graph. |
@@ -73,6 +79,10 @@ Inventory retains the original feature components and adds T18 reconciliation. N
 | Version 11 integration SQL | Infrastructure | proposed `migrations/pgsql/000011_interview_runtime_integration.{up,down}.sql` | Migration pair | T18; exact replay states, nullability and retained-row handling are settled at the design checkpoint before SQL. No seeds. |
 | Composition | Infrastructure | `../../../../../infrastructure/runtime` | Wiring | T18 populates Attempt/Ready and mounts their exact paths. T7's prototype removal remains in place. |
 | Error codes and translations | `../../../../../pkg/errs`, `translations/errors.en.toml`, `translations/errors.id.toml` | Catalog | `IRT_CONFLICT`, `IRT_NOT_READY`. |
+| Seal without advance; open next stage after close | Domain / application | `domain/interview`, `interviewusecase` | Behavior change | `CORE-IRT-023`. Splits `Attest`; `OpenStage` activates the target; "Selesai" keeps completing from any stage. |
+| Close-confirmation wait | Infrastructure | `infrastructure/service/interviewvoice` | Behavior change | `CORE-IRT-024`, D12. Bounded; the timeout value is not set. |
+| Per-stage instruction builder | Application | `interviewusecase/instructions.go` | Behavior change | `CORE-IRT-025`. Handoff context for stages after the first. |
+| Next-stage intent, transition state, page | Delivery | Candidate Interview | Contract and page | `CORE-CIN-014`/`015`; tracked in that feature's plan. |
 
 No seed artifact. T18 includes only the generic lifecycle authority support needed by the interview adapter; broader kernel changes are outside scope.
 
@@ -87,6 +97,8 @@ Remaining safe order:
 3. After T18, execute T17 on the mounted route; review its sanitized note to finish the task. T17 does not require that note before starting and does not resolve Q1 by itself.
 4. After T12 and T18, implement T13, then T14, then T15 with the real fence and committed checkpoint. T18's fake-provider reconnect checks do not close T15's deliberate live proof.
 5. T16 is ready: Q2 is decided (2 × 30 seconds within 90 seconds per stage, no finalization reserve). Mocked application work can follow that decision; production exhaustion proof uses T18's lifecycle adapter. No post-handoff retry number is invented in T18.
+
+6. Per-stage sessions (D10, D11): T22 (this regeneration) first. Then T23, and T24 (D12 is accepted; the timeout value still needs a measurement or an owner value); T25 follows the T21 trigger for its pacing wording. Candidate Interview T14 and T15 depend on T23/T24 and D13 (accepted). Whether this lands on one branch or one branch per feature is an open owner decision: the tickets use three prefixes (`CORE-IRT`, `CORE-CIN`, `CORE-IRTREC`), and each commit message must carry the right one.
 
 Do not open the provider session from a migration or from a domain test.
 
@@ -120,6 +132,9 @@ HTTP tests live beside the handler and use a mocked operation. Domain tests use 
 - Instruction builder omits the ceiling id `22222222-2222-4222-8222-222222222222`.
 - SDP normalization matches the prototype CRLF rule, through the interview operation's public result.
 - Driver maps a non-success provider response to `SESSION_UNAVAILABLE` and still returns a session id on success. Use a fake server.
+- T23: a stage is sealed without advancing; the next shell is appended only after the source session is closed; a repeated statement changes nothing; a skipped stage and the deadline equality are rejected; "Selesai" completes from each stage.
+- T24: a fake sideband covers close confirmed, timeout leading to an unconfirmed outcome, and an event arriving after the close request.
+- T25: rendered instruction text per stage contains the required rules and never the ceiling id; behavior of the model is checked by one reviewed conversation, not by these tests.
 
 ### Integration tests
 
@@ -128,6 +143,7 @@ HTTP tests live beside the handler and use a mocked operation. Domain tests use 
 - Error cases: duplicate idempotency key with a different intent, citation to a fragment, corrupt enum on restore.
 - T18 uses the real lifecycle adapter and fake provider: same key replays the original answer without a second provider create; changed intent conflicts; concurrent calls and interrupted setup preserve the durable reservation. Failed result persistence does not publish a successful replay. Cover pending/failed state behavior selected at the design checkpoint.
 - T18 proves stale version, replaced attempt, terminal execution and callback failure write nothing; attempt authority survives store reload. Include cancellation versus progress and T10 handoff/close rollback with the actual shared transaction.
+- T23 adds a PostgreSQL case for the one-open-session index and for rollback when the source close and the next shell would commit out of order.
 - Production HTTP exercises cookie/CSRF, wrong assignment 404, current controller, retained provider identity and readiness without coverage changes. No live account is used by these tests.
 
 ### Regression tests
@@ -135,13 +151,13 @@ HTTP tests live beside the handler and use a mocked operation. Domain tests use 
 - `make test` still passes task, access, and agent-configuration packages.
 - T7's prototype routes stay absent; T18 updates router tests to expect the mounted attempt/readiness routes instead of access fall-through. Keep the T8 public contract, endpoint documentation and changelog consistent with runtime availability.
 - Publication salary filtering stays as it is. This slice does not change `salaryCeilingConfigured`.
-- Startup refuses clean versions 9 and 10 and accepts clean 11. The version-11 migration proof covers fresh install, retained version-10 rows and disposable down.
+- At T18 time startup refused clean versions 9 and 10 and accepted clean 11; the current release is 13. The version-11 migration proof covers fresh install, retained version-10 rows and disposable down.
 
 `H-02` wording relevance, `H-08` live reconnect, and `H-01` live audio are not unit tests. They are the blocked acceptance tasks.
 
 ## 6. Rollout & Rollback
 
-- Current release requires clean version 11 and mounts the new HTTP routes. Operator tooling performs the allocated migration explicitly before binary startup; no runtime migration is introduced. T18 verifies fresh install and populated upgrade from 10 on disposable PostgreSQL, including retained legacy commands without invented SDP.
+- The release requires the clean version in `schema.ReleaseVersion` (13 now; T18's version 11 is part of it) and mounts the integration routes. Per-stage sessions change the session-attempt contract and the candidate page together, so the backend and page ship in the same release (`CORE-CIN-014`/`015`); until then the single-session flow stays. Operator tooling performs the allocated migration explicitly before binary startup; no runtime migration is introduced. T18 verifies fresh install and populated upgrade from 10 on disposable PostgreSQL, including retained legacy commands without invented SDP.
 - Candidate traffic keeps using the existing access routes. Prototype voice URLs are already removed by T7 and stay absent. T18 provides composition proof with a fake provider; it makes no live-session acceptance claim.
 - Monitoring for this slice uses the existing logs plus the ids in design section 7. No new tracing stack.
 - Rollback of the application binary is safe only when the binary's `ReleaseVersion` matches the database. Version 10 tables may stay. Dropping them is allowed on a disposable database. A populated database keeps the tables and uses a forward fix.
@@ -154,3 +170,5 @@ HTTP tests live beside the handler and use a mocked operation. Domain tests use 
 |---|---|---|---|
 | v2 | 2026-11-03 | Add T18 integration inventory, implementation order, migration/replay assessment and real-fence proof | Name T8's deferred follow-up while preserving completed task scopes and Q1/Q2 gates |
 | v3 | 2026-11-03 | Record T18 implementation and release floor 11 | Real transaction/HTTP/migration proof resolves integration Q3; Q1/Q2 and live acceptance remain open |
+| v4 | 2026-11-04 | `CORE-IRT-022`: align the strategy with D10 and D11; add reuse rows, net-new items, test cases, branch note and the version-13 floor | Documentation only. No code, test or schema changed; T23..T25 are not implemented and the proposed D6 and D8 are not accepted |
+| v5 | 2026-11-04 | Record D12 and D13 as accepted | Owner approved the recommendations; T24 still needs a timeout value. No code changed |

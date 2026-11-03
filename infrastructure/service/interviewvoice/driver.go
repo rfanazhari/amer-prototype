@@ -23,7 +23,7 @@ const (
 	defaultAttachURL   = "wss://api.openai.com/v1/live/sessions"
 	attachOrigin       = "https://api.openai.com"
 	defaultModel       = "gpt-live-1"
-	defaultVoice       = "marin"
+	defaultVoice       = "marin" // willow | marin |gleam
 	defaultTimeout     = 30 * time.Second
 	maxSetupBytes      = 1 << 20
 )
@@ -66,6 +66,7 @@ type liveSession struct {
 	Model        string    `json:"model"`
 	Instructions string    `json:"instructions"`
 	Audio        liveAudio `json:"audio"`
+	Store        bool      `json:"store"`
 }
 
 // liveAudio holds the output voice for a Live session.
@@ -126,6 +127,7 @@ func (d *Driver) Create(ctx context.Context, req service.InterviewVoiceCreate) (
 			Model:        orDefault(d.Model, defaultModel),
 			Instructions: req.Instructions,
 			Audio:        liveAudio{Output: liveAudioOutput{Voice: orDefault(d.Voice, defaultVoice)}},
+			Store:        true,
 		},
 		Transport: liveTransport{SDP: normalizeSDP(req.SDP), Type: "webrtc"},
 	}

@@ -166,6 +166,7 @@ func TestDriverCreate(t *testing.T) {
 			assert.Equal(t, "webrtc", transport["type"])
 			cfg, _ := p.request["session"].(map[string]any)
 			assert.Equal(t, "gpt-live-1", cfg["model"])
+			assert.Equal(t, true, cfg["store"], "new provider sessions must request recording storage")
 			assert.Equal(t, "interview in Indonesian", cfg["instructions"])
 		})
 	}

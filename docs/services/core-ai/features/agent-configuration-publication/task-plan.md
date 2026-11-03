@@ -1,6 +1,6 @@
 # Task Plan: Agent Configuration and Publication
 
-Planning baseline: 2026-11-02, Mode C. T1–T14 are implemented. Q6 is closed. Startup accepts clean version 7. No new SQL was added for assignment create or the instance collection.
+Planning baseline: 2026-11-02, Mode C. T1–T14 are implemented. Q6 is closed. Startup accepted clean version 7 at that checkpoint (the current release is clean version 13; see the root `README.md`). No new SQL was added for assignment create or the instance collection.
 
 ## Ticket Identity
 

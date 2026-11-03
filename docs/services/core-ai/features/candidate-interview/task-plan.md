@@ -1,16 +1,16 @@
 # Task Plan: Candidate Interview
 
-Planning date 2026-11-02. Mode A. Every task is Todo. No implementation evidence exists, and none is implied by neighboring Done work in Identity and Access or Agent Configuration. BR-CORE-040..047 are not enforced.
+Planning date 2026-11-02. Mode A. Status as of 2026-11-04: T1–T13 are Done and T14–T15 (added 2026-11-04 for per-stage voice sessions) are Todo; the task list below is the status authority. This opening line originally said every task was Todo. No evidence from neighboring Done work in Identity and Access or Agent Configuration is implied for any task.
 
 ## Ticket Identity
 
 Capability group: **CIN — Candidate Interview**. Ticket prefix: `CORE-CIN`. These are repository planning IDs. No external tracker tickets have been created.
 
-Each task has a stable ticket ID: `T1` → `CORE-CIN-001`, then onward in order through `T13` → `CORE-CIN-013`. Keep both identities on later revisions. Add new numbers if scope grows. Do not renumber and do not reuse an ID.
+Each task has a stable ticket ID: `T1` → `CORE-CIN-001`, then onward in order through `T15` → `CORE-CIN-015`. Keep both identities on later revisions. Add new numbers if scope grows. Do not renumber and do not reuse an ID.
 
 ## Legend
 
-- IDs T1–T13 are stable.
+- IDs T1–T15 are stable.
 - Complexity: S (<2h), M (2–4h), L (>4h). Engineers still validate the estimates.
 - Status: `[ ]` Todo, `[~]` In Progress, `[x]` Done, `~~obsolete~~` superseded work.
 - `ref` identifies sections of [technical-design.md](technical-design.md).
@@ -114,6 +114,22 @@ Companion plans: [Identity and Access](../identity-access/task-plan.md) owns the
   - Evidence: `TestCandidateInterviewSlicePostgres` drives production `NewCandidateInterview` over release schema 9 on disposable PostgreSQL 16: notice before start, one execution after a lost start, coverage refused at 14m59s and allowed at 15m30s, second-tab takeover with replaced-tab refusal, early cancel as `CANCELLED`/`candidate_early_stop`, refresh with one execution, and a `COMPLETED` view with no report field or table. The real `page.html` was driven in the built-in browser over the same composition (`TestCandidatePageDemoPostgres`, a stand-in session endpoint and injected cookie). `make test`, `make test.contract`, `make test.architecture`, `make lint` and `make test.security` pass; the four candidate suites pass together on a fresh database. Unfiltered `make test.integration` still fails 11 pre-existing fixture-isolation tests (`candidates` dropped by the access fixture); `make test.docker` was not run. Update 2026-11-03: live progress and the replaced-tab fence are now proved (`TestCandidateInterviewLiveProgressPostgres`; RED `a79d2a6`, GREEN `6cbce49` composes the T12 reader) and unfiltered `make test.integration` passed. Exact 15-minute equality stays in controlled-time unit tests. No RED was observed; the test checkpoint is `94e08b3`. Commands and limits: [t13-execution.md](t13-execution.md).
   - DoD: disposable PostgreSQL and the candidate page demonstrate the capability examples that are in scope: notice before start, one execution after a lost start, coverage refusal at the 15-minute boundary, second-tab takeover, early cancel shown as cancelled, refresh without a new execution, and a completed interview rendered while no report exists. Record the exact `make test`, `make test.contract`, `make test.architecture`, `make lint`, and `make test.docker` or `make test.integration` commands, skips, and failures. Update design, strategy, and this status to match the run. Do not mark sibling capabilities done.
 
+### Per-stage voice session (owner decision D10, 2026-11-04)
+
+Source: Interview Runtime [decision D10](../interview-runtime/decision-log.md) and the [per-stage proposal](../interview-recording-transcription/proposal-per-stage-live-transcript.md). Both tasks are Todo and blocked on the Interview Runtime tasks named below. They extend the Done T1–T13 scope; they do not reopen it.
+
+- [ ] **T14. Next-stage voice session request and transition state** — HTTP / contract — M
+  - Ticket ID: `CORE-CIN-014`
+  - depends: Interview Runtime `CORE-IRT-023` and `CORE-IRT-024`, and decision D13 (accepted 2026-11-04: the page polls a candidate-safe transition state) — ref: Interview Runtime D10; existing `POST /candidate/executions/{id}/session-attempts` and `GET /candidate/executions/{id}`.
+  - Scope: a new session-attempt intent for the next stage (working name `advance`; today the intents are `activate` and `reconnect`) that keeps the idempotency key, version and controller-fencing rules; the backend derives the stage from stored progress and never from the request. A candidate-safe transition state in the poll response (exact shape undecided; no transcript body, salary, competence flag or report). Readiness (`/ready`) keeps meaning browser media readiness.
+  - DoD: handler tests through mocked operation interfaces; OpenAPI, `docs/api` endpoint documentation and `docs/api/CHANGELOG.md` updated together; refusal for a replaced tab and for a repeated or out-of-order request.
+
+- [ ] **T15. Candidate page: a new connection for each stage** — Delivery / page — M
+  - Ticket ID: `CORE-CIN-015`
+  - depends: T14 — ref: Interview Runtime D10; `delivery/http/candidateinterview/page.html`.
+  - Scope: on the transition state, close the old peer connection, create a new one and request the next stage session without losing tab control; show a short "continuing to the next stage" cue during the pause; keep the existing reconnect and takeover behavior.
+  - DoD: page tests for the transition, the cue, a failed request and a replaced tab; a manual check with a stand-in session endpoint is reported as such, not as a live proof.
+
 ## Dependency Graph
 
 ```text
@@ -129,6 +145,8 @@ T6 + T9 → T10 (candidate page)
 Q3 (resolved) + T7 + T9 → T11 (lifecycle adapter) [done]
 Q4 + T8 + T11 → T12 (runtime progress and fence) [done, not composed]
 T5 + T6 + T8 + T9 + T10 + T11 + T12 → T13 (slice proof) [done, progress not live]
+IRT T23 + IRT T24 → T14 (next-stage request and transition state)
+T14 → T15 (page connection per stage)
 ```
 
 T2 and T3 are independent streams, not instructions to spawn agents.
@@ -138,3 +156,5 @@ T2 and T3 are independent streams, not instructions to spawn agents.
 | Version | Date | Change |
 |---|---|---|
 | v1 | 2026-11-02 | Initial Mode A plan. T1–T13 Todo. T1 waits on the notice text. T11–T13 wait on sibling contracts. No historical status copied from other tripacks. |
+| v2 | 2026-11-04 | Add T14..T15 / CORE-CIN-014..015 for per-stage voice sessions; correct the opening status line | Owner accepted Interview Runtime D10 on 2026-11-04. T1–T13 scope and evidence unchanged |
+| v3 | 2026-11-04 | Record Interview Runtime D13 as the basis of T14 | The transition-signal decision is accepted; T14 and T15 stay Todo and still depend on Interview Runtime T23/T24 |

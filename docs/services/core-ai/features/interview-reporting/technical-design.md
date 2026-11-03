@@ -1,6 +1,6 @@
 # Technical Design: Interview Reporting
 
-Date: 2026-11-02. Mode A — new feature. No interview-report implementation was found. Rules BR-CORE-080 through BR-CORE-086 are `planned` in the capability document. This tripack does not claim they are enforced.
+Date: 2026-11-02. Mode A — new feature. Status note, 2026-11-03: the [task plan](task-plan.md) records T1–T12 Done (lifecycle, storage, admission, outbox, worker budget, broker proof) and T13–T15 Todo, so parts of this design are implemented while no report is produced. The task plan is the status authority. The capability document still lists the rules as `planned`. This tripack does not claim the rules are enforced end to end.
 
 Business authority is [Interview Reporting](../../business/capabilities/interview-reporting.md). The platform [technical design](../../../../design/core-ai/technical-design.md) sections 6, 7, and 10 win where they refine the [architecture design](../../../../design/core-ai/shared_ai_agent_platform_architecture_design_v0.1.md) section 10 completion-and-reporting narrative. Scope freeze [H-10, H-11, and H-12](../../../../design/core-ai/shared_ai_agent_platform_consolidated_architecture_mvp_scope_freeze_v0.1.md) remain the acceptance themes. This feature tripack does not replace those platform documents and does not design consent, voice, stage workflow, revocation, artifacts, or document executions.
 

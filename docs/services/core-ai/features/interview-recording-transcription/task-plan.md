@@ -1,6 +1,6 @@
 # Task Plan: Interview Recording and Transcription
 
-Planning baseline: 2026-11-03. Mode B. All tasks are Todo; no implementation or verification pass is claimed.
+Planning baseline: 2026-11-03. Mode B. T1 investigation is In Progress: the owner-requested storage payload change and real WAV download/per-channel transcription passed; timed alignment and remaining acceptance evidence are pending. T2–T11 remain Todo; no complete feature verification pass is claimed.
 
 ## Identity and Legend
 
@@ -19,6 +19,7 @@ Feature shorthand: **IRTREC** (distinct from Interview Runtime `IRT` and Reporti
 | T9 | `CORE-IRTREC-009` |
 | T10 | `CORE-IRTREC-010` |
 | T11 | `CORE-IRTREC-011` |
+| T12 | `CORE-IRTREC-012` |
 
 Status `[ ]` Todo, `[~]` In Progress, `[x]` Done. Complexity S (<2h), M (2–4h), L (>4h), subject to engineering review. `ref` points to [technical-design.md](technical-design.md). Blocked tasks are not executable until their named readiness condition is synchronized in the design. Every Go task requires documented declarations, gofmt, focused tests, architecture and lint checks.
 
@@ -26,15 +27,29 @@ Status `[ ]` Todo, `[~]` In Progress, `[x]` Done. Complexity S (<2h), M (2–4h)
 
 ### Independent investigation and authority
 
-- [ ] **T1. Verify stored Live recording and transcription contracts** — Infrastructure investigation — M
+- [~] **T1. Verify stored Live recording and transcription contracts** — Infrastructure investigation — M
   - Ticket: `CORE-IRTREC-001`
+  - [x] Owner-requested prerequisite: send `session.store: true` from the existing provider-create adapter for new activation/reconnect sessions. Focused serialization test observed RED then GREEN; `make check` passed. This does not close the live-proof DoD or T6. No schema, eligibility flag or finalization changes are included.
+  - Investigation 2026-11-03: effective clientmanager v0.10.1 and official provider documentation inspected; see design §6 investigation evidence. After explicit credential authorization, model lookup returned HTTP 200. Live WebSocket upgrade returned HTTP 403 with Cloudflare/plain-text headers before session.start; no provider JSON error, stored session, WAV or aligned transcript was obtained. That WebSocket result is historical, not a blocker for the application WebRTC path. Subsequent user-designated session `53574eba-0b6a-46ea-a3f1-155b22c3c112` downloaded with HTTP 200: stereo PCM16/24 kHz, 236.2 seconds, 22,675,244 bytes. Four channel/chunk transcription requests to gpt-transcribe returned HTTP 200 and text, but no segment/word timestamps. A follow-up probe with whisper-1 verbose_json returned HTTP 200 with segment and word timestamps for all four chunks (chunk-relative); cross-boundary accuracy and overlap rule remain unproven. Remains In Progress, not Done: alignment, close observation, readiness classification and safe bounded production-client evidence remain pending; Q1 stays open.
   - depends: none — ref: design §1, §6, §9 Q1.
   - DoD: inspect effective APIs and clientmanager version; record a sanitized synthetic Live session with `store: true`, close/finalization observation and stereo WAV download. Verify project eligibility, pending/unavailable mapping, stream limits and multipart/audio log suppression. Select and prove a transcription/segment alignment contract preserving both speakers and offsets across chunks. Synchronize exact provider schema and measured constraints in §6; a text-only transcript or fake server does not close this task. If live access is unavailable, report the proof blocked rather than Done.
 
 - [ ] **T2. Resolve recording policy and reconcile business/dispatch authority** — Design / product / platform — M
   - Ticket: `CORE-IRTREC-002`
   - depends: none — ref: design §9 Q2–Q4; decision-log D1–D3.
+  - Decision 2026-11-04: the notice change for recording, transcription and the interview-only topic limit is a single new notice version (Candidate Interview decision D4). Wording and version id are drafted under this task; `notice-261102` stays in force until then.
   - DoD: record notice version/consent treatment, provider storage eligibility, object/temp storage, byte/duration caps, retention/deletion and rollout cutoff. Approve dedicated broker topology and malformed-message handling. Reconcile BR-CORE-065/070 with accepted post-completion finalization, retaining old decision history and IRT completed scopes. G14's old primary-source direction is superseded, not silently deleted. Do not resolve reporting Q2 by selecting a transcription model.
+
+### Live-event spike (added 2026-11-04)
+
+Source: the [per-stage proposal](proposal-per-stage-live-transcript.md), decision D5, which is proposed and not accepted. Owner decisions D10 and D11 are recorded in Interview Runtime and do not depend on this task.
+
+- [ ] **T12. Spike: live transcript events, offsets and handoff timing** — Infrastructure investigation — M
+  - Ticket: `CORE-IRTREC-012`
+  - depends: none — ref: proposal sections 2 (D5) and 7.
+  - Procedure and harness prepared 2026-11-04: [t12-spike-procedure.md](t12-spike-procedure.md). The harness (kept outside the repository) passed nine offline checks on synthetic data. The spike itself has not run: no provider call, database query or recording download was made.
+  - Requires explicit owner authorization for provider calls and cost before it runs. Use a synthetic candidate; record counts, timings and event types, not transcript text, audio or credentials.
+  - DoD: for at least two consecutive provider sessions (a harness may stand in for the Interview Runtime per-stage work), record (1) both transcript event types with `start_ms`, `end_ms` and arrival time, including missing, late or duplicate events; (2) event `start_ms` against the position of the same utterance in the downloaded WAV; (3) event text against `gpt-transcribe` per channel on the same audio, focusing on roles, technical terms and numbers; (4) measured session setup and handoff pause; (5) what is lost when the sideband is cut mid-session, and whether the close confirmation still arrives; (6) if a model function call is the stage-end trigger, its event type only. The result decides whether D5 is accepted; it does not close T1.
 
 ### Foundation (blocked until contracts are ready)
 
@@ -100,3 +115,6 @@ T1 and T2 are independent. T1 + T2 → T3 → T4 → T5. T1–T4 → T6. T1 + T3
 | --- | --- | --- | --- |
 | v1 | 2026-11-03 | Initial T1–T11 plan, all Todo | New asynchronous recording-source extension to Interview Runtime |
 | v2 | 2026-11-03 | Define CORE-IRTREC-001 through CORE-IRTREC-011 and annotate each task | Owner requested explicit implementation ticket identities; task scope, dependencies and Todo statuses unchanged |
+| v3 | 2026-11-04 | Add T12 / CORE-IRTREC-012, the live-event spike | Per-stage proposal; D5 stays proposed until the spike result exists. T1–T11 scope and statuses unchanged |
+| v4 | 2026-11-04 | Prepare the T12 spike procedure and an offline-tested harness; T12 stays Todo | Preparation only. The run needs the owner authorizations listed in the procedure |
+| v5 | 2026-11-04 | Record the single-notice decision under T2 | Candidate Interview D4. No status change |

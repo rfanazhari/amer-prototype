@@ -1,6 +1,6 @@
 # Technical Design: Execution Lifecycle
 
-Date: 2026-11-02. Mode A — new feature. The capability is planned. Nothing in this document claims that BR-CORE-050..BR-CORE-059 are already enforced.
+Date: 2026-11-02. Mode A — new feature. Status note, 2026-11-03: the [task plan](task-plan.md) records T1–T10 Done and T11 Todo, so this design is no longer purely prospective; the task plan is the status authority. The sections below keep their original planning wording, and this document alone does not prove that BR-CORE-050..BR-CORE-059 are enforced.
 
 Business authority is [Execution Lifecycle](../../business/capabilities/execution-lifecycle.md), BR-CORE-050..BR-CORE-059. Platform sources, in the order the user set for lifecycle states:
 

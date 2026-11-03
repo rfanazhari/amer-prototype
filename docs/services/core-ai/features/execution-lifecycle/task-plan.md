@@ -1,6 +1,6 @@
 # Task Plan: Execution Lifecycle
 
-Planning date: 2026-11-02. Mode A. No task is implemented. Do not copy Done status from Identity and Access or Agent Configuration. The execution pin and `StartExecution` are existing code and are not evidence that this plan is underway.
+Planning date: 2026-11-02. Mode A. Status as of 2026-11-03: T1–T10 are Done and T11 is Todo (needs a Document Analyzer capability); the task list below is the status authority. This opening line originally said no task was implemented; do not copy Done status from Identity and Access or Agent Configuration. The execution pin and `StartExecution` are existing code and are not evidence of any task by themselves.
 
 ## Ticket Identity
 

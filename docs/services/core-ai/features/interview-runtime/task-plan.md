@@ -4,7 +4,7 @@
 
 Capability group: **IRT — Interview Runtime**. Ticket prefix: `CORE-IRT`. These are repository planning IDs. No external tracker tickets have been created.
 
-Stable map: `T1` → `CORE-IRT-001` through `T21` → `CORE-IRT-021`. Later revisions add ids. They do not renumber these.
+Stable map: `T1` → `CORE-IRT-001` through `T25` → `CORE-IRT-025`. Later revisions add ids. They do not renumber these.
 
 Companion dependencies, not implemented by this plan:
 
@@ -15,7 +15,7 @@ Companion dependencies, not implemented by this plan:
 
 ## Legend
 
-- ID: `T1`..`T21`, stable
+- ID: `T1`..`T25`, stable
 - Complexity: S (< 2h) | M (2–4h) | L (> 4h)
 - Status: `[ ]` Todo | `[~]` In Progress | `[x]` Done | `~~obsolete~~`
 - ref: [technical-design.md](technical-design.md) section
@@ -207,6 +207,39 @@ Ready when design §3 and §9 Q1 contain an explicit event map taken from a revi
   - ready when: design §9 records the attempt count and whether any finalization reserve exists inside the 15 minutes.
   - DoD: the recorded numbers are what the coordinator enforces. Exhaustion fails through the lifecycle and does not open a different stage. If the decision says there is no separate reserve, the only outer timer remains 15 minutes from running, and the test shows that.
 
+### Per-stage session (owner decisions D10 and D11, 2026-11-04)
+
+Source: [decision log](decision-log.md) D10 and D11, and the [per-stage proposal](../interview-recording-transcription/proposal-per-stage-live-transcript.md). T22..T25 are Todo; nothing here is implemented. T21's provider part still owns the stage-end trigger (function call over the sideband).
+
+Rescope note for T21 (2026-11-04): its application part (`Attest`, `CompleteStage`) advances the stage inside the same session. Under D10 that behavior is replaced for non-closing stages by T23; the candidate "Selesai" path keeps working as a finish control. T21's evidence and status are not rewritten by this note.
+
+- [x] **T22. Regenerate the Interview Runtime tripack for per-stage sessions** — Documentation — M
+  - Ticket ID: `CORE-IRT-022`
+  - Evidence (2026-11-04): documentation only. Technical design v13, tactical strategy v4, decision log D10/D11 and the capability interim notes are aligned. The searched phrases (model-paced stages, whole flow in one prompt, same-session advance, `session.update` switching stages) remain only where labelled as current behavior replaced by T23..T25, as a rejected alternative, or in revision history and recorded task evidence. `git diff --check` is clean and relative links in the changed files resolve. No code, test, schema or provider call was run; T23..T25 are not implemented. At that time the proposed D6 and D8 were not yet accepted; they were accepted later on 2026-11-04 as D12 and D13.
+  - depends: none (D10 and D11 are accepted) — ref: decision log D10, D11; todo-gap G7, G9, G10, G14.
+  - Scope: regenerate technical design sections 3, 5, 6 and 9, the tactical strategy and this plan so they match D10 and D11; add T21, `Attest`/`CompleteStage` and G9 to the strategy where missing; keep the interim note on `BR-CORE-064`/`BR-CORE-065` in the capability document in step; keep Done scopes and evidence as recorded.
+  - DoD: no document still says the model paces stages in one prompt, that `session.update` switches stages, or that a handoff needs coverage under the interim rule. Rule-to-task mapping reflects T23..T25. No behavior change.
+
+- [ ] **T23. Seal a stage without advancing; open the next stage in a new session** — Domain / application — L
+  - Ticket ID: `CORE-IRT-023`
+  - depends: T22 — ref: D10, D11; `domain/interview/progress_attest.go`, `interviewusecase/open_stage.go`, `complete_stage.go`.
+  - Why: today `Attest` seals and advances `CurrentStage` in one step. `OpenStage` then takes its `CurrentStage == target` branch, and `releaseUnprovisioned` returns a conflict when the open session already holds a provider id; `appendSession` also refuses a new session while one is open. The two do not compose without change.
+  - Scope: separate sealing the source stage from advancing; close the source session before the next session row is appended; keep `ActivateStage`'s precondition (handoff count equals stage index plus one); keep the stage clock, order and hard-deadline checks; keep idempotent repeated statements; keep `CompleteInterview` ("Selesai") sealing every remaining stage and completing, without needing a session per stage.
+  - DoD: public workflow tests through mocked ports for seal, advance in a new session, a repeated statement, a skipped stage, the deadline, and "Selesai" from each stage; sqlmock for what is persisted; PostgreSQL proof for rollback and the one-open-session index. Controlled time for stage-clock and deadline equality.
+
+- [ ] **T24. Driver waits for session close confirmation** — Infrastructure — M
+  - Ticket ID: `CORE-IRT-024`
+  - depends: T22 and decision D12 (accepted 2026-11-04). The timeout value is not set and needs a measurement or an owner value before the code can be finished — ref: D10; `interviewvoice/driver_sideband.go`.
+  - Why: `Driver.Close` sends `session.close` and releases the connection at once, so events after the request are lost and finalization is unconfirmed.
+  - Scope: a bounded wait for the provider's close confirmation (`session.closed`), an explicit "finalization unconfirmed" outcome on timeout, and release of the connection afterwards. On timeout the interview continues, the session is flagged, and recovery uses the stored recording; success is never reported for that session (D12). The wait and timeout value are chosen with evidence; no value is proposed here. Provider event names are confirmed against the reviewed record, not assumed.
+  - DoD: tests with a fake sideband cover confirmation, timeout, and a late event; bounded by the shutdown budget; documented declarations.
+
+- [ ] **T25. Revise the first-session instructions** — Application — M
+  - Ticket ID: `CORE-IRT-025`
+  - depends: T22; the pacing wording also waits for the T21 trigger — ref: D10; prompting review in the per-stage proposal (section 5a); todo-gap G3, G13.
+  - Scope: instructions written in the spoken language in the formal register ("Anda", D14); role and tone, interruption and unclear-audio rules (clarify names, dates, numbers; keep listening during pauses); short-turn guidance; one stage per prompt plus committed handoff context for stages after the first; the greeting stays an instruction line that the model may paraphrase (D14: consent is taken on the page before the session); keep the scope rules, the salary rule and the closing-stage rule. Whether the second delivery after attach is needed is settled with G3/G13.
+  - DoD: rendered-text tests prove which rules are present and that the ceiling is never rendered (existing T9/T20 coverage kept); one spike conversation in the spoken language covers a thinking pause, an unclear number, background noise, an interruption and an off-topic question. Model behavior is not claimed from tests.
+
 ## Dependency Graph
 
 ```text
@@ -235,6 +268,9 @@ T2, T3, T5, T6, T8, T9, T10, T11 → T18
 T18 → T17
 T17, T18 → T19
 T18, T19, T20 → T21
+T22 → T23
+T22 → T24
+T22, T21 → T25
 T18 → T13
 T18 → T15
 
@@ -261,3 +297,6 @@ T1–T11 retain their Done scopes. T18 is Done and resolves integration Q3. T12'
 | v9 | 2026-11-03 | Add T21 / CORE-IRT-021 for model-triggered stage and interview completion | A live session showed no code moves stages or ends the interview; the owner chose a model-triggered ending. Blocked on one provider spike and on todo-gap G9. Q1, Q2 and T12–T16 unchanged |
 | v10 | 2026-11-03 | T21 application part: model-attested stage sealing and interview completion through `CompleteStage` | Owner decided G9 (a model statement with order, stage clock and deadline checks is enough). The provider-facing part waits for the spike |
 | v11 | 2026-11-03 | T21 candidate-visible finish control (route, action, page button) closes G12 for the normal ending | Owner approved the Selesai flow after a finished interview could not close. The model trigger stays for the spike |
+| v12 | 2026-11-04 | Add T22..T25 / CORE-IRT-022..025 for per-stage sessions; rescope note on T21 | Owner accepted D10 (one provider session per stage) and D11 (interim model-stated stage seal) on 2026-11-04. T21 evidence, T12..T16 and earlier tasks unchanged |
+| v13 | 2026-11-04 | T22 / CORE-IRT-022 Done: tripack regenerated for D10 and D11 | Documentation only. T23..T25 stay Todo; Done scopes and evidence of T1..T21 unchanged |
+| v14 | 2026-11-04 | Record owner decisions D12 (bounded close-confirmation wait), D13 (transition signal by polling) and D14 (formal register, paraphrasable greeting); update T24 and T25 | T24 is no longer waiting for a decision, only for the timeout value. Statuses of T22..T25 unchanged except as stated |

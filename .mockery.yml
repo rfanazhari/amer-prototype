@@ -3,6 +3,13 @@ with-expecter: false
 issue-845-fix: true
 disable-version-string: true
 packages:
+  github.com/rabbitmq/amqp091-go:
+    config:
+      dir: test/mocks/reportbrokermocks
+      outpkg: reportbrokermocks
+      filename: acknowledger.go
+    interfaces:
+      Acknowledger:
   github.com/rfanazhari/amer-prototype/infrastructure/service/reportbroker:
     config:
       dir: test/mocks/reportbrokermocks
@@ -12,6 +19,8 @@ packages:
       Broker:
       Outbox:
       Channel:
+      JobExecutor:
+      TopologyChannel:
   github.com/rfanazhari/amer-prototype/application/repository:
     config:
       dir: test/mocks

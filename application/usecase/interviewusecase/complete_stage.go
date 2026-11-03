@@ -52,7 +52,7 @@ func (u Workflow) CompleteStage(ctx context.Context, req CompleteStageRequest) (
 	case want > current:
 		return "", interview.ErrConflict
 	case p.AllStagesSealed():
-		return u.completeInterview(ctx, req)
+		return u.completeInterview(ctx, req, record.Sessions)
 	}
 	if err = p.Attest(u.now()); err != nil {
 		return "", err
@@ -77,17 +77,34 @@ func (u Workflow) CompleteStage(ctx context.Context, req CompleteStageRequest) (
 		return "", err
 	}
 	if closing {
-		return u.completeInterview(ctx, req)
+		return u.completeInterview(ctx, req, record.Sessions)
 	}
 	return StageAdvanced, nil
 }
 
-// completeInterview asks the lifecycle to complete once the closing stage is sealed.
-func (u Workflow) completeInterview(ctx context.Context, req CompleteStageRequest) (StageOutcome, error) {
+// completeInterview asks the lifecycle to complete once the closing stage is sealed, then ends the provider session.
+// The provider close is best effort: it cannot undo the committed completion.
+func (u Workflow) completeInterview(ctx context.Context, req CompleteStageRequest, sessions []interviewport.VoiceSession) (StageOutcome, error) {
 	if err := u.Lifecycle.Complete(ctx, service.InterviewCompletion{Authority: req.Authority, ProgressReference: req.Authority.ExecutionID}); err != nil {
 		return "", err
 	}
+	u.closeProvider(ctx, req.Authority.ExecutionID, sessions)
 	return InterviewCompleted, nil
+}
+
+// closeProvider ends the latest session that holds a stored provider id, ignoring failure after the commit.
+func (u Workflow) closeProvider(ctx context.Context, executionID string, sessions []interviewport.VoiceSession) {
+	if u.Driver == nil {
+		return
+	}
+	for i := len(sessions) - 1; i >= 0; i-- {
+		s := sessions[i]
+		if s.ProviderSessionID == nil || *s.ProviderSessionID == "" {
+			continue
+		}
+		u.closeCreated(ctx, service.InterviewVoiceSession{ExecutionID: executionID, AttemptID: s.AttemptID, SessionID: s.ID, ProviderSessionID: *s.ProviderSessionID})
+		return
+	}
 }
 
 // stageRank orders the four fixed stages; an unknown stage ranks after them.
@@ -101,6 +118,21 @@ func stageRank(stage enum.QuestionStage) int {
 }
 
 // CompleteInterview seals every remaining stage in order and completes the interview on the candidate's finish.
+// The attempt is the latest session's, so a repeat after a partial run resumes from the stored stage. Each statement
+// is its own committed step: a failure leaves the sealed stages in place and the same call can be repeated.
 func (u Workflow) CompleteInterview(ctx context.Context, executionID string, expectedVersion int64) error {
-	return interview.ErrConflict
+	record, err := u.Store.Find(ctx, executionID)
+	if err != nil {
+		return err
+	}
+	if record.Snapshot.ExecutionID != executionID || len(record.Sessions) == 0 {
+		return interview.ErrConflict
+	}
+	authority := service.InterviewAttempt{ExecutionID: executionID, AttemptID: record.Sessions[len(record.Sessions)-1].AttemptID, ExpectedVersion: expectedVersion}
+	for _, stage := range interviewStages[stageRank(record.Snapshot.CurrentStage):] {
+		if _, err = u.CompleteStage(ctx, CompleteStageRequest{Authority: authority, Stage: stage}); err != nil {
+			return err
+		}
+	}
+	return nil
 }

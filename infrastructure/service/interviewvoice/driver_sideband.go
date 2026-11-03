@@ -3,6 +3,7 @@ package interviewvoice
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -158,9 +159,17 @@ func (d *Driver) Control(ctx context.Context, req service.InterviewVoiceControl)
 }
 
 // Close asks the provider to end the session, then always releases the local connection.
+// Without a held connection it attaches with the stored provider id first, so a restart cannot leave the session open.
 // A returned failure never implies that committed interview progress can be rolled back.
 func (d *Driver) Close(ctx context.Context, session service.InterviewVoiceSession) error {
 	c, err := d.conn(session)
+	if errors.Is(err, ErrNotAttached) && session.ProviderSessionID != "" {
+		// A restart or another instance lost the connection; the stored provider id attaches a fresh one to end the session.
+		if err = d.Attach(ctx, session); err != nil {
+			return err
+		}
+		c, err = d.conn(session)
+	}
 	if err != nil {
 		return nil
 	}

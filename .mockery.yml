@@ -243,6 +243,7 @@ packages:
       CompletionMarker:
       ReportReader:
       AdmissionWriter:
+      WorkerStore:
       AssignmentReader:
       AssignmentLocker:
       RegenerationStore:

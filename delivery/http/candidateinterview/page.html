@@ -25,6 +25,9 @@
   <p id="progress" hidden></p>
   <button id="start" type="button" hidden>Start interview</button>
   <button id="takeover" type="button" hidden>Take control in this tab</button>
+  <button id="voice" type="button" hidden>Start voice</button>
+  <p id="voice-status" role="status" aria-live="polite" hidden></p>
+  <audio id="remote-audio" autoplay></audio>
   <button id="cancel" type="button" hidden>Cancel interview</button>
   <button id="refresh" type="button" hidden>Refresh interview</button>
   <script>
@@ -39,6 +42,12 @@
       ["accept", "start", "takeover", "cancel"].forEach(function (name) {
         buttons[name] = document.getElementById(name);
       });
+      var voiceButton = document.getElementById("voice");
+      var voiceStatus = document.getElementById("voice-status");
+      var remoteAudio = document.getElementById("remote-audio");
+      var voice = null;
+      var voiceBusy = false;
+      var voiceToken = 0;
       var csrfToken = "";
       var controllerID = "";
       var view = null;
@@ -67,11 +76,26 @@
             (view.execution && !live());
           buttons[name].disabled = busy;
         });
+        voiceButton.hidden = !live() || !view.execution.isCurrentController || !!voice;
+        voiceButton.disabled = busy || voiceBusy;
         refresh.disabled = busy;
+      }
+
+      function closeVoice() {
+        voiceToken++;
+        voiceBusy = false;
+        if (voice) {
+          if (voice.stream) voice.stream.getTracks().forEach(function (track) { track.stop(); });
+          if (voice.pc) { try { voice.pc.close(); } catch (_) { /* already closed */ } }
+          voice = null;
+        }
+        remoteAudio.srcObject = null;
+        voiceStatus.hidden = true;
       }
 
       function accessError() {
         generation++;
+        closeVoice();
         stopPolling();
         view = null;
         csrfToken = "";
@@ -91,6 +115,7 @@
 
       function render(data) {
         view = data;
+        if (voice && (!live() || !data.execution.isCurrentController)) closeVoice();
         notice.hidden = !data.notice || !!data.execution;
         if (data.notice) statement.textContent = data.notice.statement;
         progress.hidden = !live() || !data.progress;
@@ -206,16 +231,147 @@
           });
       }
 
+      function voiceKey(executionID) {
+        var key = "candidate-interview-voice-" + executionID;
+        try {
+          var intent = sessionStorage.getItem(key);
+          if (!intent) {
+            intent = crypto.randomUUID();
+            sessionStorage.setItem(key, intent);
+          }
+          return intent;
+        } catch (_) { return crypto.randomUUID(); }
+      }
+
+      function dropVoiceKey(executionID) {
+        try { sessionStorage.removeItem("candidate-interview-voice-" + executionID); } catch (_) { /* storage unavailable */ }
+      }
+
+      function voiceFailed(message) {
+        closeVoice();
+        error.textContent = message;
+        error.hidden = false;
+        controls();
+      }
+
+      function iceComplete(pc) {
+        return new Promise(function (resolve) {
+          if (pc.iceGatheringState === "complete") { resolve(); return; }
+          var timeout = null;
+          var check = function () {
+            if (pc.iceGatheringState !== "complete") return;
+            pc.removeEventListener("icegatheringstatechange", check);
+            clearTimeout(timeout);
+            resolve();
+          };
+          timeout = setTimeout(function () {
+            pc.removeEventListener("icegatheringstatechange", check);
+            resolve();
+          }, 10000);
+          pc.addEventListener("icegatheringstatechange", check);
+        });
+      }
+
+      function voicePost(path, body) {
+        return fetch(path, {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json", "X-CSRF-Token": csrfToken, "X-Interview-Controller": controllerID },
+          body: JSON.stringify(body)
+        });
+      }
+
+      function startVoice() {
+        if (voiceBusy || voice || busy || !view || !view.execution || !live() || !view.execution.isCurrentController) return;
+        var token = ++voiceToken;
+        var execution = view.execution;
+        var base = "/candidate/executions/" + encodeURIComponent(execution.id) + "/session-attempts";
+        var current = function () { return token === voiceToken; };
+        var answered = false;
+        voiceBusy = true;
+        voice = { stream: null, pc: null };
+        error.hidden = true;
+        voiceStatus.textContent = "Requesting microphone";
+        voiceStatus.hidden = false;
+        controls();
+        var microphone = (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) ?
+          navigator.mediaDevices.getUserMedia({ audio: true }) : Promise.reject(new Error("unsupported"));
+        microphone.then(function (stream) {
+          if (!current()) { stream.getTracks().forEach(function (track) { track.stop(); }); return null; }
+          voice.stream = stream;
+          return stream;
+        }, function () {
+          if (current()) voiceFailed("Microphone access is needed for the voice interview. Allow the microphone and try again.");
+          return null;
+        }).then(function (stream) {
+          if (!stream || !current()) return;
+          var pc = new RTCPeerConnection();
+          voice.pc = pc;
+          stream.getTracks().forEach(function (track) { pc.addTrack(track, stream); });
+          pc.createDataChannel("oai-events");
+          pc.ontrack = function (event) { remoteAudio.srcObject = event.streams[0]; };
+          voiceStatus.textContent = "Connecting voice";
+          return pc.createOffer().then(function (offer) {
+            return pc.setLocalDescription(offer);
+          }).then(function () {
+            return iceComplete(pc);
+          }).then(function () {
+            if (!current()) return;
+            return voicePost(base, {
+              controllerId: controllerID,
+              idempotencyKey: voiceKey(execution.id),
+              intent: "activate",
+              expectedVersion: execution.version,
+              sdp: pc.localDescription.sdp
+            });
+          }).then(function (response) {
+            if (!response || !current()) return;
+            if (response.status === 401) { accessError(); return; }
+            if (!response.ok) {
+              if (response.status === 403 || response.status === 409) {
+                dropVoiceKey(execution.id);
+                closeVoice();
+                return load().then(function () {
+                  if (csrfToken) voiceFailed("The interview changed or voice is unavailable. Review the current screen before trying again.");
+                });
+              }
+              voiceFailed("Voice could not be started. Please try again.");
+              return;
+            }
+            return response.json().then(function (body) {
+              if (!current()) return;
+              answered = true;
+              var result = body.data;
+              return pc.setRemoteDescription({ type: "answer", sdp: result.sdp }).then(function () {
+                return voicePost(base + "/" + encodeURIComponent(result.attemptId) + "/ready", { controllerId: controllerID, expectedVersion: result.executionVersion });
+              }).then(function (ready) {
+                if (!current()) return;
+                if (ready.status === 401) { accessError(); return; }
+                if (!ready.ok) { dropVoiceKey(execution.id); voiceFailed("Voice could not be started. Please try again."); return; }
+                voiceBusy = false;
+                voiceStatus.textContent = "Voice session ready";
+                controls();
+              });
+            });
+          });
+        }).catch(function () {
+          if (!current()) return;
+          if (answered) dropVoiceKey(execution.id);
+          voiceFailed("Voice could not be started. Please try again.");
+        });
+      }
+
       Object.keys(buttons).forEach(function (name) {
         buttons[name].addEventListener("click", function () { mutate(name); });
       });
+      voiceButton.addEventListener("click", startVoice);
       refresh.addEventListener("click", function () {
         if (!busy) {
           if (csrfToken) load();
           else initialize();
         }
       });
-      window.addEventListener("pagehide", function () { active = false; generation++; stopPolling(); });
+      window.addEventListener("pagehide", function () { active = false; generation++; closeVoice(); stopPolling(); });
       window.addEventListener("pageshow", function (event) {
         if (event.persisted) { active = true; initialize(); }
       });

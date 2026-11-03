@@ -3036,7 +3036,7 @@
     "/candidate/interview/page": {
       "get": {
         "operationId": "getCandidateInterviewPage",
-        "summary": "Serve the candidate interview page with consent, API-offered start and control actions, confirmed cancel, and distinct terminal outcomes. Live views poll every two seconds; refresh never starts an execution. The JSON API enforces the session; without a cookie the page shows the access-error state and no notice.",
+        "summary": "Serve the candidate interview page with consent, API-offered start and control actions, confirmed cancel, and distinct terminal outcomes. Live views poll every two seconds; refresh never starts an execution. The controlling tab of a live interview can start voice through the existing session-attempt and readiness routes. The JSON API enforces the session; without a cookie the page shows the access-error state and no notice.",
         "security": [],
         "responses": {
           "200": {

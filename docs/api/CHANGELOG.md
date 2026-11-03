@@ -1,5 +1,9 @@
 # API changelog
 
+## 0.14.1 — candidate page voice start (CORE-IRT-019)
+
+The embedded candidate interview page now starts the voice session through the existing `session-attempts` and readiness routes. No route, schema, request/response field, status code or error code changed.
+
 ## 0.14.0 — Interview Runtime integration (CORE-IRT-018)
 
 Mounted the candidate session-attempt and readiness routes through production lifecycle, persistence and voice adapters. Same-key success replays the original answer; pending/interrupted setup returns `409 IRT_NOT_READY`, failed/legacy keys and known provider setup failure after reservation return `409 IRT_CONFLICT`, and result-persistence failures remain safe `500 INTERNAL_ERROR`. Missing provider credentials return `503 SESSION_UNAVAILABLE` before reservation. Readiness changes no coverage. Version 11 retains legacy command rows without fabricated answers. Prototype voice routes remain removed.

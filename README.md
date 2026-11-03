@@ -6,7 +6,7 @@ Go service foundation with the Task Tracking reference feature. The four root la
 
 Use Go 1.26.10. Supply `DATABASE_URL` as a PostgreSQL connection URL through the environment. `HTTP_ADDRESS` defaults to `:8080`. `APP_ENV` defaults to development in logmanager; production disables its debug mode. Administrative startup requires `ACCESS_BOOTSTRAP_ADMIN_NAME`, `ACCESS_BOOTSTRAP_ADMIN_EMAIL`, `ACCESS_BOOTSTRAP_ADMIN_PASSWORD`, `ACCESS_HTTP_ORIGIN`, and `ACCESS_CSRF_SECRET` (at least 32 bytes). `TEST_DATABASE_URL` is only for explicitly authorized integration databases. Secrets must stay out of source files and command output.
 
-Schema is installed explicitly through versioned SQL migrations (identity-access D8). Startup only reads migration metadata and requires clean version 10 before bootstrap/listening; it never creates or repairs schema. See the [migration runbook](docs/design/database-migrations.md) for preparation, populated adoption and recovery. Tasks have a UUID primary key, non-null title/status/creation/update times, optional due/completion times and a status check. Retained data requires backup/restore or reviewed forward repair; destructive reversal is for disposable databases. Data persists across service restarts. Startup connection and schema checks have a ten-second budget. HTTP health reports HTTP readiness only.
+Schema is installed explicitly through versioned SQL migrations (identity-access D8). Startup only reads migration metadata and requires clean version 11 before bootstrap/listening; it never creates or repairs schema. See the [migration runbook](docs/design/database-migrations.md) for preparation, populated adoption and recovery. Tasks have a UUID primary key, non-null title/status/creation/update times, optional due/completion times and a status check. Retained data requires backup/restore or reviewed forward repair; destructive reversal is for disposable databases. Data persists across service restarts. Startup connection and schema checks have a ten-second budget. HTTP health reports HTTP readiness only.
 
 ## Local Docker setup
 
@@ -15,13 +15,13 @@ Dockerfile builds a static binary and runs it as a non-root user in a minimal im
 ```sh
 make docker.config
 docker compose up -d --wait database
-make docker.migrate MIGRATION_VERSION=10
+make docker.migrate MIGRATION_VERSION=11
 make docker.up
 make docker.logs
 make docker.down
 ```
 
-`make docker.logs` shows structured startup stages: `service starting`, `database connected and schema compatible` (version 10), `administrative bootstrap complete`, then `http server ready` with the bound address and `event_queue=in_process`. The startup summary includes elapsed time. A failed startup logs `service startup failed` and never logs readiness. Lifecycle records omit database URLs, credentials and bootstrap account details.
+`make docker.logs` shows structured startup stages: `service starting`, `database connected and schema compatible` (version 11), `administrative bootstrap complete`, then `http server ready` with the bound address and `event_queue=in_process`. The startup summary includes elapsed time. A failed startup logs `service startup failed` and never logs readiness. Lifecycle records omit database URLs, credentials and bootstrap account details.
 
 The app listens at `http://localhost:8080`. `HTTP_PORT` and `POSTGRES_PORT` customize host ports. PostgreSQL uses a named volume; `docker.down` preserves it. The example environment file contains setting names and no credentials.
 
@@ -72,16 +72,22 @@ Supply `MIGRATION_DATABASE_URL` through the environment with DDL permissions. Co
 
 ```sh
 make migrate.status
-make migrate.up MIGRATION_VERSION=10
+make migrate.up MIGRATION_VERSION=11
 make migrate.baseline
 # Disposable databases only; removes data in the selected tables:
 make migrate.down MIGRATION_STEPS=1 MIGRATION_DISPOSABLE=yes
 ```
 
-Up requires an explicit target 1 through 10. The current release target is clean version 10. Baseline requires absent metadata and exact legacy Task-only or three-table catalog equivalence. Stop legacy writers and take a restorable backup before adoption. Drift, partial/foreign schemas and dirty versions require inspection; no automatic force is provided. Baseline uses the same advisory lock as up/down. Commands allow 59 seconds for operations and one second for cleanup; lock waits are capped at five seconds. Baseline SQL uses explicit transactions and pinned checksums; change future schema through new versions rather than editing applied files. Run status after failures and use reviewed forward repair or restore.
+Up requires an explicit target 1 through 11. The current release target is clean version 11. Baseline requires absent metadata and exact legacy Task-only or three-table catalog equivalence. Stop legacy writers and take a restorable backup before adoption. Drift, partial/foreign schemas and dirty versions require inspection; no automatic force is provided. Baseline uses the same advisory lock as up/down. Commands allow 59 seconds for operations and one second for cleanup; lock waits are capped at five seconds. Baseline SQL uses explicit transactions and pinned checksums; change future schema through new versions rather than editing applied files. Run status after failures and use reviewed forward repair or restore.
 
 ### Administrative session cleanup
 
 `make access.prune-sessions` deletes `administrative_sessions` rows more than 7 days past `expires_at` or `revoked_at`, at most 500 rows per statement, and prints `removed=<count>`. It uses the runtime `DATABASE_URL` role (DELETE on that one table only), never touches candidate or account tables, and is safe to rerun after an interruption. Run it from an external scheduler; the application starts no cleanup worker.
 
 `DATABASE_URL` is the DDL-denied application connection; `MIGRATION_DATABASE_URL` is the separate DDL-capable operator connection. Configure grants as described in the runbook. Normal local Compose uses its development owner for convenience; restricted-role runtime behavior is verified on disposable PostgreSQL. `TEST_MIGRATION_DATABASE_URL` is a separate explicitly authorized disposable database whose public schema is reset by migration acceptance tests. The isolated verification scripts supply it automatically.
+
+### Interview Runtime integration (CORE-IRT-018)
+
+The candidate session-attempt and readiness APIs are mounted with the shared lifecycle fence. Prepare clean schema 11 explicitly before startup. `OPENAI_API_KEY` stays optional at startup; missing credentials refuse setup before a durable reservation. Optional `OPENAI_LIVE_MODEL` (default `gpt-live-1`), `OPENAI_LIVE_VOICE` (default `marin`), `OPENAI_LIVE_URL` (default `https://api.openai.com/v1/live/sessions`) and `OPENAI_LIVE_ATTACH_URL` (default `wss://api.openai.com/v1/live/sessions`) select the provider transport. URL overrides are absolute endpoint/base URLs for controlled provider environments: `http(s)` for create and `ws(s)` for sideband, without URL credentials, query or fragment. Model and voice are single tokens without whitespace and must be provider-supported. Existing `OPENAI_REALTIME_*` settings do not configure this path.
+
+Same-key pending/interrupted setup never automatically repeats provider creation. Poll/retry the same request to observe a committed successful result; a pending key stays pending if the process crashed. A new key can replace expired setup only within the original budget. Failed and version-10 legacy keys return conflict. The original SDP is retained for successful replay and masked in process logs. Sideband sockets are released after HTTP drain. Fake-provider integration tests prove transport and persistence only; live provider acceptance and event finality remain separate work.

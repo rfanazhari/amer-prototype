@@ -17,6 +17,7 @@ const (
 	actionStart    = "start"
 	actionTakeover = "takeover"
 	actionCancel   = "cancel"
+	actionComplete = "complete"
 )
 
 // GetInterview assembles the candidate screen model for the resolved candidate session.
@@ -90,6 +91,9 @@ func (q GetInterview) fillExecution(ctx context.Context, view *dto.InterviewView
 	case "CREATED", "RUNNING":
 		if execution.IsCurrentController {
 			view.Actions = append(view.Actions, actionCancel)
+			if facts.State == "RUNNING" {
+				view.Actions = append(view.Actions, actionComplete)
+			}
 		} else {
 			view.Actions = append(view.Actions, actionTakeover)
 		}

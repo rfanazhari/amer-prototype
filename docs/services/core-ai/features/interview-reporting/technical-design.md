@@ -31,8 +31,8 @@ After Interview Runtime has completed an interview execution under Execution Lif
 |---|---|
 | Root `../../../../../AGENTS.md` | Four root layers. Manual SQL migrations, no AutoMigrate. GORM for CRUD. Trusted `application/service.Clock`. HTTP contract updates touch `../../../../api/openapi.yaml`, an endpoint document, and `docs/api/CHANGELOG.md` together. Declaration documentation is enforced. |
 | `../../../../../go.mod` | Module `github.com/rfanazhari/amer-prototype`. Go 1.26.10. GORM 1.25.12 and PostgreSQL driver 1.5.11. `github.com/golang-migrate/migrate/v4` v4.19.0 is already the migration tool. No RabbitMQ client module. |
-| `../../../../../infrastructure/database/schema/version.go` | `ReleaseVersion` is 7. `ownedPublicTables` and `RuntimeGrantTables` end at `interview_executions`. |
-| `../../../../../migrations/pgsql` and `infrastructure/database/schema/checksums.json` | Highest applied pair on disk is `000007_interview_executions`. This slice does not take `000008`. Its pair is `000011_interview_reporting`, after execution-lifecycle `000008`, candidate-interview `000009`, and interview-runtime `000010`. |
+| `../../../../../infrastructure/database/schema/version.go` | `ReleaseVersion` is 11 (checked 2026-11-03). Tables owned by earlier slices precede the report tables in `ownedPublicTables` and `RuntimeGrantTables`. |
+| `../../../../../migrations/pgsql` and `infrastructure/database/schema/checksums.json` | Highest applied pair on disk is `000011_interview_runtime_integration` (checked 2026-11-03). Its pair is `000012_interview_reporting`, after execution-lifecycle `000008`, candidate-interview `000009`, interview-runtime `000010` and its integration `000011`. |
 | `../../../../../infrastructure/runtime`, `**/*.go` search for `outbox`, `amqp`, and `rabbitmq` | No outbox table, repository, or broker client. Compose has an optional `rabbitmq` profile (`../../../../../README.md`, `compose.yaml`). The process does not connect to it. Task completion stays on the in-process queue. |
 | `migrations/pgsql/*.sql` and Go identifiers for report generations | No report table and no report use case. The only report document is the capability file. |
 | `../../../../../migrations/pgsql/000007_interview_executions.up.sql` | Execution pin only: `id`, `assignment_id`, `instance_id`, `published_revision_id`, `created_at`. No terminal status and no transcript. |
@@ -90,7 +90,7 @@ An **outbox message** is the durable intent to publish that job. Its identity is
 
 ### Proposed storage layout
 
-Version `000011_interview_reporting` follows interview-runtime `000010`. Apply it only after a clean version 10. All ids are UUID primary keys. Timestamps are `timestamptz`, written as UTC milliseconds by the application. Columns are `NOT NULL` unless marked null. Foreign keys use `ON UPDATE RESTRICT ON DELETE RESTRICT`. No soft delete and no cascade purge.
+Version `000012_interview_reporting` follows interview-runtime `000010` and its integration `000011`. Apply it only after a clean version 11. All ids are UUID primary keys. Timestamps are `timestamptz`, written as UTC milliseconds by the application. Columns are `NOT NULL` unless marked null. Foreign keys use `ON UPDATE RESTRICT ON DELETE RESTRICT`. No soft delete and no cascade purge.
 
 | Table | Columns and constraints | Why it is separate |
 |---|---|---|
@@ -98,13 +98,13 @@ Version `000011_interview_reporting` follows interview-runtime `000010`. Apply i
 | `interview_report_generations` | `id`; `report_id` FK; `generation_number int` check `> 0`; unique `(report_id, generation_number)`; `state text` check in `pending`, `running`, `succeeded`, `failed`; `failure_reason text` null, required iff `state = failed`, null otherwise; `created_at`; `updated_at` check `>= created_at` | Own outcome, history retained |
 | `interview_report_statements` | `id`; `generation_id` FK; `ordinal int` check `>= 0`; unique `(generation_id, ordinal)`; `kind text` check in `observation`, `gap`, `uncertainty`; `body text` check length 1–2000; `evidence_entry_id uuid` null; `evidence_revision int` null check `> 0` when present; `presents_as_answer boolean`; check: `presents_as_answer` implies `kind = observation` and both evidence fields; check: `kind = gap` implies `presents_as_answer = false` and both evidence fields null | Citation is a constraint, not a JSON blob |
 | `interview_report_commands` | `id`; `scope uuid` FK to `administrative_accounts`; `command_kind text` check equal to `regenerate-interview-report/v1`; `request_key text`; `intent_fingerprint text` check 64 lowercase hex; `generation_id` FK; `created_at`; unique `(scope, command_kind, request_key)` | Idempotent HR regeneration |
-| `interview_report_jobs` | `id`; `generation_id uuid` unique FK; `state text` check in `pending`, `published`, `claimed`, `succeeded`, `failed`, `expired`; `attempt_count int` check `>= 0` and `<= 2`; `fencing_token bigint` check `> 0`; `created_at`; `deadline_at`; `eligible_at`; `attempt_deadline_at` null; `updated_at` | Per-generation provider budget |
+| `interview_report_jobs` | `id`; `generation_id uuid` unique FK; `state text` check in `pending`, `published`, `waiting`, `claimed`, `succeeded`, `failed`, `expired`; `attempt_count int` check `>= 0` and `<= 2`; `fencing_token bigint` check `> 0`; `created_at`; `wait_deadline_at` (Q4 give-up); `window_started_at` null; `deadline_at` null; `eligible_at`; `attempt_deadline_at` null; `updated_at` | Per-generation provider budget |
 | `interview_report_attempts` | `id`; `job_id` FK; `attempt_number int` check in `(1, 2)`; unique `(job_id, attempt_number)`; `fencing_token bigint`; `started_at`; `deadline_at`; `finished_at` null; `outcome text` null check in `succeeded`, `failed`, `expired`, `superseded` | Attempt history is not erased |
 | `outbox_messages` | `id` uuid primary key, the message identity; `job_kind text` check equal to `interview_report`; `job_id uuid`; `created_at`; `publish_claimed_at` null; `confirmed_at` null | Durable publish intent. Not a second copy of the report |
 
 Partial unique index `interview_report_generations_one_active_INDEX` on `(report_id) WHERE state IN ('pending', 'running')`.
 
-Job deadline check: `deadline_at > created_at` and `deadline_at <= created_at + interval '5 minutes'`. The application sets `deadline_at` to `created_at` plus exactly 5 minutes and `eligible_at` to `created_at` on insert. Attempt deadline check: `deadline_at > started_at` and `deadline_at <= started_at + interval '60 seconds'`.
+Job window checks (Q4): `wait_deadline_at = created_at + interval '30 minutes'` is set on insert together with `eligible_at = created_at`, and `deadline_at` and `window_started_at` are null while the job is `pending`, `published` or `waiting`. At the first claim with final evidence the application sets `window_started_at` to the claim time and `deadline_at` to exactly `window_started_at + 5 minutes`; the check is both null, or both set with `deadline_at > window_started_at` and `deadline_at <= window_started_at + interval '5 minutes'`. A job moves to `waiting` when the evidence port reports nothing final and returns to `published` through a new outbox row when the reconciler sees evidence. Attempt deadline check: `deadline_at > started_at` and `deadline_at <= started_at + interval '60 seconds'`.
 
 There is no salary-ceiling column, no recommendation column, and no rank column. Statement bodies are the only free text. Indexes: FK btree indexes using the existing quoted `"<table>_<column>_INDEX"` style, plus `outbox_messages_unconfirmed_INDEX` on `(created_at, id) WHERE confirmed_at IS NULL`, and `interview_report_jobs_eligible_INDEX` on `(eligible_at, id) WHERE state IN ('pending', 'published')`.
 
@@ -137,7 +137,7 @@ Network I/O stays outside every transaction. The publisher runs after commit. Th
 
 Rollback of the admission transaction removes the generation, job, and outbox row together with the sibling's `completed_at` write. A later generation failure updates only report tables. `make test` sqlmock coverage does not prove either outcome. T5 uses PostgreSQL.
 
-Forward migration: `migrations/pgsql/000011_interview_reporting.up.sql` and `.down.sql`. Implementation also sets `schema.ReleaseVersion` to 11, appends the seven tables to `ownedPublicTables` and `RuntimeGrantTables`, and adds both files to `../../../../../infrastructure/database/schema/checksums.json`. Startup still performs no DDL. `docs/design/database-migrations.md` moves the release target from clean version 10 to clean version 11.
+Forward migration: `migrations/pgsql/000012_interview_reporting.up.sql` and `.down.sql`. Implementation also sets `schema.ReleaseVersion` to 12, appends the seven tables to `ownedPublicTables` and `RuntimeGrantTables`, and adds both files to `../../../../../infrastructure/database/schema/checksums.json`. Startup still performs no DDL. `docs/design/database-migrations.md` moves the release target from clean version 11 to clean version 12.
 
 Down drops report-owned tables only, in dependency order, on a disposable database. It does not drop `interview_assignments`, `interview_executions`, accounts, or configuration. Populated environments do not run down. Application rollback keeps version 11, stops the report consumer and publisher, and unmounts the two routes. A binary that accepts only version 10 will refuse to start on version 11; that is the existing guard, not a reason to down the tables.
 
@@ -176,8 +176,8 @@ Every proof below is planned. None is observed evidence, and none marks BR-CORE-
 | `infrastructure/service/reportbroker` | New | RabbitMQ publish, confirm, consume. No dead-letter declaration |
 | `../../../../../infrastructure/service/accessauthority` | Modified | Same `Authority` struct implements the report interface |
 | `delivery/http/handler/interviewreporthandler` | New | Strict JSON, cookie, CSRF, `IRP_*` mapping |
-| `../../../../../infrastructure/runtime`, `infrastructure/database/schema` | Modified | Route and worker wiring is T15 and blocked. Version floor becomes 11 in T3 |
-| `migrations/pgsql/000011_interview_reporting.*` | New | The only DDL |
+| `../../../../../infrastructure/runtime`, `infrastructure/database/schema` | Modified | Route and worker wiring is T15 and blocked. Version floor becomes 12 in T3 |
+| `migrations/pgsql/000012_interview_reporting.*` | New | The only DDL |
 | `../../../../../pkg/errs`, `translations/errors.*.toml`, `docs/api/*` | Modified | Public catalog and contract |
 | Candidate handlers, voice runtime, Task queue, `StartExecution` | Reused as-is | Not report carriers |
 
@@ -207,7 +207,7 @@ Authorization is inside the use case and the query, not only in the handler. The
 | Shared transaction through context, GORM hidden | The completion write and the outbox insert are one commit in platform §5. Passing `*gorm.DB` into application breaks the import rule. Two independent commits can leave a completed interview with no durable job, or a job whose interview rolled back | Platform §5 interview-completion row; `dependencies_test.go`; AGENTS.md | Retained |
 | Generic outbox table with a single allowed `job_kind` | TD-09 is the platform mechanism for this background work. A report-only queue table would be a second mechanism when document work arrives. A universal workflow coordinator is the structure the platform overview rejected, so the table stores publish intent only | TD-09; platform §2 rejection of a universal coordinator | Retained. Widening `job_kind` is a later migration |
 | RabbitMQ for report jobs, not for voice | The candidate must not wait on the report, and the live loop already has its own session path. Reusing the Task in-process queue would drop the job on process death and would couple Task capacity to HR write-up | TD-09; BR-CORE-047; verified Task queue and absent AMQP client | Retained. Dead-letter topology deferred |
-| Per-job attempt budget | The §10 wording starts the five minutes at job creation. A lifetime cap of two attempts per interview would make an explicit regeneration after one failure unable to run, which contradicts BR-CORE-085 | Later technical design §10 wins over a looser reading of "total" | Retained |
+| Per-job attempt budget | The §10 wording starts the five minutes at job creation; Q4 moves the start to the first claim with final evidence. A lifetime cap of two attempts per interview would make an explicit regeneration after one failure unable to run, which contradicts BR-CORE-085 | Later technical design §10 wins over a looser reading of "total" | Retained |
 | Phrase guard for verdicts, no model classifier | The output type has no verdict field. Free text can still say "hire". A small word-boundary list is enforceable without the open model contract. It will miss paraphrases | BR-CORE-084 | Retained as a bounded guard. A model-output classifier stays inside the blocked provider task |
 | Do not resolve the salary ceiling value | Configuration stores `salaryCeilingRef` and responses expose only `salaryCeilingConfigured`. No value table exists. Inventing a store to scan report text would expand scope. Exclusion from the writer input, columns, logs, and HTTP body is the enforceable rule | Sibling BR-CORE-071; verified configuration DTO | Retained. A value scan is deferred until a value store exists; no task is executable for it |
 | Consumer not started until writer and evidence adapter exist | Starting the consumer against a missing provider would spend the two attempts and the five-minute window on an empty client | §10 budget; §14 model contract Open; no transcript table | Deferred. Blocks T15 only |
@@ -221,7 +221,7 @@ Assessment gate: each rule in the table above has an owner, an enforcement path,
 1. Execution Lifecycle, not this feature, decides that required progress is stored and sets `completed_at` in an open transaction.
 2. It calls `Admit` with the assignment id and execution id before commit.
 3. `Admit` reads `completed_at` in that transaction. Null returns an error. The caller aborts.
-4. The store inserts the report if needed, generation 1 as `pending`, the job with `deadline_at = created_at + 5 minutes`, and one outbox row.
+4. The store inserts the report if needed, generation 1 as `pending`, the job with `wait_deadline_at = created_at + 30 minutes` and no attempt window yet, and one outbox row.
 5. The caller commits. The candidate final screen can show the interview outcome without reading the report.
 6. After commit, the publisher reads the outbox and publishes. Broker failure leaves the row unconfirmed. The interview stays completed.
 
@@ -233,7 +233,8 @@ Assessment gate: each rule in the table above has an owner, an enforcement path,
 4. A claim transaction inserts attempt 1 or 2, sets the attempt deadline to the earlier of 60 seconds and the job deadline, and commits.
 5. The writer runs outside the transaction. Accepted statements commit with the generation outcome. Rejected output fails the attempt.
 6. If an attempt remains and the job deadline allows it, `eligible_at` becomes the finish time plus 5 seconds. The reconciler publishes again through a new outbox row. No delay plugin is used.
-7. Exhaustion or a deadline that leaves no positive attempt time marks the generation `failed` and the job `expired` or `failed`. Interview rows are not in the statement.
+7. Evidence not yet final (Q4): the job stays `waiting`, no attempt is inserted, the reconciler rechecks every 30 seconds, and 30 minutes after admission it fails with `evidence_unavailable`.
+8. Exhaustion or a deadline that leaves no positive attempt time marks the generation `failed` and the job `expired` or `failed`. Interview rows are not in the statement.
 
 ### HR read and regeneration
 
@@ -349,10 +350,10 @@ Logs may include assignment id, execution id, generation id, job id, outbox id, 
 - [ ] HR uses the existing `accessauthority.Authority`. ADMIN is forbidden. No second authorizer.
 - [ ] Statements are observations, gaps, or uncertainties, cite finalized evidence when presented as answers, and do not hire, reject, or rank.
 - [ ] Salary ceiling value and reference are absent from schema, writer input, logs, and the HR response.
-- [ ] Attempt budget is 2 attempts, 60 seconds, 5-second delay, 5 minutes from job creation.
+- [ ] Attempt budget is 2 attempts, 60 seconds, 5-second delay, 5 minutes from the first claim with final evidence (Q4), plus a 30 minute wait for evidence from admission.
 - [ ] RabbitMQ plus outbox dispatch this work only. Voice and Task queues stay as they are.
 - [ ] Dead-letter topology is not invented. The malformed-message task stays blocked.
-- [ ] Migration `000011` is manual SQL. `ReleaseVersion` becomes 11. No AutoMigrate and no seed.
+- [ ] Migration `000012` is manual SQL. `ReleaseVersion` becomes 12. No AutoMigrate and no seed.
 - [ ] OpenAPI, `docs/api/interview-reporting.md`, and `../../../../api/CHANGELOG.md` change together.
 - [ ] No admin or HR UI, and no ownership of revoke, artifacts, or document-executions.
 - [ ] BR-CORE-080..086 remain planned until the proofs in §3 have actually run.
@@ -364,8 +365,9 @@ Logs may include assignment id, execution id, generation id, job id, outbox id, 
 | Q1 | Exact dead-letter topology | Platform technical design §6, still Open | T12 only | The topology is written into §5 and §7 of this document: exchange, queue binding, and what happens to a malformed body. This design must not guess those names |
 | Q2 | Report model and invocation schema | Platform technical design §14 checklist | T13 and, with Q3, T15 | A provider, model, and structured request/response are approved and copied into §6. The attempt budget stays as already accepted |
 | Q3 | Finalized evidence identity and storage | Interview Runtime. Its provider event mapping is still Open, and no transcript table exists | T14 and, with Q2, T15 | Runtime exposes stable finalized entry id, revision, execution id, and optional question id through a read adapter. This feature does not design voice or stages |
+| Q4 | **Decided 2026-11-03: option 2.** Order between completion, the end-of-interview transcript and report admission. Interview Runtime records transcription at the end of the interview, and no provider transcript fetch has been confirmed, so the transcript is treated as asynchronous. | Interview Reporting with Interview Runtime | T14, T15 and the §5 and §10 budget | Admission stays at completion (§5). A job whose evidence port reports nothing finalized is `waiting`: it claims no attempt, the 60 second attempt clock and the 5 minute job window start only at the first claim after evidence is final, and the reconciler rechecks every 30 seconds. Give-up rule: 30 minutes after admission with no final evidence, the generation is `failed` with reason `evidence_unavailable` and the job `expired`; HR can regenerate later, which returns 409 `IRP_EVIDENCE_UNAVAILABLE` until evidence exists. The 30 minutes and 30 seconds are proposed defaults, adjustable by the owner. Option 3 stays valid if transcription proves synchronous. Still unresolved: the owner of the end-of-interview transcription step (Interview Runtime todo-gap G14), because this feature excludes transcript capture. |
 
-Executable without those answers: domain rules, ports, migration `000011`, repository, PostgreSQL admission and non-interference proofs, authority extension, use cases against fakes, HTTP mapping, publisher, attempt state machine, and a RabbitMQ test that uses well-formed messages.
+Executable without those answers: domain rules, ports, migration `000012`, repository, PostgreSQL admission and non-interference proofs, authority extension, use cases against fakes, HTTP mapping, publisher, attempt state machine, and a RabbitMQ test that uses well-formed messages.
 
 Salary-ceiling value scanning has no source data. It is a documented limitation, not a blocked implementation task. The exclusion proofs in §3 do not wait for it.
 
@@ -377,3 +379,5 @@ Salary-ceiling value scanning has no source data. It is a documented limitation,
 |---|---|---|---|
 | v1 | 2026-11-02 | Initial design | Mode A. No report implementation exists |
 | v2 | 2026-11-02 | Assign `000011_interview_reporting` and clean floor 11 | assign a unique migration version after the parallel tripack collision on 000008 |
+| v3 | 2026-11-03 | Add Q4: ordering between an end-of-interview transcript and report admission | Interview Runtime decided that transcription happens at the end of the interview, not per stage. No other section is changed yet; the migration number and release floor in this design are stale (`000011` is taken by interview-runtime integration, release is 11) and are not touched here |
+| v4 | 2026-11-03 | Decide Q4 (option 2: waiting state with a 30 minute give-up) and renumber the migration to `000012`, floor 12 | Owner asked to close the open questions. Interview Runtime already holds `000010` and `000011` and `ReleaseVersion` 11. Schema impact is now in §3: `waiting` job state, `wait_deadline_at`, and a null-until-first-claim `deadline_at` with `window_started_at`. Owner confirmed Q4 and `000012` |

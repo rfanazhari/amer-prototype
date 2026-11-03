@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"strconv"
@@ -17,9 +18,17 @@ import (
 
 // Config selects required resources and listener settings, with narrow readiness, shutdown and lifecycle seams for verification.
 type Config struct {
-	DatabaseURL string
-	Address     string
-	Ready       chan<- net.Addr
+	// OpenAILiveURL is the Live session create endpoint; empty selects the driver default.
+	OpenAILiveURL string
+	// OpenAILiveAttachURL is the sideband base URL; empty selects the driver default.
+	OpenAILiveAttachURL string
+	// OpenAILiveModel selects the Live model; empty selects gpt-live-1.
+	OpenAILiveModel string
+	// OpenAILiveVoice selects the Live voice; empty selects marin.
+	OpenAILiveVoice string
+	DatabaseURL     string
+	Address         string
+	Ready           chan<- net.Addr
 	// Buffered notification for the entry point's process watchdog.
 	ShutdownStarted chan<- time.Time
 	TaskCompleted   func(context.Context, event.TaskCompleted) error
@@ -64,6 +73,9 @@ func Run(ctx context.Context, cfg Config, logs *logmanager.Application) (result 
 		return err
 	}
 	if err := ValidateAccessSettings(cfg); err != nil {
+		return err
+	}
+	if err := ValidateInterviewSettings(cfg); err != nil {
 		return err
 	}
 	var shutdownAt time.Time
@@ -114,6 +126,11 @@ func Run(ctx context.Context, cfg Config, logs *logmanager.Application) (result 
 	logmanager.InfoWithContext(startupLogCtx, "administrative bootstrap complete", map[string]string{"service": logs.Service()})
 	taskHandler, queue := assembleTask(db, logs, cfg.TaskCompleted)
 	interview, interviewPage := NewCandidateInterview(db, cfg, logs)
+	defer func() {
+		if closer, ok := interview.(io.Closer); ok {
+			result = errors.Join(result, closer.Close())
+		}
+	}()
 	handler := Router{Task: taskHandler, Access: assembleAccess(db, cfg, logs), Landing: candidatelanding.Handler{}, Configuration: assembleAgentConfiguration(db, cfg, logs), Interview: interview, InterviewPage: interviewPage}
 	transport := HTTPServer(handler, logs)
 	defer transport.cancel()

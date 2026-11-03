@@ -143,7 +143,7 @@ func (p *Progress) validHandoffs() bool {
 		return false
 	}
 	for i, h := range s.Handoffs {
-		if h.Stage != stages()[i] || h.Target != nextStage(h.Stage) || h.CommittedAt.IsZero() || h.CommittedAt.Before(s.RunningAt) || p.HardDeadlineReached(h.CommittedAt) || !p.stageCovered(h.Stage) || !p.validHandoffRecord(h) {
+		if h.Stage != stages()[i] || h.Target != nextStage(h.Stage) || h.CommittedAt.IsZero() || h.CommittedAt.Before(s.RunningAt) || p.HardDeadlineReached(h.CommittedAt) || !p.validHandoffRecord(h) {
 			return false
 		}
 		if i > 0 && h.CommittedAt.Before(s.Handoffs[i-1].CommittedAt) {

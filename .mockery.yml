@@ -49,6 +49,7 @@ packages:
       InterviewLifecycle:
       InterviewDriver:
       InterviewSummarizer:
+      InterviewCompleter:
   github.com/rfanazhari/amer-prototype/application/usecase/taskusecase:
     config:
       dir: test/mocks
@@ -148,6 +149,7 @@ packages:
       ExecutionStore:
       CommandStore:
       ProgressCommitment:
+      AttemptLedger:
   github.com/rfanazhari/amer-prototype/application/usecase/executionusecase:
     config:
       dir: test/mocks
@@ -192,6 +194,7 @@ packages:
       StartInterviewOperation:
       TakeoverOperation:
       CancelInterviewOperation:
+      CompleteInterviewOperation:
   github.com/rfanazhari/amer-prototype/application/query/candidateinterviewquery:
     config:
       dir: test/mocks

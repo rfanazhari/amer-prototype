@@ -55,6 +55,18 @@ type ActivateInput struct {
 
 // RecordAttemptInput carries the caller-supplied fields for recording a new attempt.
 type RecordAttemptInput struct {
+	// AttemptID is the UUID of the authority being reserved.
+	AttemptID string
+	// Limit is the maximum number of attempts for this operation.
+	Limit int
+	// WindowStart is a trusted recovery instant, or zero for the first operation attempt.
+	WindowStart time.Time
+	// Window bounds the operation from its persisted first attempt or trusted start.
+	Window time.Duration
+	// AttemptTimeout bounds one setup attempt inside the operation window.
+	AttemptTimeout time.Duration
+	// HardDeadline is the fixed outer execution deadline, when already running.
+	HardDeadline *time.Time
 	// ExecutionID is the execution receiving the new attempt.
 	ExecutionID string
 	// RequestKey is the opaque idempotency key supplied by the caller.
@@ -65,7 +77,7 @@ type RecordAttemptInput struct {
 	ExpectedVersion int64
 	// OperationKey is the opaque key identifying the operation receiving the attempt.
 	OperationKey string
-	// Generation is the new attempt authority generation, which must exceed the current one.
+	// Generation is zero for allocation, or must equal the next execution-wide authority generation.
 	Generation int64
 }
 

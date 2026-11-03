@@ -68,6 +68,22 @@ type TakeoverOperation interface {
 	Execute(ctx context.Context, in TakeoverInput) (*dto.TakeoverView, error)
 }
 
+// CompleteInterviewInput carries one candidate finish.
+type CompleteInterviewInput struct {
+	// ExecutionID is the execution to complete.
+	ExecutionID string
+	// ControllerID is the calling tab, which must be the current controller.
+	ControllerID string
+	// ExpectedVersion is the execution state version the caller last saw.
+	ExpectedVersion int64
+}
+
+// CompleteInterviewOperation ends a running interview as COMPLETED at the controller's request.
+type CompleteInterviewOperation interface {
+	// Execute seals the remaining stages and completes the execution; a finished interview returns the same view again.
+	Execute(ctx context.Context, in CompleteInterviewInput) (*dto.InterviewExecutionView, error)
+}
+
 // CancelInterviewInput carries one early stop.
 type CancelInterviewInput struct {
 	// ExecutionID is the execution to cancel.

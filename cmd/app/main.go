@@ -14,6 +14,7 @@ import (
 // main loads environment settings, initializes masked logging and signals, and runs composition under a process shutdown watchdog.
 func main() {
 	logs := logmanager.NewApplication(logmanager.WithAppName("amer-prototype"), logmanager.WithService("amer-prototype"), logmanager.WithSkipHeaders(), logmanager.WithMaskingConfig([]logmanager.MaskingConfig{
+		{FieldPattern: "sdp", Type: logmanager.FullMask}, {FieldPattern: "instructions", Type: logmanager.FullMask}, {FieldPattern: "transcript", Type: logmanager.FullMask}, {FieldPattern: "salary", Type: logmanager.FullMask},
 		{FieldPattern: "authorization", Type: logmanager.FullMask}, {FieldPattern: "cookie", Type: logmanager.FullMask}, {FieldPattern: "password", Type: logmanager.FullMask}, {FieldPattern: "token", Type: logmanager.FullMask}, {FieldPattern: "email", Type: logmanager.FullMask}, {FieldPattern: "api_key", Type: logmanager.FullMask}, {FieldPattern: "csrf", Type: logmanager.FullMask}, {FieldPattern: "secret", Type: logmanager.FullMask},
 	}))
 	address := os.Getenv("HTTP_ADDRESS")
@@ -38,6 +39,10 @@ func main() {
 		Address:                      address,
 		ShutdownStarted:              shutdownStarted,
 		OpenAIAPIKey:                 os.Getenv("OPENAI_API_KEY"),
+		OpenAILiveURL:                os.Getenv("OPENAI_LIVE_URL"),
+		OpenAILiveAttachURL:          os.Getenv("OPENAI_LIVE_ATTACH_URL"),
+		OpenAILiveModel:              os.Getenv("OPENAI_LIVE_MODEL"),
+		OpenAILiveVoice:              os.Getenv("OPENAI_LIVE_VOICE"),
 		OpenAIRealtimeModel:          os.Getenv("OPENAI_REALTIME_MODEL"),
 		OpenAIRealtimeVoice:          os.Getenv("OPENAI_REALTIME_VOICE"),
 		OpenAIRealtimeURL:            os.Getenv("OPENAI_REALTIME_URL"),

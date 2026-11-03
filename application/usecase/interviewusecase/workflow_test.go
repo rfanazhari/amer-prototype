@@ -352,6 +352,9 @@ func TestWorkflowReconnect(t *testing.T) {
 			require.NoError(t, p.RecordEntry(interview.TranscriptEntry{ID: "uncited", Stage: enum.StageBackground, Speaker: interview.Candidate, State: interview.Final, Body: "Outside checkpoint"}))
 			h.record.Snapshot = p.Snapshot()
 			h.record.Checkpoints = []interviewport.Checkpoint{{ID: "checkpoint", Stage: enum.StageBackground, SessionID: "old-session", AttemptID: "old-attempt", EntryIDs: []string{"committed"}, CommittedAt: fixedTime().UTC().Truncate(time.Millisecond)}}
+			if tt.exhausted || tt.expired {
+				h.lifecycle.On("Fail", mock.Anything, service.InterviewFailure{Authority: authority(), Reason: "reconnect_budget_exhausted"}).Return(nil).Once()
+			}
 			created, err := h.workflow.Reconnect(context.Background(), request(t, h))
 			if tt.wantErr {
 				require.Error(t, err)

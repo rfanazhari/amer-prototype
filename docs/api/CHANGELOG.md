@@ -1,5 +1,18 @@
 # API changelog
 
+## 0.15.0 — candidate finish (CORE-IRT-021)
+
+Added `POST /candidate/executions/{id}/complete` and the `complete` action in `GET /candidate/interview`. The controlling tab can end a `RUNNING` interview as `COMPLETED`; the remaining stages are sealed in order and the provider session is closed by its stored id. A repeat returns the same result, a `CREATED` interview is `409 CIN_NOT_LIVE`, and a terminal one is `409 CIN_TERMINAL`. No existing route, schema field or error code changed.
+
+## 0.14.1 — candidate page voice start (CORE-IRT-019)
+
+The embedded candidate interview page now starts the voice session through the existing `session-attempts` and readiness routes. No route, schema, request/response field, status code or error code changed.
+
+## 0.14.0 — Interview Runtime integration (CORE-IRT-018)
+
+Mounted the candidate session-attempt and readiness routes through production lifecycle, persistence and voice adapters. Same-key success replays the original answer; pending/interrupted setup returns `409 IRT_NOT_READY`, failed/legacy keys and known provider setup failure after reservation return `409 IRT_CONFLICT`, and result-persistence failures remain safe `500 INTERNAL_ERROR`. Missing provider credentials return `503 SESSION_UNAVAILABLE` before reservation. Readiness changes no coverage. Version 11 retains legacy command rows without fabricated answers. Prototype voice routes remain removed.
+
+
 ## 0.13.1 — single live administrative session (T23)
 
 A committed administrative login now deletes the account's other `administrative_sessions` rows in the same transaction. An earlier session cookie then receives `401` `IA_UNAUTHENTICATED`. No route, schema, response body, cookie, status code, or migration changed. See [identity-access.md](identity-access.md).

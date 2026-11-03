@@ -40,7 +40,13 @@ func (p *Progress) CommitHandoff(target enum.QuestionStage, now time.Time) error
 	if err := p.Authorize(target, now); err != nil {
 		return err
 	}
-	h := Handoff{Stage: p.state.CurrentStage, Target: target, CommittedAt: trustedTime(now)}
+	p.seal(target, trustedTime(now))
+	return nil
+}
+
+// seal appends the current stage's handoff with its coverage, final entry ids and technical losses as stored.
+func (p *Progress) seal(target enum.QuestionStage, at time.Time) {
+	h := Handoff{Stage: p.state.CurrentStage, Target: target, CommittedAt: at}
 	for _, q := range p.state.Coverage {
 		if q.Stage == h.Stage {
 			h.Coverage = append(h.Coverage, q)
@@ -59,7 +65,6 @@ func (p *Progress) CommitHandoff(target enum.QuestionStage, now time.Time) error
 		}
 	}
 	p.state.Handoffs = append(p.state.Handoffs, h)
-	return nil
 }
 
 // ActivateStage requires a committed source handoff before starting the target timer.

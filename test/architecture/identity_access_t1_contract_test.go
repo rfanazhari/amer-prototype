@@ -25,7 +25,7 @@ func TestIdentityAccessAdministrativeContract(t *testing.T) {
 	cases := []identityAccessT1ContractCase{
 		{
 			name:    "design records resolved Q1 administrative schemas",
-			relPath: filepath.Join("docs", "services", "core-ai", "identity-access", "technical-design.md"),
+			relPath: filepath.Join("docs", "services", "core-ai", "features", "identity-access", "technical-design.md"),
 			needles: []string{
 				"### 6.1 Administrative identity, password and bootstrap (approved A)",
 				"### 6.2 Cookie, origin, CSRF and rate budgets (approved B)",
@@ -46,7 +46,7 @@ func TestIdentityAccessAdministrativeContract(t *testing.T) {
 		},
 		{
 			name:    "decision log records T1 contract closure",
-			relPath: filepath.Join("docs", "services", "core-ai", "identity-access", "decision-log.md"),
+			relPath: filepath.Join("docs", "services", "core-ai", "features", "identity-access", "decision-log.md"),
 			needles: []string{
 				"## D7: Administrative input, provisioning and security contracts are approved",
 				"CORE-IAM-001",
@@ -55,7 +55,7 @@ func TestIdentityAccessAdministrativeContract(t *testing.T) {
 		},
 		{
 			name:    "task plan marks T1 done and unblocks administrative dependents",
-			relPath: filepath.Join("docs", "services", "core-ai", "identity-access", "task-plan.md"),
+			relPath: filepath.Join("docs", "services", "core-ai", "features", "identity-access", "task-plan.md"),
 			needles: []string{
 				"- [x] **T1. Finalize administrative input, provisioning and security contracts**",
 				"Q1 resolved in T1",
@@ -81,7 +81,7 @@ func TestIdentityAccessAdministrativeContract(t *testing.T) {
 		})
 	}
 	t.Run("login and provision examples are valid JSON objects", func(t *testing.T) {
-		body, err := os.ReadFile(filepath.Join(root, "docs", "services", "core-ai", "identity-access", "technical-design.md"))
+		body, err := os.ReadFile(filepath.Join(root, "docs", "services", "core-ai", "features", "identity-access", "technical-design.md"))
 		require.NoError(t, err)
 		text := string(body)
 		require.True(t, strings.Contains(text, "#### Examples (accepted expectations)"), "missing accepted JSON examples heading")

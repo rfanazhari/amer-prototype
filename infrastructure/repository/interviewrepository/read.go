@@ -13,6 +13,7 @@ import (
 	"github.com/rfanazhari/amer-prototype/domain/enum"
 	"github.com/rfanazhari/amer-prototype/domain/interview"
 	"github.com/rfanazhari/amer-prototype/domain/valueobject"
+	"github.com/rfanazhari/amer-prototype/infrastructure/database/transaction"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -75,10 +76,10 @@ func encodeFollowUps(ids []string) string {
 	return string(encoded)
 }
 
-// Find reads one complete progress boundary in a consistent read-only transaction.
+// Find reads a complete progress boundary in a standalone repeatable-read transaction or joins the caller's locked unit of work.
 func (s Store) Find(ctx context.Context, executionID string) (interviewport.ProgressRecord, error) {
 	var record interviewport.ProgressRecord
-	err := s.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	err := transaction.Within(ctx, s.DB, func(ctx context.Context, tx *gorm.DB) error {
 		row, err := readProgress(tx, executionID, false)
 		if err != nil {
 			return err

@@ -18,57 +18,85 @@ func (u Workflow) Activate(ctx context.Context, req SessionRequest) (service.Int
 		return service.InterviewVoiceCreated{}, interview.ErrInvalid
 	}
 	budgets := service.DefaultInterviewBudgets()
-	admitted, err := u.Lifecycle.Activate(ctx, service.InterviewActivation{Authority: req.Authority, Intent: "activate", IdempotencyKey: req.IdempotencyKey, Budgets: budgets})
-	if err != nil {
-		return service.InterviewVoiceCreated{}, err
+	if u.ProviderReady != nil && !u.ProviderReady() {
+		return service.InterviewVoiceCreated{}, ErrProviderUnavailable
 	}
-	if admitted.Replayed {
-		return service.InterviewVoiceCreated{}, interview.ErrConflict
-	}
-	if err = validateAdmission(req, admitted); err != nil {
-		return service.InterviewVoiceCreated{}, err
-	}
-	req.Authority = admitted.Authority
-	record, findErr := u.Store.Find(ctx, req.Authority.ExecutionID)
 	version := int64(1)
-	now := u.now()
-	if now.Before(admitted.RunningAt) || !now.Before(admitted.HardDeadline) {
-		return service.InterviewVoiceCreated{}, interview.ErrBudget
-	}
-	switch {
-	case errors.Is(findErr, interviewport.ErrNotFound):
-		p, progressErr := interview.NewProgress(req.Authority.ExecutionID, req.Revision, admitted.RunningAt)
-		if progressErr != nil {
-			return service.InterviewVoiceCreated{}, progressErr
+	var setupDeadline time.Time
+	err := u.prepare(ctx, func(ctx context.Context) error {
+		admitted, err := u.Lifecycle.Activate(ctx, service.InterviewActivation{Authority: req.Authority, Intent: "activate", IdempotencyKey: req.IdempotencyKey, Budgets: budgets})
+		if err != nil {
+			return err
 		}
-		record = interviewport.ProgressRecord{Snapshot: p.Snapshot(), Version: 1}
-		if err = appendSession(&record, req, now, ""); err != nil {
-			return service.InterviewVoiceCreated{}, err
+		if admitted.Replayed {
+			return interview.ErrConflict
 		}
-		err = u.Lifecycle.WithProgress(ctx, req.Authority, func(tx context.Context) error {
-			return u.Store.Insert(tx, interviewport.ProgressWrite{ExecutionID: req.Authority.ExecutionID, AttemptID: req.Authority.AttemptID}, record)
-		})
-	case findErr != nil:
-		return service.InterviewVoiceCreated{}, findErr
-	default:
-		err = u.update(ctx, req.Authority, req.ProgressVersion, func(r *interviewport.ProgressRecord) error {
-			if r.Snapshot.CurrentStage != enum.StageBackground || len(r.Snapshot.Handoffs) != 0 || !r.Snapshot.RunningAt.Equal(admitted.RunningAt) {
-				return interview.ErrConflict
+		if err = validateAdmission(req, admitted); err != nil {
+			return err
+		}
+		req.Authority = admitted.Authority
+		if req.Check != nil {
+			if err = req.Check(ctx); err != nil {
+				return err
 			}
-			for _, session := range r.Sessions {
-				if session.ProviderSessionID != nil {
+		}
+		record, findErr := u.Store.Find(ctx, req.Authority.ExecutionID)
+		version = int64(1)
+		now := u.now()
+		setupDeadline = now.Add(budgets.ActivationAttemptTimeout)
+		for _, limit := range []time.Time{admitted.RunningAt.Add(budgets.ActivationWindow), admitted.HardDeadline} {
+			if limit.Before(setupDeadline) {
+				setupDeadline = limit
+			}
+		}
+		if now.Before(admitted.RunningAt) || !now.Before(admitted.HardDeadline) {
+			return interview.ErrBudget
+		}
+		switch {
+		case errors.Is(findErr, interviewport.ErrNotFound):
+			p, progressErr := interview.NewProgress(req.Authority.ExecutionID, req.Revision, admitted.RunningAt)
+			if progressErr != nil {
+				return progressErr
+			}
+			record = interviewport.ProgressRecord{Snapshot: p.Snapshot(), Version: 1}
+			if err = appendSession(&record, req, now, ""); err != nil {
+				return err
+			}
+			err = u.Lifecycle.WithProgress(ctx, req.Authority, func(tx context.Context) error {
+				if err := u.Store.Insert(tx, interviewport.ProgressWrite{ExecutionID: req.Authority.ExecutionID, AttemptID: req.Authority.AttemptID}, record); err != nil {
+					return err
+				}
+				return u.reserve(tx, req)
+			})
+		case findErr != nil:
+			return findErr
+		default:
+			err = u.update(ctx, req.Authority, req.ProgressVersion, func(r *interviewport.ProgressRecord) error {
+				if r.Snapshot.CurrentStage != enum.StageBackground || len(r.Snapshot.Handoffs) != 0 || !r.Snapshot.RunningAt.Equal(admitted.RunningAt) {
 					return interview.ErrConflict
 				}
+				for _, session := range r.Sessions {
+					if session.ProviderSessionID != nil {
+						return interview.ErrConflict
+					}
+				}
+				closeSessions(r, now)
+				return appendSession(r, req, now, "")
+			})
+			if err == nil {
+				err = u.reserve(ctx, req)
 			}
-			closeSessions(r, now)
-			return appendSession(r, req, now, "")
-		})
-		version = req.ProgressVersion + 1
-	}
+			version = req.ProgressVersion + 1
+		}
+		if err != nil {
+			return err
+		}
+		return nil
+	})
 	if err != nil {
 		return service.InterviewVoiceCreated{}, err
 	}
-	createCtx, cancel := context.WithTimeout(ctx, budgets.ActivationAttemptTimeout)
+	createCtx, cancel := context.WithTimeout(ctx, setupDeadline.Sub(u.now()))
 	defer cancel()
 	return u.createSession(createCtx, req, version, false, "")
 }

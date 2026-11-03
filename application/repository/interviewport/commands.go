@@ -11,6 +11,8 @@ import (
 // SessionCommand is the stored identity of one accepted session-attempt request.
 // Key is already scoped to the candidate session. AnswerSDP is the provider answer returned on the first request.
 type SessionCommand struct {
+	// State is pending, succeeded, failed or legacy.
+	State            string
 	ID               string
 	ExecutionID      string
 	Key              string
@@ -28,6 +30,10 @@ type SessionCommands interface {
 	Find(ctx context.Context, executionID, key string) (SessionCommand, error)
 	// Insert stores a command; a duplicate execution and key yields ErrConflict.
 	Insert(ctx context.Context, command SessionCommand) error
+	// Finalize stores the original answer once; pending identity and session ownership must match.
+	Finalize(ctx context.Context, command SessionCommand) error
+	// Fail marks a known setup failure without ever permitting provider recreation for that key.
+	Fail(ctx context.Context, executionID, key string) error
 }
 
 // RevisionReader resolves the immutable revision an execution is pinned to.

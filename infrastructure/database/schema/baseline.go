@@ -210,6 +210,17 @@ func (d *driver) extendBaseline(v int) (int, error) {
 	} else if runtime != 0 {
 		return 0, errors.New("partial interview runtime schema")
 	}
+	if v == 10 {
+		var columns int
+		if err := d.conn.QueryRowContext(d.ctx, `SELECT count(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='interview_session_commands' AND column_name IN ('state','session_id','answer_sdp','execution_version','updated_at')`).Scan(&columns); err != nil {
+			return 0, err
+		}
+		if columns == 5 {
+			v = 11
+		} else if columns != 0 {
+			return 0, errors.New("partial interview runtime integration schema")
+		}
+	}
 	return v, nil
 }
 

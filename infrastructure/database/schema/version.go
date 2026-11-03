@@ -3,7 +3,7 @@ package schema
 import "strings"
 
 // ReleaseVersion is the only clean schema_migrations.version accepted at application startup.
-const ReleaseVersion = 10
+const ReleaseVersion = 11
 
 // ownedPublicTables lists tool-owned public tables that are not foreign schema.
 var ownedPublicTables = []string{

@@ -56,7 +56,7 @@ func toSnapshot(m ExecutionModel) (execution.Snapshot, error) {
 	}
 	aggregate, err := execution.RestoreExecution(execution.Snapshot{
 		ID: m.ID, Binding: execution.Binding{InstanceID: m.InstanceID, RevisionID: m.RevisionID},
-		State: execution.State(m.State), StateVersion: m.StateVersion, ProgressRef: progress,
+		State: execution.State(m.State), StateVersion: m.StateVersion, CurrentGeneration: m.CurrentGeneration, ProgressRef: progress,
 		ActivatedAt: utcPointer(m.ActivatedAt), TerminalAt: utcPointer(m.TerminalAt), TerminalReason: reason,
 		CreatedAt: m.CreatedAt.UTC(), UpdatedAt: m.UpdatedAt.UTC(),
 	})

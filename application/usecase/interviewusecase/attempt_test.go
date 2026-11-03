@@ -82,8 +82,9 @@ func storedKey() string { return testdata.CandidateSessionID + ":" + attemptKey 
 // created is the provider result of a successful session create.
 func created(attempt, session string) service.InterviewVoiceCreated {
 	return service.InterviewVoiceCreated{
-		Session: service.InterviewVoiceSession{ExecutionID: attemptExecution, AttemptID: attempt, SessionID: session, ProviderSessionID: "provider-1"},
-		SDP:     "answer-sdp",
+		Session:          service.InterviewVoiceSession{ExecutionID: attemptExecution, AttemptID: attempt, SessionID: session, ProviderSessionID: "provider-1"},
+		SDP:              "answer-sdp",
+		ExecutionVersion: 5,
 	}
 }
 
@@ -114,13 +115,8 @@ func TestAttemptsExecute(t *testing.T) {
 				h.progress.On("Find", mock.Anything, attemptExecution).Return(interviewport.ProgressRecord{}, interviewport.ErrNotFound)
 				h.sessions.On("Activate", mock.Anything, mock.MatchedBy(func(r interviewusecase.SessionRequest) bool {
 					return r.Authority == service.InterviewAttempt{ExecutionID: attemptExecution, AttemptID: "id-1", ExpectedVersion: 4} &&
-						r.SessionID == "id-2" && r.IdempotencyKey == storedKey() && r.SDP == "offer" && r.Revision.Snapshot().Identity.ID == "revision"
+						r.Command != nil && r.Command.State == "pending" && r.Command.Key == storedKey() && r.Check != nil && r.SessionID == "id-2" && r.IdempotencyKey == storedKey() && r.SDP == "offer" && r.Revision.Snapshot().Identity.ID == "revision"
 				})).Return(created("id-1", "id-2"), nil)
-				h.owned(5, attemptExecution).Once()
-				h.commands.On("Insert", mock.Anything, mock.MatchedBy(func(c interviewport.SessionCommand) bool {
-					return c.ExecutionID == attemptExecution && c.Key == storedKey() && c.Intent == "activate" && c.AttemptID == "id-1" &&
-						c.SessionID == "id-2" && c.AnswerSDP == "answer-sdp" && c.ExecutionVersion == 5 && c.CreatedAt.Equal(fixedTime().UTC().Truncate(1e6))
-				})).Return(nil)
 			},
 			want: &interviewusecase.AttemptResult{AttemptID: "id-1", SessionID: "id-2", SDP: "answer-sdp", ExecutionVersion: 5, SessionCondition: "pending"},
 		},
@@ -136,8 +132,6 @@ func TestAttemptsExecute(t *testing.T) {
 				h.sessions.On("Reconnect", mock.Anything, mock.MatchedBy(func(r interviewusecase.SessionRequest) bool {
 					return r.ProgressVersion == 3 && r.Authority.AttemptID == "id-1" && r.SessionID == "id-2"
 				})).Return(created("id-1", "id-2"), nil)
-				h.owned(5, attemptExecution).Once()
-				h.commands.On("Insert", mock.Anything, mock.MatchedBy(func(c interviewport.SessionCommand) bool { return c.Intent == "reconnect" })).Return(nil)
 			},
 			want: &interviewusecase.AttemptResult{AttemptID: "id-1", SessionID: "id-2", SDP: "answer-sdp", ExecutionVersion: 5, SessionCondition: "pending"},
 		},
@@ -148,7 +142,7 @@ func TestAttemptsExecute(t *testing.T) {
 				h.owned(5, attemptExecution)
 				h.controlled(t, attemptTab)
 				h.commands.On("Find", mock.Anything, attemptExecution, storedKey()).Return(interviewport.SessionCommand{
-					ExecutionID: attemptExecution, Key: storedKey(), Intent: "activate", AttemptID: "id-1", SessionID: "id-2", AnswerSDP: "answer-sdp", ExecutionVersion: 5,
+					State: "succeeded", ExecutionID: attemptExecution, Key: storedKey(), Intent: "activate", AttemptID: "id-1", SessionID: "id-2", AnswerSDP: "answer-sdp", ExecutionVersion: 5,
 				}, nil)
 				provider := "provider-1"
 				ready := fixedTime()

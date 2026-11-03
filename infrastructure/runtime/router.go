@@ -47,7 +47,7 @@ func (h Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	h.Task.ServeHTTP(w, r)
 }
 
-// isCandidateExecutionPath matches only start, poll, takeover and cancel, leaving sibling routes unmounted.
+// isCandidateExecutionPath matches the exact lifecycle and Interview Runtime candidate routes.
 func isCandidateExecutionPath(path string) bool {
 	const base = "/candidate/executions"
 	if path == base {
@@ -57,5 +57,5 @@ func isCandidateExecutionPath(path string) bool {
 		return false
 	}
 	parts := strings.Split(strings.TrimPrefix(path, base+"/"), "/")
-	return parts[0] != "" && (len(parts) == 1 || (len(parts) == 2 && (parts[1] == "takeover" || parts[1] == "cancel")))
+	return parts[0] != "" && (len(parts) == 1 || (len(parts) == 2 && (parts[1] == "takeover" || parts[1] == "cancel" || parts[1] == "complete" || parts[1] == "session-attempts")) || (len(parts) == 4 && parts[1] == "session-attempts" && parts[2] != "" && parts[3] == "ready"))
 }

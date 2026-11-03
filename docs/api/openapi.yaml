@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "amer-prototype Task API",
-    "version": "0.11.0",
+    "version": "0.15.0",
     "description": "Task reference feature, identity/access, and HR agent configuration. All active responses use the standard JSON envelope. Unknown routes return 404; unsupported methods return 405. Task and health remain unauthenticated. Request bodies are limited to 1 MiB. System-owned timestamps, IDs and status are rejected as request fields. Completion events are volatile and process-local. Administrative, candidate, and configuration routes use origin, cookies, and CSRF as documented in identity-access.md, agent-configuration.md and candidate-interview.md."
   },
   "servers": [
@@ -3036,7 +3036,7 @@
     "/candidate/interview/page": {
       "get": {
         "operationId": "getCandidateInterviewPage",
-        "summary": "Serve the candidate interview page with consent, API-offered start and control actions, confirmed cancel, and distinct terminal outcomes. Live views poll every two seconds; refresh never starts an execution. The JSON API enforces the session; without a cookie the page shows the access-error state and no notice.",
+        "summary": "Serve the candidate interview page with consent, API-offered start and control actions, confirmed cancel, and distinct terminal outcomes. Live views poll every two seconds; refresh never starts an execution. The controlling tab of a live interview can start voice through the existing session-attempt and readiness routes. The JSON API enforces the session; without a cookie the page shows the access-error state and no notice.",
         "security": [],
         "responses": {
           "200": {
@@ -3970,6 +3970,242 @@
         ]
       }
     },
+    "/candidate/executions/{id}/complete": {
+      "post": {
+        "operationId": "completeCandidateExecution",
+        "summary": "Finish the interview as the current controller using the execution version.",
+        "description": "Ends a RUNNING interview as COMPLETED. The remaining stages are sealed in order and the execution is completed; a repeat after completion returns the same result. A CREATED interview has nothing to complete (409 CIN_NOT_LIVE) and a cancelled or failed one is never relabelled (409 CIN_TERMINAL). Precedence: method; origin, content type and strict input; candidate session; CSRF on POST; execution assignment scope; policy; dependency; ambiguous commit; technical error. No controller id, salary, transcript or report is returned. All JSON responses use no-store.",
+        "security": [
+          {
+            "CandidateCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "description": "csrfToken from GET /candidate/session.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "example": "id"
+            }
+          },
+          {
+            "name": "X-Interview-Controller",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$"
+            },
+            "description": "Tab id in sessionStorage; takeover body must equal this header. This does not authenticate."
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Execution identity scoped to the session assignment; another assignment is 404."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CandidateCompleteRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Candidate-safe result in state COMPLETED.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CandidateExecutionEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "INVALID_INPUT for origin, content type, malformed/unknown/duplicate fields, invalid tab, or invalid request values.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "IA_UNAUTHENTICATED.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "METHOD_NOT_ALLOWED.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "INTERNAL_ERROR.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "CIN_DEPENDENCY_UNAVAILABLE for an unbound sibling.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND: absent execution or another assignment execution id.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "CIN_FORBIDDEN for CSRF mismatch. CIN_NOT_CONTROLLER for finishing from another tab.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "CIN_CONTROLLER_CONFLICT for a stale version, CIN_TERMINAL, or CIN_NOT_LIVE.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "candidate"
+        ]
+      }
+    },
     "/candidate/executions/{id}/session-attempts": {
       "post": {
         "operationId": "createCandidateSessionAttempt",
@@ -3977,7 +4213,7 @@
           "candidate"
         ],
         "summary": "Create or replay one voice attempt for activate or reconnect.",
-        "description": "Precedence: method; origin, content type and strict input; candidate session; CSRF; execution assignment scope; current controller; replay of the same key; version; provider. The idempotency key is scoped to the candidate session and execution. The same key with the same intent returns the original attempt and answer with 200; the same key with another intent is 409 IRT_CONFLICT and creates nothing. A stale expectedVersion, a controller that is not current, or an exhausted activation or reconnect budget is 409 IRT_CONFLICT. The response carries the provider SDP answer only: no provider session id, instructions, salary, transcript or revision data. All JSON responses use no-store.",
+        "description": "Precedence: method; origin, content type and strict input; candidate session; CSRF; execution assignment scope; current controller; replay of the same key; version; provider. The idempotency key is scoped to the candidate session and execution. A succeeded command with the same key and intent returns the original attempt and answer with 200; pending or interrupted reservations return 409 IRT_NOT_READY without another provider create, and failed or legacy commands return 409 IRT_CONFLICT; the same key with another intent is 409 IRT_CONFLICT and creates nothing. A stale expectedVersion, a controller that is not current, or an exhausted activation or reconnect budget is 409 IRT_CONFLICT. The response carries the provider SDP answer only: no provider session id, instructions, salary, transcript or revision data. All JSON responses use no-store.",
         "security": [
           {
             "CandidateCookie": []
@@ -4202,7 +4438,7 @@
                 }
               }
             },
-            "description": "IRT_CONFLICT for a stale version, wrong controller, reused key with another intent, or exhausted budget; IRT_NOT_READY while a technical loss blocks the next session.",
+            "description": "IRT_CONFLICT for a stale version, wrong controller, changed intent, failed or legacy command, known setup failure after reservation, or exhausted budget; IRT_NOT_READY for a pending/interrupted reservation or while technical loss blocks the next session.",
             "content": {
               "application/json": {
                 "schema": {
@@ -5828,7 +6064,8 @@
                 "accept",
                 "start",
                 "takeover",
-                "cancel"
+                "cancel",
+                "complete"
               ]
             }
           },
@@ -5967,6 +6204,20 @@
         }
       },
       "CandidateCancelRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "expectedVersion"
+        ],
+        "properties": {
+          "expectedVersion": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          }
+        }
+      },
+      "CandidateCompleteRequest": {
         "type": "object",
         "additionalProperties": false,
         "required": [

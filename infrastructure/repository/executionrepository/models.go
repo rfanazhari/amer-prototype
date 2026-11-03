@@ -5,17 +5,18 @@ import "time"
 // ExecutionModel maps agent_executions independently of the aggregate and the application DTO.
 // Timestamps are never populated by GORM hooks so the trusted application clock stays authoritative.
 type ExecutionModel struct {
-	ID             string     `gorm:"type:uuid;primaryKey"`
-	InstanceID     string     `gorm:"column:instance_id;type:uuid;not null"`
-	RevisionID     string     `gorm:"column:published_revision_id;type:uuid;not null"`
-	State          string     `gorm:"not null"`
-	StateVersion   int64      `gorm:"column:state_version;not null"`
-	ProgressRef    *string    `gorm:"column:committed_progress_ref;type:uuid"`
-	ActivatedAt    *time.Time `gorm:"column:activated_at"`
-	TerminalAt     *time.Time `gorm:"column:terminal_at"`
-	TerminalReason *string    `gorm:"column:terminal_reason"`
-	CreatedAt      time.Time  `gorm:"column:created_at;not null;autoCreateTime:false"`
-	UpdatedAt      time.Time  `gorm:"column:updated_at;not null;autoUpdateTime:false"`
+	CurrentGeneration int64      `gorm:"column:current_generation;->"`
+	ID                string     `gorm:"type:uuid;primaryKey"`
+	InstanceID        string     `gorm:"column:instance_id;type:uuid;not null"`
+	RevisionID        string     `gorm:"column:published_revision_id;type:uuid;not null"`
+	State             string     `gorm:"not null"`
+	StateVersion      int64      `gorm:"column:state_version;not null"`
+	ProgressRef       *string    `gorm:"column:committed_progress_ref;type:uuid"`
+	ActivatedAt       *time.Time `gorm:"column:activated_at"`
+	TerminalAt        *time.Time `gorm:"column:terminal_at"`
+	TerminalReason    *string    `gorm:"column:terminal_reason"`
+	CreatedAt         time.Time  `gorm:"column:created_at;not null;autoCreateTime:false"`
+	UpdatedAt         time.Time  `gorm:"column:updated_at;not null;autoUpdateTime:false"`
 }
 
 // TableName fixes the shared execution table used by GORM.

@@ -14,6 +14,42 @@ type SessionCommands struct {
 	mock.Mock
 }
 
+// Fail provides a mock function with given fields: ctx, executionID, key
+func (_m *SessionCommands) Fail(ctx context.Context, executionID string, key string) error {
+	ret := _m.Called(ctx, executionID, key)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Fail")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) error); ok {
+		r0 = rf(ctx, executionID, key)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// Finalize provides a mock function with given fields: ctx, command
+func (_m *SessionCommands) Finalize(ctx context.Context, command interviewport.SessionCommand) error {
+	ret := _m.Called(ctx, command)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Finalize")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, interviewport.SessionCommand) error); ok {
+		r0 = rf(ctx, command)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // Find provides a mock function with given fields: ctx, executionID, key
 func (_m *SessionCommands) Find(ctx context.Context, executionID string, key string) (interviewport.SessionCommand, error) {
 	ret := _m.Called(ctx, executionID, key)

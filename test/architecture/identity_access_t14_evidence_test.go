@@ -13,7 +13,7 @@ import (
 // TestIdentityAccessCandidateIntegrationEvidence requires CORE-IAM-014 proof, skips and browser commands.
 func TestIdentityAccessCandidateIntegrationEvidence(t *testing.T) {
 	root := filepath.Join("..", "..")
-	path := filepath.Join(root, "docs", "services", "core-ai", "identity-access", "t14-evidence.md")
+	path := filepath.Join(root, "docs", "services", "core-ai", "features", "identity-access", "t14-evidence.md")
 	body, err := os.ReadFile(path)
 	require.NoError(t, err)
 	text := string(body)

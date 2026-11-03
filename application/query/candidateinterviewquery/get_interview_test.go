@@ -192,7 +192,7 @@ func TestGetInterviewExecutionActions(t *testing.T) {
 		assert.Equal(t, int64(3), got.Execution.Version)
 		assert.True(t, got.Execution.IsCurrentController)
 		assert.Equal(t, int64(2), got.Execution.ControllerVersion)
-		assert.Equal(t, []string{"cancel"}, got.Actions)
+		assert.Equal(t, []string{"cancel", "complete"}, got.Actions)
 		require.NotNil(t, got.Progress)
 		assert.Equal(t, "screening", got.Progress.Phase)
 		assert.Equal(t, "connected", got.Progress.Connection)
@@ -220,7 +220,7 @@ func TestGetInterviewExecutionActions(t *testing.T) {
 		got, err := g.operation().Execute(context.Background(), candidateinterviewquery.GetInterviewInput{ControllerID: tabID})
 		require.NoError(t, err)
 		assert.Nil(t, got.Progress)
-		assert.Equal(t, []string{"cancel"}, got.Actions)
+		assert.Equal(t, []string{"cancel", "complete"}, got.Actions)
 	})
 	t.Run("absent or invalid tab header is not the controller", func(t *testing.T) {
 		g := newReadGraph(t)

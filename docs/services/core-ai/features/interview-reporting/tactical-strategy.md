@@ -8,7 +8,7 @@ Keep Task, voice, administrative access, agent configuration, assignment create,
 
 Schema version `000012_interview_reporting` follows interview-runtime `000010` and its integration `000011`. The repository's verified floor is `ReleaseVersion` 11 and `000011_interview_runtime_integration` (checked 2026-11-03), so this slice is the next file. Startup will accept only clean version 12 after that migration task. GORM 1.25.12 stays the CRUD adapter. Raw SQL is limited to the job claim and the outbox claim, both with `FOR UPDATE SKIP LOCKED`, inside the GORM transaction.
 
-RabbitMQ is the dispatch mechanism for this background work (platform TD-09 and technical design §6). The live voice routes and the Task in-process queue stay unchanged. Dead-letter topology is not part of the executable slice.
+RabbitMQ is the dispatch mechanism for this background work (platform TD-09 and technical design §6). The live voice routes and the Task in-process queue stay unchanged. Q1 was approved on 2026-11-03; T12 adds malformed-message isolation without production runtime registration.
 
 The process must not start the report consumer, and must not mount the two report routes, until the writer and the evidence adapter exist. Those two adapters are blocked. Handler tests and publisher tests still proceed. Otherwise the five-minute job window would expire against a missing provider.
 
@@ -46,7 +46,7 @@ Paths were inspected. "Reused" means the current behavior is a constraint or a p
 | `AllowsInterviewReport` | Application | `../../../../../application/service/policy.go` | Predicate | HR only |
 | Evidence and writer ports | Application | `../../../../../application/service` or `interviewreportport` | Ports | Production adapters are T14 and T13 |
 | GORM models and claim SQL | Infrastructure | `infrastructure/repository/interviewreportrepository` | Adapter | CRUD via GORM. Raw SQL only for the two `SKIP LOCKED` claims |
-| Broker client | Infrastructure | `infrastructure/service/reportbroker` | Adapter | New module `github.com/rabbitmq/amqp091-go`, pinned when added. No dead-letter arguments |
+| Broker client | Infrastructure | `infrastructure/service/reportbroker` | Adapter | Pinned `github.com/rabbitmq/amqp091-go`; T12 adds the owner-approved Q1 isolation topology |
 | HTTP handler | Delivery | `delivery/http/handler/interviewreporthandler` | Handler | Mocked operations in tests |
 | Migration pair | Schema | `migrations/pgsql/000012_interview_reporting.up.sql` and `.down.sql` | Migration | Creates the seven tables in design §3. Down is disposable |
 | Release floor | Schema | `version.go`, `checksums.json`, `../../../../design/database-migrations.md` | Configuration | Clean version 12, grants, checksums |
@@ -67,7 +67,7 @@ One feature branch is enough. Commit in this order so each commit builds:
 5. Use cases and HTTP contract (T7, T8) without mounting routes in `runtime`.
 6. Publisher, attempt worker, and RabbitMQ proof (T9, T10, T11) with the consumer unregistered.
 
-Leave T12–T15 off the merge until their decisions are written into the technical design. Do not merge a runtime registration that starts the consumer early.
+T12 Q1 is approved and recorded in technical design §5/§7. Leave T13–T15 off the merge until their remaining decisions are written into the technical design. Do not merge a runtime registration that starts the consumer early.
 
 ## 5. Testing Strategy
 

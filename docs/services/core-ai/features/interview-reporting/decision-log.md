@@ -65,11 +65,11 @@ Technical choices in this feature that exist because of a business decision. Non
 ## D7: Queued background work uses the accepted message broker, and the live call does not
 
 - **Business driver:** The candidate's finished screen must not wait on the write-up (BR-CORE-047, D2). The platform owner accepted RabbitMQ plus a durable outbox for document and report work (technical design TD-09), instead of polling only. The same decision says this queue is not the live voice path.
-- **Technical decision:** When the interview is saved as completed, the queued report work is saved with it. A worker publishes that work to RabbitMQ and writes the account afterward. The voice conversation stays on its current path. The exact dead-letter setup is still undecided, so malformed-message handling waits. The durable save does not wait on that decision.
-- **What this means for the product:** A broker outage can delay the write-up. It does not undo the interview, and it does not interrupt the live call. A garbled queue message is not given an invented discard bin.
+- **Technical decision:** When the interview is saved as completed, the queued report work is saved with it. A worker publishes that work to RabbitMQ and writes the account afterward. The voice conversation stays on its current path. Q1 was approved on 2026-11-03: `interview-report.dlx` (direct) routes key `malformed` to `interview-report.invalid`; durable quorum isolation uses at-least-once dead-lettering. The consumer rejects malformed bodies without requeue before worker invocation; replay is manual. Durable admission and database-error recovery are unchanged.
+- **What this means for the product:** A broker outage can delay the write-up. It does not undo the interview, and it does not interrupt the live call. A garbled queue message is isolated for operator inspection without changing the interview.
 - **Alternatives considered:** Writing the report inside the candidate's final request would make the candidate wait. Keeping the job only in process memory would lose it on restart. Inventing a dead-letter layout would pretend an open platform choice was settled.
-- **Trade-offs accepted:** Report text waits on the worker. Operations need the broker for timely reports. Malformed messages stay an open operational question (task CORE-IRP-012).
-- **Revisit when:** The platform owner closes the dead-letter layout, or replaces RabbitMQ as the report mechanism.
+- **Trade-offs accepted:** Report text waits on the worker. Operations need the broker for timely reports. Malformed messages use the owner-approved quarantine (task CORE-IRP-012), without automatic replay.
+- **Revisit when:** The platform owner revises the approved dead-letter layout, or replaces RabbitMQ as the report mechanism.
 - **Status:** active
 
 ## D8: The salary ceiling stays out of the report

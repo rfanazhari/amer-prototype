@@ -21,6 +21,7 @@ type Consumer struct {
 }
 
 // Handle acknowledges only successfully processed, well-formed report identities.
+// Malformed deliveries are rejected into the predeclared quarantine; nil means settled, not necessarily ACKed.
 // On error the caller must stop consumption and close the channel before recovery.
 func (c Consumer) Handle(ctx context.Context, delivery amqp.Delivery) error {
 	if c.Worker == nil {
@@ -31,10 +32,10 @@ func (c Consumer) Handle(ctx context.Context, delivery amqp.Delivery) error {
 	}
 	var message messageBody
 	if err := json.Unmarshal(delivery.Body, &message); err != nil {
-		return errors.New("invalid report message body")
+		return delivery.Reject(false)
 	}
 	if message.JobKind != "interview_report" || message.JobID == "" || message.MessageID == "" || message.MessageID != delivery.MessageId {
-		return errors.New("invalid report message identity")
+		return delivery.Reject(false)
 	}
 	if err := c.Worker.Execute(ctx, message.JobID); err != nil {
 		return err

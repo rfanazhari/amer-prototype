@@ -43,8 +43,7 @@ func newReportBrokerFixture(t *testing.T) reportBrokerFixture {
 	channel, err := connection.Channel()
 	require.NoError(t, err)
 	queue := "irp-proof-" + uuid.NewString()
-	_, err = channel.QueueDeclare(queue, true, false, false, false, nil)
-	require.NoError(t, err)
+	require.NoError(t, (reportbroker.Topology{Channel: channel}).Declare(queue))
 	t.Cleanup(func() {
 		if !connection.IsClosed() {
 			cleanup, err := connection.Channel()

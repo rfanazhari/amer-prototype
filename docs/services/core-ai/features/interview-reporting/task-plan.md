@@ -91,13 +91,16 @@ Keep both identities on any later revision. Add new numbers. Do not reuse these.
   - DoD: Against the Compose `rabbitmq` profile, tests show a confirm, a redelivery after the consumer stops before ack, a duplicate that does not create a second attempt, a broker outage that still leaves the committed outbox row unpublished, and a database error that is not acknowledged. Messages are well-formed. The test report states that sqlmock was not used for these assertions. `make test.security` still passes with the broker module. Document the broker URL handling so the password is not printed.
   - Execution (2026-11-03): `CORE-IRP-011`; `make test.report-broker` passes six real RabbitMQ/PostgreSQL scenarios, including active and terminal duplicates. No sqlmock or broker mocks are used for these assertions. `make test` and `make check` pass (including lint and security). Consumer remains unregistered; malformed-message isolation stays T12. See [T11 verification and safe URL handling](t11-verification.md).
 
-### Blocked / deferred
+### Malformed-message isolation
 
-- [ ] **T12. Isolate malformed broker messages** — Infrastructure — M
+- [x] **T12. Isolate malformed broker messages** — Infrastructure — M
   - Ticket: `CORE-IRP-012` — depends: T11 — ref: design §7, §9 Q1.
-  - Blocked by: dead-letter topology, platform technical design §6, owner is that platform document.
-  - Ready when: Q1 is decided and design §5 and §7 name the approved exchange, queue, and malformed-body action. Do not invent those names in this task.
+  - Q1 decided by owner (2026-11-03): durable direct `interview-report.dlx`, durable quorum `interview-report.invalid`, routing key `malformed`; source quorum with at-least-once dead-lettering and reject without requeue. Platform §6 and feature §5/§7 are synchronized.
   - DoD: A malformed body is isolated using that approved topology, is not acknowledged as success, and is not requeued forever. Well-formed job handling from T11 still passes. Interview rows do not change.
+
+  - Execution (2026-11-03): `CORE-IRP-012`; malformed JSON/identity is rejected before worker invocation, with no success ACK or automatic replay. Mockery unit tests, `make test`, `make check`, and isolated `make test.report-broker` pass, including T11 regressions and column-for-column interview isolation. Runtime remains unregistered. See [T12 verification](t12-verification.md) and [ticket](ticket-t12.md).
+
+### Blocked / deferred
 
 - [ ] **T13. Add the report writer client** — Infrastructure — L
   - Ticket: `CORE-IRP-013` — depends: T10 — ref: design §4, §9 Q2.
@@ -129,7 +132,7 @@ T6 → T7 → T8
 T4 → T9 → T11
 T1 → T10
 T4 → T10 → T11
-T11 → T12 (blocked on Q1)
+T11 → T12 (Q1 decided; Done)
 T10 → T13 (blocked on Q2)
 T2 → T14 (blocked on Q3)
 T5 → T15

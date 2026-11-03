@@ -23,5 +23,29 @@ type Topology struct {
 
 // Declare prepares quarantine and the named source queue, failing closed on any broker error.
 func (t Topology) Declare(source string) error {
-	return errors.New("report isolation is not implemented")
+	if t.Channel == nil || source == "" || source == "interview-report.invalid" {
+		return errors.New("report topology requires a channel and a distinct source queue")
+	}
+	if err := t.Channel.ExchangeDeclare("interview-report.dlx", "direct", true, false, false, false, nil); err != nil {
+		return err
+	}
+	if _, err := t.Channel.QueueDeclare("interview-report.invalid", true, false, false, false,
+		amqp.Table{"x-queue-type": "quorum"}); err != nil {
+		return err
+	}
+	if err := t.Channel.QueueBind("interview-report.invalid", "malformed", "interview-report.dlx", false, nil); err != nil {
+		return err
+	}
+	_, err := t.Channel.QueueDeclare(source, true, false, false, false, amqp.Table{
+		"x-queue-type":              "quorum",
+		"x-dead-letter-exchange":    "interview-report.dlx",
+		"x-dead-letter-routing-key": "malformed",
+		"x-dead-letter-strategy":    "at-least-once",
+		"x-overflow":                "reject-publish",
+		// PostgreSQL owns valid-job recovery; broker redelivery must not quarantine database outages.
+		"x-delivery-limit": -1,
+	})
+	return err
 }
+
+var _ TopologyChannel = (*amqp.Channel)(nil)

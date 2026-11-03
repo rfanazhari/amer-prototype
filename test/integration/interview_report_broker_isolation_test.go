@@ -62,7 +62,7 @@ func TestInterviewReportRabbitMQIsolation(t *testing.T) {
 			require.NoError(t, err)
 			require.NoError(t, (reportbroker.Consumer{Worker: worker}).Handle(b.ctx, b.receive(t, deliveries)))
 			b.assertBrokerDrained(t, channel)
-			empty, err := quarantine.QueueInspect("interview-report.invalid")
+			empty, err := quarantine.QueueDeclarePassive("interview-report.invalid", true, false, false, false, nil)
 			require.NoError(t, err)
 			assert.Zero(t, empty.Messages)
 		})

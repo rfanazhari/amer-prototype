@@ -50,6 +50,7 @@ packages:
       InterviewDriver:
       InterviewSummarizer:
       InterviewCompleter:
+      InterviewReportAuthority:
   github.com/rfanazhari/amer-prototype/application/usecase/taskusecase:
     config:
       dir: test/mocks
@@ -233,3 +234,22 @@ packages:
       CompletionMarker:
       ReportReader:
       AdmissionWriter:
+      Evidence:
+      Writer:
+  github.com/rfanazhari/amer-prototype/application/usecase/interviewreportusecase:
+    config:
+      dir: test/mocks
+      outpkg: mocks
+      filename: 'interview_report_{{.InterfaceName | snakecase}}.go'
+      mockname: 'InterviewReport{{.InterfaceName}}'
+    interfaces:
+      AdmitOperation:
+      RegenerateOperation:
+  github.com/rfanazhari/amer-prototype/application/query/interviewreportquery:
+    config:
+      dir: test/mocks
+      outpkg: mocks
+      filename: 'interview_report_{{.InterfaceName | snakecase}}.go'
+      mockname: 'InterviewReport{{.InterfaceName}}'
+    interfaces:
+      ReadOperation:

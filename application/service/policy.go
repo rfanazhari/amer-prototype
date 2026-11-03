@@ -38,12 +38,12 @@ func AllowsCandidateAdministration(role enum.Role) bool {
 
 // AllowsInterviewReport reports whether the current role may read or regenerate interview reports.
 func AllowsInterviewReport(role enum.Role) bool {
-	return false
+	return role == enum.HR
 }
 
 // KnownInterviewReportOperation reports whether operation is a recognized interview report action.
 func KnownInterviewReportOperation(operation string) bool {
-	return false
+	return operation == InterviewReportRead || operation == InterviewReportRegenerate
 }
 
 // KnownAgentConfigurationOperation reports whether operation is a recognized ACP action.

@@ -234,6 +234,9 @@ packages:
       CompletionMarker:
       ReportReader:
       AdmissionWriter:
+      AssignmentReader:
+      AssignmentLocker:
+      RegenerationStore:
       Evidence:
       Writer:
   github.com/rfanazhari/amer-prototype/application/usecase/interviewreportusecase:

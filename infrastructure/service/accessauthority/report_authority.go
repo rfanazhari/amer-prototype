@@ -12,12 +12,13 @@ type ReportAuthority Authority
 
 var _ service.InterviewReportAuthority = ReportAuthority{}
 
-// Principal is not implemented yet.
+// Principal returns the stable account UUID after current session and account binding succeed.
 func (a ReportAuthority) Principal(ctx context.Context) (service.AdminPrincipal, error) {
-	return service.AdminPrincipal{}, nil
+	return Authority(a).Principal(ctx)
 }
 
-// Authorize is not implemented yet.
+// Authorize rechecks the bound session and permits only current HR report read and regenerate operations.
 func (a ReportAuthority) Authorize(ctx context.Context, principal service.AdminPrincipal, operation, assignmentID string) error {
-	return nil
+	_ = assignmentID
+	return Authority(a).authorize(ctx, principal, service.KnownInterviewReportOperation(operation), service.AllowsInterviewReport)
 }

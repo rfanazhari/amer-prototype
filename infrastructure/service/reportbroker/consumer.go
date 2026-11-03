@@ -2,6 +2,8 @@ package reportbroker
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )
@@ -21,5 +23,24 @@ type Consumer struct {
 // Handle acknowledges only successfully processed, well-formed report identities.
 // On error the caller must stop consumption and close the channel before recovery.
 func (c Consumer) Handle(ctx context.Context, delivery amqp.Delivery) error {
-	return nil
+	if c.Worker == nil {
+		return errors.New("report consumer requires a worker")
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	var message messageBody
+	if err := json.Unmarshal(delivery.Body, &message); err != nil {
+		return errors.New("invalid report message body")
+	}
+	if message.JobKind != "interview_report" || message.JobID == "" || message.MessageID == "" || message.MessageID != delivery.MessageId {
+		return errors.New("invalid report message identity")
+	}
+	if err := c.Worker.Execute(ctx, message.JobID); err != nil {
+		return err
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	return delivery.Ack(false)
 }

@@ -67,6 +67,10 @@ test.integration:
 test.docker:
 	python3 scripts/verify_compose.py
 
+.PHONY: test.report-broker
+test.report-broker:
+	python3 scripts/verify_report_broker.py
+
 .PHONY: docker.verify
 docker.verify:
 	python3 scripts/verify_compose.py --stack

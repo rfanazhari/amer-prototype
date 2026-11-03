@@ -115,7 +115,7 @@ func (b reportBrokerFixture) assertBrokerDrained(t *testing.T, channel *amqp.Cha
 	t.Helper()
 	require.NoError(t, channel.Qos(1, 0, false))
 	require.NoError(t, channel.Close())
-	queue, err := b.channel.QueueInspect(b.queue)
+	queue, err := b.channel.QueueDeclarePassive(b.queue, true, false, false, false, nil)
 	require.NoError(t, err)
 	require.Zero(t, queue.Messages, "successful handling must ack rather than requeue on stop")
 }

@@ -86,9 +86,10 @@ Keep both identities on any later revision. Add new numbers. Do not reuse these.
   - DoD: Controlled clock proves a 60-second attempt cap, a 5-second retry delay, no third attempt, and expiry at 5 minutes from the first claim with final evidence including time spent queued after that claim, a `waiting` job that claims no attempt, and give-up at 30 minutes from admission (Q4). The writer port is a fake. Accepted output commits statements and the generation outcome without updating interview tables. Rejected output stores no statements. An old fencing token does not commit. `make test` passes. The consumer is not registered in the process.
   - Execution (2026-11-03): `CORE-IRP-010`; domain budget, worker, fenced outcome storage, and bounded reconciliation implemented. Owner approved additive migration `000013_interview_report_retry_window` to allow retries to retain their first-claim window; release floor is 13 and migrations 1–12 are unchanged. `make test`, `make check`, and isolated PostgreSQL verification pass. Consumer remains unregistered. The schema correction refines design §3; see the version-13 migration runbook.
 
-- [ ] **T11. Prove RabbitMQ behavior apart from sqlmock** — Infrastructure — L
+- [x] **T11. Prove RabbitMQ behavior apart from sqlmock** — Infrastructure — L
   - Ticket: `CORE-IRP-011` — depends: T9, T10 — ref: design §5, §7.
   - DoD: Against the Compose `rabbitmq` profile, tests show a confirm, a redelivery after the consumer stops before ack, a duplicate that does not create a second attempt, a broker outage that still leaves the committed outbox row unpublished, and a database error that is not acknowledged. Messages are well-formed. The test report states that sqlmock was not used for these assertions. `make test.security` still passes with the broker module. Document the broker URL handling so the password is not printed.
+  - Execution (2026-11-03): `CORE-IRP-011`; `make test.report-broker` passes six real RabbitMQ/PostgreSQL scenarios, including active and terminal duplicates. No sqlmock or broker mocks are used for these assertions. `make test` and `make check` pass (including lint and security). Consumer remains unregistered; malformed-message isolation stays T12. See [T11 verification and safe URL handling](t11-verification.md).
 
 ### Blocked / deferred
 

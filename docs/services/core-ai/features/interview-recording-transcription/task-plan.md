@@ -1,6 +1,6 @@
 # Task Plan: Interview Recording and Transcription
 
-Planning baseline: 2026-11-03. Mode B. All tasks are Todo; no implementation or verification pass is claimed.
+Planning baseline: 2026-11-03. Mode B. T1 investigation started; live proof is blocked. T2–T11 remain Todo; no implementation or live verification pass is claimed.
 
 ## Identity and Legend
 
@@ -26,8 +26,10 @@ Status `[ ]` Todo, `[~]` In Progress, `[x]` Done. Complexity S (<2h), M (2–4h)
 
 ### Independent investigation and authority
 
-- [ ] **T1. Verify stored Live recording and transcription contracts** — Infrastructure investigation — M
+- [~] **T1. Verify stored Live recording and transcription contracts** — Infrastructure investigation — M
   - Ticket: `CORE-IRTREC-001`
+  - [x] Owner-requested prerequisite: send `session.store: true` from the existing provider-create adapter for new activation/reconnect sessions. Focused serialization test observed RED then GREEN; `make check` passed. This does not close the live-proof DoD or T6. No schema, eligibility flag or finalization changes are included.
+  - Investigation 2026-11-03: effective clientmanager v0.10.1 and official provider documentation inspected; see design §6 investigation evidence. After explicit credential authorization, model lookup returned HTTP 200. Live WebSocket upgrade returned HTTP 403 with Cloudflare/plain-text headers before session.start; no provider JSON error, stored session, WAV or aligned transcript was obtained. The earlier automatic approval blocker is resolved; Live transport access is now the observed blocker. Remains In Progress, not Done; Q1 and dependent readiness gates remain open.
   - depends: none — ref: design §1, §6, §9 Q1.
   - DoD: inspect effective APIs and clientmanager version; record a sanitized synthetic Live session with `store: true`, close/finalization observation and stereo WAV download. Verify project eligibility, pending/unavailable mapping, stream limits and multipart/audio log suppression. Select and prove a transcription/segment alignment contract preserving both speakers and offsets across chunks. Synchronize exact provider schema and measured constraints in §6; a text-only transcript or fake server does not close this task. If live access is unavailable, report the proof blocked rather than Done.
 

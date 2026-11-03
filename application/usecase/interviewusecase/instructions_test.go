@@ -74,9 +74,9 @@ func TestWorkflowInstructions(t *testing.T) {
 		wantAbsent []string
 	}
 	tests := []instructionCase{
-		{name: "activation with fixed position and plan", withJob: true, entry: "activate", wantParts: []string{"in Bahasa Indonesia", "Position: Project Manager", "Interview plan: background (~60s) → screening (~240s) → compensation (~90s) → closing (~30s)", "Current stage: background (~60s)", "Describe your recent backend work.", "concurrency", "data modelling", "Follow-ups remaining: 2", "expectations_only", "Start by greeting the candidate"}, wantAbsent: []string{"Explain one project you led.", "What compensation do you expect?", "Backend Engineer", "Continue the interview"}},
+		{name: "activation lists the whole flow", withJob: true, entry: "activate", wantParts: []string{"in Bahasa Indonesia", "Position: Project Manager", "Interview flow", "1. background (~60s)", "2. screening (~240s)", "3. compensation (~90s)", "4. closing (~30s)", "Describe your recent backend work.", "Explain one project you led.", "What compensation do you expect?", "concurrency", "data modelling", "Follow-ups remaining in the current stage: 2", "expectations_only", "Current stage: background (~60s)", "Start by greeting the candidate"}, wantAbsent: []string{"Backend Engineer", "the system tells you", "Continue the interview at the current stage"}},
 		{name: "activation without job description keeps the fixed position", entry: "activate", wantParts: []string{"Position: Project Manager", "Describe your recent backend work.", "expectations_only"}, wantAbsent: []string{"Backend Engineer"}},
-		{name: "next stage uses its own question and no greeting", withJob: true, entry: "open stage", wantParts: []string{"Current stage: screening (~240s)", "Explain one project you led.", "Position: Project Manager", "expectations_only", "Continue the interview with the first question of this stage."}, wantAbsent: []string{"Describe your recent backend work.", "Backend Engineer", "Start by greeting"}},
+		{name: "next stage keeps the whole flow and does not greet again", withJob: true, entry: "open stage", wantParts: []string{"Current stage: screening (~240s)", "Describe your recent backend work.", "Explain one project you led.", "Position: Project Manager", "expectations_only", "Continue the interview at the current stage (screening)"}, wantAbsent: []string{"Backend Engineer", "Start by greeting"}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -133,7 +133,7 @@ func TestWorkflowInstructionsRemainingFollowUps(t *testing.T) {
 	_, err = h.workflow.Reconnect(context.Background(), request(t, h))
 	require.NoError(t, err)
 	require.Len(t, h.contexts, 2)
-	assert.Contains(t, h.contexts[0].Text, "Follow-ups remaining: 1")
+	assert.Contains(t, h.contexts[0].Text, "Follow-ups remaining in the current stage: 1")
 	assertSafeInstructions(t, h.contexts[0].Text)
 }
 
@@ -250,8 +250,8 @@ func TestWorkflowInstructionsStageGuidance(t *testing.T) {
 		wantAbsent []string
 	}
 	tests := []guidanceCase{
-		{name: "compensation allows asking for expectations only", target: enum.StageCompensation, wantParts: []string{"Current stage: compensation (~90s)", "What compensation do you expect?", "You may ask what the candidate expects."}, wantAbsent: []string{"This is the last stage", "Start by greeting"}},
-		{name: "closing is the last stage", target: enum.StageClosing, wantParts: []string{"Current stage: closing (~30s)", "This is the last stage. After the candidate finishes, thank them and close the conversation."}, wantAbsent: []string{"You may ask what the candidate expects.", "Start by greeting"}},
+		{name: "compensation session continues at compensation", target: enum.StageCompensation, wantParts: []string{"Current stage: compensation (~90s)", "Continue the interview at the current stage (compensation)", "What compensation do you expect?"}, wantAbsent: []string{"Start by greeting"}},
+		{name: "closing session continues at closing", target: enum.StageClosing, wantParts: []string{"Current stage: closing (~30s)", "Continue the interview at the current stage (closing)", "4. closing (~30s)"}, wantAbsent: []string{"Start by greeting"}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -291,4 +291,41 @@ func TestWorkflowInstructionsStageGuidance(t *testing.T) {
 			assertSafeInstructions(t, h.contexts[0].Text)
 		})
 	}
+}
+
+// TestWorkflowInstructionsFlowGuidance proves the model is told the order, how to name transitions and how to close.
+func TestWorkflowInstructionsFlowGuidance(t *testing.T) {
+	h := newHarness(t, false)
+	h.workflow.References = roleReader(t)
+	revision := roleRevision(t, true)
+	p, err := interview.NewProgress("execution", revision, fixedTime())
+	require.NoError(t, err)
+	h.record.Snapshot = p.Snapshot()
+	h.exists = false
+	r := request(t, h)
+	r.ProgressVersion = 0
+	r.Revision = revision
+	_, err = h.workflow.Activate(context.Background(), r)
+	require.NoError(t, err)
+	require.NotEmpty(t, h.contexts)
+	text := h.contexts[0].Text
+	last := -1
+	for _, marker := range []string{"1. background", "2. screening", "3. compensation", "4. closing"} {
+		at := strings.Index(text, marker)
+		require.Greater(t, at, last, marker)
+		last = at
+	}
+	for _, part := range []string{
+		"follow this order, do not skip or reorder stages",
+		"names the next stage",
+		"Baik, kita lanjut ke tahap",
+		"Planned times are guidance, not a hard limit.",
+		"After the closing stage, thank the candidate and tell them the interview is complete.",
+		"You may ask what the candidate expects.",
+		"4. closing (~30s)\n   - No scripted question for this stage.",
+	} {
+		assert.Contains(t, text, part)
+	}
+	assert.NotContains(t, text, "the system tells you")
+	assertSafeInstructions(t, text)
 }

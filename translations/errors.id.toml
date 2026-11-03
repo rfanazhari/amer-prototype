@@ -168,3 +168,24 @@ other = "permintaan sesi interview bertentangan dengan keadaan interview saat in
 
 [IRT_NOT_READY]
 other = "sesi interview belum siap"
+
+[IRP_UNAUTHENTICATED]
+other = "sesi administratif hilang atau tidak lagi valid"
+
+[IRP_FORBIDDEN]
+other = "laporan wawancara dilarang"
+
+[IRP_IDEMPOTENCY_CONFLICT]
+other = "identitas permintaan laporan sudah digunakan dengan maksud berbeda"
+
+[IRP_NOT_COMPLETED]
+other = "laporan wawancara tersedia hanya setelah wawancara selesai"
+
+[IRP_EVIDENCE_UNAVAILABLE]
+other = "laporan wawancara membutuhkan rekam wawancara yang sudah final"
+
+[IRP_GENERATION_ACTIVE]
+other = "pembuatan laporan sedang berjalan"
+
+[IRP_DEPENDENCY_UNAVAILABLE]
+other = "laporan wawancara tidak dapat disimpan"

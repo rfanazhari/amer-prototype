@@ -71,7 +71,7 @@ Keep both identities on any later revision. Add new numbers. Do not reuse these.
   - Ticket: `CORE-IRP-007` — depends: T1, T4, T6 — ref: design §5–§6.
   - DoD: GET returns the previous succeeded account, or null, plus the newest generation. POST replay returns the original generation. A new key while a generation is active inserts nothing. A new key after failure inserts the next generation, job, and outbox without changing `completed_at`. Evidence denial uses the port and inserts nothing. Idempotency fingerprint matches design §6. Tests use a fake evidence port. `make test` passes.
 
-- [ ] **T8. Map the two HR routes and publish the contract** — Delivery / API — L
+- [x] **T8. Map the two HR routes and publish the contract** — Delivery / API — L
   - Ticket: `CORE-IRP-008` — depends: T7 — ref: design §2, §6–§7.
   - DoD: Handler tests with mocked operations cover the error precedence, CSRF on POST, cookie and Origin, 201 versus 200, and a body with no verdict or salary field. ADMIN is forbidden before the operation runs. `../../../../api/openapi.yaml`, `docs/api/interview-reporting.md`, and `docs/api/CHANGELOG.md` change together. `pkg/errs` and both translation files contain the `IRP_*` messages from design §6. Candidate and voice paths are unchanged. Routes are not mounted in `infrastructure/runtime`. `make test`, `make test.contract`, `make test.architecture`, and `make lint` pass.
 

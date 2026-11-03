@@ -38,7 +38,7 @@ Redis uses the `redis` profile and port 6379; RabbitMQ uses `rabbitmq`, AMQP 567
 
 ## Task API
 
-See [OpenAPI](docs/api/openapi.yaml), [Task endpoints](docs/api/task.md), [administrative access](docs/api/identity-access.md), and [changelog](docs/api/CHANGELOG.md). The Task flow is `POST /tasks`, `POST /tasks/{id}/start`, `POST /tasks/{id}/complete`, and `GET /tasks/{id}`. `PATCH /tasks/{id}/due-date` changes or clears a date. `/health` is unauthenticated. Administrative routes use cookies, origin, and CSRF; they are not attached to Task or voice. Requests reject unknown fields; errors use the same JSON envelope, with English or Indonesian messages selected through `Accept-Language`.
+See [OpenAPI](docs/api/openapi.yaml), [Task endpoints](docs/api/task.md), [administrative access](docs/api/identity-access.md), [interview reporting (handlers only; not mounted)](docs/api/interview-reporting.md), and [changelog](docs/api/CHANGELOG.md). The Task flow is `POST /tasks`, `POST /tasks/{id}/start`, `POST /tasks/{id}/complete`, and `GET /tasks/{id}`. `PATCH /tasks/{id}/due-date` changes or clears a date. `/health` is unauthenticated. Administrative routes use cookies, origin, and CSRF; they are not attached to Task or voice. Requests reject unknown fields; errors use the same JSON envelope, with English or Indonesian messages selected through `Accept-Language`.
 
 Completion queue capacity is 100 with one consumer. Capacity is reserved before commit, released on transaction failure, and the event is enqueued only after successful commit. Events are volatile; subscriber failures are logged without automatic retry. There is no durable recovery or exactly-once guarantee.
 

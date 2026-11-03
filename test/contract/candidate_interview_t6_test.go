@@ -53,11 +53,13 @@ func TestOpenAPIPublishesMountedCandidateInterviewRoutes(t *testing.T) {
 	}
 }
 
-// TestOpenAPIKeepsUnmountedInterviewRoutesAbsent verifies reporting routes are not published.
-func TestOpenAPIKeepsUnmountedInterviewRoutesAbsent(t *testing.T) {
+// TestOpenAPIKeepsCandidateReportRoutesAbsent preserves candidate exclusions while T8 publishes HR contracts.
+func TestOpenAPIKeepsCandidateReportRoutesAbsent(t *testing.T) {
 	doc := loadContract(t)
 	for path := range doc.Paths.Map() {
-		require.NotContains(t, path, "/report")
+		if strings.Contains(path, "/report") {
+			require.Contains(t, []string{"/admin/interview-assignments/{id}/report", "/admin/interview-assignments/{id}/report-generations"}, path)
+		}
 	}
 	require.NotNil(t, doc.Paths.Find("/candidate/session"))
 	require.NotNil(t, doc.Paths.Find("/candidate/access/exchange"))

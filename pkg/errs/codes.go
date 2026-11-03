@@ -1,6 +1,13 @@
 package errs
 
 const (
+	IRPUnauthenticated       = "IRP_UNAUTHENTICATED"
+	IRPForbidden             = "IRP_FORBIDDEN"
+	IRPIdempotencyConflict   = "IRP_IDEMPOTENCY_CONFLICT"
+	IRPNotCompleted          = "IRP_NOT_COMPLETED"
+	IRPEvidenceUnavailable   = "IRP_EVIDENCE_UNAVAILABLE"
+	IRPGenerationActive      = "IRP_GENERATION_ACTIVE"
+	IRPDependencyUnavailable = "IRP_DEPENDENCY_UNAVAILABLE"
 	InvalidInput             = "INVALID_INPUT"
 	NotFound                 = "NOT_FOUND"
 	MethodNotAllowed         = "METHOD_NOT_ALLOWED"

@@ -112,7 +112,7 @@ function screen(state = null, current = true) {
     await fixture(screen(state), async ({el, timers, calls}) => {
       check(el('status').textContent.toLowerCase().includes(state.toLowerCase()), state + ' immediate outcome');
       check(timers.size === 0, state + ' stops polling');
-      check(['accept','start','takeover','cancel'].every(id => el(id).hidden), 'no terminal mutations');
+      check(['accept','start','takeover','cancel','complete'].every(id => el(id).hidden), 'no terminal mutations');
       check(calls.length === 2, 'terminal only session and interview');
     }, {name: 'terminal-' + state});
   }
@@ -264,6 +264,34 @@ function screen(state = null, current = true) {
     await poll();
     check(released({media}), 'terminal outcome releases voice');
   }, {name: 'voice-terminal-releases', voice: true, fetch: (url, init, reply) => voiceReplies(url, reply)});
+  const finishable = screen('RUNNING'); finishable.actions = ['complete', 'cancel'];
+  await fixture(finishable, async ({w, el, click, calls, timers, media}) => {
+    check(!el('complete').hidden, 'finish offered to the controlling tab by the API');
+    await click('voice');
+    check(open({el, media}), 'voice is live before finish');
+    const before = calls.length;
+    await click('complete');
+    check(calls.length === before, 'declined confirmation makes no finish request');
+    w.confirm = () => true;
+    await click('complete');
+    const done = calls.find(c => c.url === '/candidate/executions/execution-1/complete');
+    check(done && done.method === 'POST' && JSON.parse(done.body).expectedVersion === 7, 'finish uses the execution version');
+    check(done.headers['X-CSRF-Token'] === 'fixture-csrf' && done.headers['X-Interview-Controller'], 'finish sends CSRF token and tab controller');
+    check(released({media}), 'finish releases microphone and connection');
+    check(el('status').textContent.includes('COMPLETED') && timers.size === 0, 'finish shows completion and stops polling');
+    check(['cancel', 'complete', 'voice'].every(id => el(id).hidden), 'no actions after finish');
+  }, {name: 'finish-completes', voice: true, fetch: (url, init, reply) => {
+    if (url.endsWith('/complete')) { finishable.execution.state = 'COMPLETED'; finishable.actions = []; return reply(finishable.execution); }
+    return voiceReplies(url, reply);
+  }});
+  const refused = screen('RUNNING'); refused.actions = ['complete', 'cancel'];
+  await fixture(refused, async ({w, el, click, calls}) => {
+    w.confirm = () => true;
+    await click('complete');
+    check(!el('error').hidden && !/session|provider/i.test(el('error').textContent), 'safe finish refusal');
+    check(calls.filter(c => c.url === '/candidate/interview').length >= 2, 'finish refusal refreshes the interview');
+    check(!el('cancel').hidden, 'interview stays live after a refused finish');
+  }, {name: 'finish-conflict', fetch: (url, init, reply) => url.endsWith('/complete') && reply({}, 409)});
   document.getElementById('result').textContent = 'PASS ' + results.length + ' browser scenarios: ' + results.join(', ');
 })().catch(error => { document.getElementById('result').textContent = 'FAIL ' + error.message; });
 </script></body></html>

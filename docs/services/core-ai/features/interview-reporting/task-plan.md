@@ -39,35 +39,35 @@ Keep both identities on any later revision. Add new numbers. Do not reuse these.
 
 ### Sequential foundation
 
-- [ ] **T1. Encode the report lifecycle and statement rules** — Domain — M
+- [x] **T1. Encode the report lifecycle and statement rules** — Domain — M
   - Ticket: `CORE-IRP-001` — depends: none — ref: design §3–§4, §6 path contracts.
   - DoD: `domain/aggregate/interviewreport` owns the report root, generation entity, statement value, and the budget constants (2, 60 seconds, 5 seconds, 5 minutes). Public tests cover an active-generation refusal, a new generation after failure, citation rejection, gap shape, verdict word boundaries, and restoration that does not call a provider. The type has no interview-status mutation. `make test` and `make test.architecture` pass. Declarations are documented. No SQL and no HTTP.
 
-- [ ] **T2. Add report ports and the HR predicate** — Application — M
+- [x] **T2. Add report ports and the HR predicate** — Application — M
   - Ticket: `CORE-IRP-002` — depends: T1 — ref: design §2, §4.
   - DoD: Operation interfaces for admit, regenerate, and read take injected ports and return detached DTOs. `InTransaction` hides the database handle. `AllowsInterviewReport` is HR-only. `InterviewReportAuthority` is a separate interface from `AgentConfigurationAuthority`. Evidence and writer ports are interfaces with no production adapter. `make mocks` regenerates the new interfaces. `make test` and `make test.architecture` pass.
 
 ### Schema, store, and authority
 
-- [ ] **T3. Add manual migration 000012 and raise the release floor** — Schema — L
+- [x] **T3. Add manual migration 000012 and raise the release floor** — Schema — L
   - Ticket: `CORE-IRP-003` — depends: none — ref: design §3.
   - DoD: `migrations/pgsql/000012_interview_reporting.up.sql` and `.down.sql` create and drop only the seven tables, checks, foreign keys, and indexes in design §3. `schema.ReleaseVersion` is 12. Both new files are in `checksums.json`. `ownedPublicTables` and `RuntimeGrantTables` include the new tables. `../../../../design/database-migrations.md` says clean version 12. Versions 1–11 are unchanged. No seed and no AutoMigrate. A disposable PostgreSQL database migrates from clean 11 to clean 12, then down and up, and proves the constraints, including one active generation and an answer without evidence. `make test.architecture` passes. If `TEST_DATABASE_URL` is unset, say the database proof was skipped and run it with `make test.docker` or an authorized URL before calling T3 done.
 
-- [ ] **T4. Map report rows and the two locked claims** — Infrastructure — L
+- [x] **T4. Map report rows and the two locked claims** — Infrastructure — L
   - Ticket: `CORE-IRP-004` — depends: T1, T2, T3 — ref: design §3 transactions.
   - DoD: GORM models live only in `interviewreportrepository`. Explicit `Select` writes persist a zero attempt count and a null failure reason. Raw SQL is only the job claim and the outbox claim, each with `FOR UPDATE SKIP LOCKED`, and the design's reason is still accurate. sqlmock may lock the statement text. `make test`, `make lint`, and `make test.architecture` pass.
 
-- [ ] **T5. Prove admission atomicity and report failure isolation on PostgreSQL** — Infrastructure — L
+- [x] **T5. Prove admission atomicity and report failure isolation on PostgreSQL** — Infrastructure — L
   - Ticket: `CORE-IRP-005` — depends: T4 — ref: design §3 proof plan, §5 completion flow.
   - DoD: One real PostgreSQL transaction uses a test stand-in to set `interview_assignments.completed_at` and then `Admit`. Commit leaves generation, job, and outbox. A forced outbox failure rolls back `completed_at` and the report rows. A later generation-failure transaction leaves `interview_assignments` and `interview_executions` unchanged, compared column for column. `Admit` does not itself update those tables, and it errors when `completed_at` is null. These tests are not sqlmock. `make test.integration` passes against an authorized database, or the skip is reported and `make test.docker` is the run that counts. RabbitMQ is not part of this task.
 
-- [ ] **T6. Authorize reports on the existing authority adapter** — Infrastructure / application — M
+- [x] **T6. Authorize reports on the existing authority adapter** — Infrastructure / application — M
   - Ticket: `CORE-IRP-006` — depends: T2 — ref: design §4 authority decision, BR-CORE-022.
   - DoD: `accessauthority.Authority` implements `InterviewReportAuthority` using the same session resolver and clock. Report `Authorize` calls `AllowsInterviewReport` and the report operation names. Configuration `Authorize` is unchanged. Tests: current HR allowed, ADMIN forbidden, expired, revoked, disabled, and unbound sessions denied, candidate session does not become an admin principal. No new authorizer type. `make test` and `make test.architecture` pass.
 
 ### HR contract
 
-- [ ] **T7. Implement read and explicit regeneration** — Application — L
+- [x] **T7. Implement read and explicit regeneration** — Application — L
   - Ticket: `CORE-IRP-007` — depends: T1, T4, T6 — ref: design §5–§6.
   - DoD: GET returns the previous succeeded account, or null, plus the newest generation. POST replay returns the original generation. A new key while a generation is active inserts nothing. A new key after failure inserts the next generation, job, and outbox without changing `completed_at`. Evidence denial uses the port and inserts nothing. Idempotency fingerprint matches design §6. Tests use a fake evidence port. `make test` passes.
 

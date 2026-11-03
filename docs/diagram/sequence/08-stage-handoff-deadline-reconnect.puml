@@ -1,0 +1,58 @@
+@startuml 08-stage-handoff-deadline-reconnect
+title Sequence 08 - Stage handoff, hard deadline and reconnect
+skinparam shadowing false
+autonumber
+
+participant "GPT-Live" as G
+participant "GPT-Live driver" as D
+participant "Runtime coordinator" as R
+participant "Workflow" as W
+participant "Execution Lifecycle" as L
+database "PostgreSQL" as DB
+
+== Stage handoff (BR-CORE-064, 065, 066) - logic built, no live caller yet ==
+G -> D : model proposes next stage
+D -> R : Propose(stage)
+R -> W : Authorize
+W -> W : coverage, technical losses, soft budget, follow-up facts
+alt not authorized
+  W --> R : rejected (nothing written)
+else authorized
+  R -> DB : BEGIN, lock execution, check version and attempt authority
+  R -> DB : commit source handoff (structured evidence)
+  R -> DB : COMMIT
+  R -> D : open new voice session for target stage
+  D -> G : create session (next stage)
+  note right : failed setup retries the same committed target.\nIt never authorizes another stage or creates an execution.
+end
+
+== Hard deadline (BR-CORE-070) ==
+alt closing handoff committed in time
+  R -> L : Complete(progress id)
+  note right : no report row or outbox row is written here
+else 15 minutes from RUNNING reached without the required record
+  R -> L : Fail
+  L -> DB : commit FAILED, earlier handoffs kept
+end
+note over L : first terminal commit wins a cancel / complete race
+
+group NOT DELIVERED - transcript and coverage (IRT T13, T14, blocked on provider event finality Q1)
+  G -> D : final speech events
+  D -> R : classified observation
+  R -> DB : fenced tx: update coverage, follow-up count, checkpoint
+end
+
+group NOT DELIVERED - one lost connection (BR-CORE-069, IRT T15)
+  D -> R : connection down (detection instant stored)
+  R -> R : within 120 s, intent = reconnect,\n2 attempts per episode, 2 episodes
+  R -> D : replacement session with committed checkpoint context only
+  note right : an observation from the replaced attempt\nfails the fence and writes nothing
+end
+
+group IN PROGRESS - model states a stage is finished (IRT T21)
+  G -> D : complete_stage(stage)
+  D -> R : CompleteStage
+  R -> DB : Attest: stage open, clock started, deadline not passed;\nseal with stored coverage, next stage current
+  note right : on closing, completes through the lifecycle.\nNothing calls this until the provider part lands.
+end
+@enduml

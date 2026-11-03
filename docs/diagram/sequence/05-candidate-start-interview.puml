@@ -1,0 +1,59 @@
+@startuml 05-candidate-start-interview
+title Sequence 05 - Candidate consent, start and polling
+skinparam shadowing false
+autonumber
+
+actor Candidate
+participant "Candidate page" as P
+participant "HTTP delivery" as H
+participant "Interview use case" as A
+participant "Execution Lifecycle" as L
+database "PostgreSQL" as DB
+
+== Open (BR-CORE-043, 046) ==
+Candidate -> P : open /candidate/interview/page
+P -> H : GET /candidate/session
+P -> H : GET /candidate/interview
+H -> A : ReadInterview
+A -> DB : read consent, execution (if any)
+H --> P : notice notice-261102, consent null, actions [accept]
+P -> P : tab controller id and start key kept in sessionStorage
+
+== Consent (BR-CORE-040) ==
+Candidate -> P : accept notice
+P -> H : POST /candidate/consents {noticeVersion, accepted: true}
+H -> A : AcceptConsent
+A -> DB : insert (insert-only)
+H --> P : 201 {id, noticeVersion, acceptedAt}  (200 on repeat)
+
+== Start (BR-CORE-041, 042) ==
+Candidate -> P : start
+P -> H : POST /candidate/executions\nIdempotency-Key, X-Interview-Controller {consentId}
+H -> A : Start
+A -> A : session must cover the 15-minute hard deadline
+alt session too short
+  H --> P : refused (candidate must re-enter through a valid invitation)
+else covered
+  A -> DB : check stored consent for current notice
+  A -> L : commit-or-find execution\n(fingerprint of key + consent)
+  L -> DB : lock assignment, insert execution bound to the pinned revision
+  alt first call
+    H --> P : 201 execution {state CREATED}
+  else same key and intent (lost response, reload)
+    H --> P : 200 same execution
+  else different intent
+    H --> P : 409 conflict, original execution unchanged
+  end
+end
+
+== Poll (BR-CORE-043, 047) ==
+loop every 2 s while CREATED or RUNNING
+  P -> H : GET /candidate/executions/{id}
+  H -> A : ReadExecution
+  H --> P : {state, version, hardDeadline, isCurrentController, controllerVersion}
+end
+P -> P : stop polling at COMPLETED, FAILED or CANCELLED
+note over P : terminal screen shows the outcome only.\nNo report, transcript, salary or controller id.
+
+note over P, H : refresh only reads. It never POSTs start.\nCIN_START_UNCERTAIN is retried with the same key and consent id.
+@enduml

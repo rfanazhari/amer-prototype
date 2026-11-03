@@ -1,0 +1,80 @@
+@startuml 01-task-lifecycle
+title Sequence 01 - Task create, start, complete and completion event
+skinparam shadowing false
+autonumber
+
+actor "General user" as U
+participant "HTTP delivery" as H
+participant "Task use case" as A
+participant "Task domain" as D
+participant "Clock" as C
+database "PostgreSQL" as DB
+queue "Completion queue\n(process-local, capacity 100)" as Q
+participant "Subscriber" as S
+
+== Create (BR-AMER-001..003, 008) ==
+U -> H : POST /tasks {title, dueDate?}
+H -> H : strict field validation
+H -> A : Create
+A -> C : now (UTC, ms)
+A -> D : new Task(title, dueDate, now)
+D --> A : Todo, or domain error
+A -> DB : insert
+A --> H : task DTO
+H --> U : 201
+
+== Start (BR-AMER-004, 006) ==
+U -> H : POST /tasks/{id}/start
+H -> A : Start
+A -> DB : Update callback: SELECT ... FOR UPDATE
+A -> D : Start()
+alt Todo
+  D --> A : In Progress
+  A -> DB : save, commit
+  H --> U : 200
+else not Todo
+  D --> A : rejected, facts unchanged
+  H --> U : error envelope
+end
+
+== Complete (BR-AMER-005, 006, 008, 009) ==
+U -> H : POST /tasks/{id}/complete
+H -> A : Complete
+A -> DB : Update callback: SELECT ... FOR UPDATE
+A -> D : Complete(now)
+alt In Progress
+  D --> A : Done, completedAt = now
+  A -> Q : reserve capacity
+  alt queue refuses
+    Q --> A : refused
+    A -> DB : abort, rollback (task unchanged)
+    H --> U : error envelope
+  else reserved
+    A -> DB : commit
+    alt commit fails
+      A -> Q : cancel reservation
+      H --> U : error envelope
+    else commit succeeds
+      A -> Q : publish completion event
+      H --> U : 200
+      Q -> S : deliver event
+      note right of S : subscriber failure is logged,\nno retry
+    end
+  end
+else Done or Todo
+  D --> A : rejected, no event
+  H --> U : error envelope
+end
+
+== View (BR-AMER-007) ==
+U -> H : GET /tasks/{id}
+H -> A : Get
+A -> C : now
+A --> H : DTO with overdue = now > dueDate and not Done
+H --> U : 200
+
+note over Q, S
+  Process-local only. Events can be lost on
+  unexpected termination. Not durable.
+end note
+@enduml

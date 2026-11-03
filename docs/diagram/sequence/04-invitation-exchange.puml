@@ -1,0 +1,46 @@
+@startuml 04-invitation-exchange
+title Sequence 04 - Invitation issue and candidate access exchange
+skinparam shadowing false
+autonumber
+
+actor HR
+actor Candidate
+participant "Candidate browser" as B
+participant "HTTP delivery" as H
+participant "Access use case" as A
+database "PostgreSQL" as DB
+
+== Issue (HR, BR-CORE-031, 037) ==
+HR -> H : POST /admin/interview-assignments/{id}/invitations\n(cookie, CSRF, empty body)
+H -> A : IssueInvitation
+A -> DB : insert or replace invitation (token hash only, 24 h)
+H --> HR : 201 {id, assignmentId, expiresAt, token}
+note right : token is returned once.\nHow the link reaches the candidate is outside\nthe documented flow.
+HR ..> Candidate : invitation link
+
+== Landing ==
+Candidate -> B : open link
+B -> H : GET /candidate/access
+H --> B : landing HTML (no-store, no-referrer)
+B -> B : history.replaceState removes token from URL
+note right : GET or prefetch can never exchange
+
+== Exchange (BR-CORE-032..034, 036) ==
+B -> H : POST /candidate/access/exchange {token}
+H -> A : Exchange
+A -> DB : find invitation by hash, check expiry and revocation
+alt valid
+  A -> DB : insert candidate session (2 h absolute), COMMIT
+  H --> B : 201 candidate, assignment, session + candidate cookie
+else unavailable
+  H --> B : 410 IA_INVITATION_UNAVAILABLE (no cookie)
+end
+note over A, DB : no interview execution is created
+
+== Reuse session (BR-CORE-035) ==
+B -> H : GET /candidate/session (candidate cookie)
+H -> A : read session
+H --> B : 200 candidate, assignment, session, csrfToken
+B -> B : navigate once to /candidate/interview/page
+note over B, H : reload reuses the session and never creates an execution
+@enduml

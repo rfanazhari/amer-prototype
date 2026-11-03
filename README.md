@@ -62,6 +62,8 @@ make test.docker         # isolated Compose PostgreSQL + real integration tests
 
 The executable installs a five-second process watchdog. HTTP admission stops, graceful request/event drain receives up to four seconds, and timeout cancels active request contexts and closes HTTP forcibly. The remaining budget covers worker/resource cleanup. A blocked cleanup causes exit code 1; event delivery and graceful database cleanup are not claimed in that case. `runtime.Run` alone does not install a process-exit policy. Ordinary subscriber errors are logged and processing continues; a panic is supervised as an unexpected worker failure.
 
+For the delivery status of every feature under `docs/services/` (what is done, in progress and not delivered, plus the use case catalogue), see the [delivery baseline](docs/services/baseline.md). For what the Core AI platform is, its concepts and goals, see the [Core AI project definition](docs/design/core.md). For criterion-level tracing from design to implementation, see the [traceability matrix](docs/traceability-matrix.md).
+
 See the owning [design and verification record](docs/design/task-tracking.md), [business rules](docs/services/amer-prototype/business/README.md), and [audit](docs/gonesis-audit.md). Historical TDD evidence and remaining acceptance limitations are recorded explicitly there.
 
 `make docker.verify` also builds and starts the full isolated stack, verifies the container's HTTP health and optional service readiness, then runs the real integration suite. It removes only its own project resources afterward. Statement coverage and passing current scenarios do not reconstruct missing historical TDD evidence; see the design record for that limitation.

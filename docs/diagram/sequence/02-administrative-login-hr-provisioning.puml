@@ -1,0 +1,57 @@
+@startuml 02-administrative-login-hr-provisioning
+title Sequence 02 - Administrative bootstrap, login and HR provisioning
+skinparam shadowing false
+autonumber
+
+actor "Deployment operator" as Op
+actor ADMIN
+participant "Process startup" as Boot
+participant "HTTP delivery" as H
+participant "Access use case" as A
+participant "Authority" as Auth
+database "PostgreSQL" as DB
+
+== Bootstrap (BR-CORE-020) ==
+Op -> Boot : start service with ADMIN credentials in environment
+Boot -> A : Bootstrap
+A -> DB : create first ADMIN if none exists (password hash only)
+note right : no public signup
+
+== Login (BR-CORE-024, 026, 027) ==
+ADMIN -> H : POST /admin/sessions {email, password}
+H -> A : Login
+A -> DB : load account, verify password hash
+A -> DB : BEGIN, lock account, recheck eligibility
+A -> DB : delete the account's other sessions
+A -> DB : insert session (2 h absolute), COMMIT
+A --> H : account, session {id, expiresAt}
+H --> ADMIN : 201 + admin cookie (cookie not in JSON)
+
+== Read session ==
+ADMIN -> H : GET /admin/session (cookie)
+H -> Auth : resolve current session
+H --> ADMIN : 200 account, session, csrfToken
+
+== Add HR account (BR-CORE-021, 022) ==
+ADMIN -> H : POST /admin/hr-accounts (cookie, origin, X-CSRF-Token)\n{name, email, password}
+H -> Auth : current ADMIN?
+alt ADMIN
+  H -> A : ProvisionHR
+  A -> DB : insert HR account (hashed password), unique email
+  H --> ADMIN : 201 {id, name, email, role HR, status ACTIVE}
+else not ADMIN or no session
+  H --> ADMIN : 403 or 401
+end
+
+== Logout (BR-CORE-025) ==
+ADMIN -> H : DELETE /admin/sessions/current (cookie, CSRF)
+H -> A : Logout
+A -> DB : revoke current session
+H --> ADMIN : 200 {} and cookie cleared
+
+note over A, DB
+  An earlier cookie replaced by a newer login gets 401.
+  Old session rows are removed later by the operator
+  command (make access.prune-sessions).
+end note
+@enduml

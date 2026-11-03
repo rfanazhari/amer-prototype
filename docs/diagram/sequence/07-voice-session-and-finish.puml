@@ -1,0 +1,61 @@
+@startuml 07-voice-session-and-finish
+title Sequence 07 - Voice session activation and interview finish
+skinparam shadowing false
+autonumber
+
+actor Candidate
+participant "Candidate page" as P
+participant "HTTP delivery" as H
+participant "Runtime coordinator" as R
+participant "Execution Lifecycle" as L
+database "PostgreSQL" as DB
+participant "GPT-Live driver" as D
+participant "GPT-Live" as G
+
+== Request session attempt (intent = activate) ==
+Candidate -> P : start voice
+P -> P : create WebRTC offer (SDP)
+P -> H : POST /candidate/executions/{id}/session-attempts\n{sdp, intent, expectedVersion, controllerId, idempotencyKey}
+H -> H : cookie, origin, CSRF, assignment and controller checks
+H -> R : Attempt
+alt same key and same intent already succeeded
+  R --> H : original answer replayed
+  H --> P : 200 original attempt and SDP answer
+else new
+  R -> L : open attempt (2 x 30 s within 90 s)
+  R -> DB : read pinned revision, build progress
+  R -> DB : joined tx: attempt authority, pending command,\ncoverage and session shell
+  R -> D : create session (instructions without salary ceiling)
+  D -> G : create session, SDP exchange
+  G --> D : session id, SDP answer
+  D -> G : attach sideband
+  R -> DB : fenced tx: retain provider session id,\nstore original answer for replay
+  H --> P : 201 {attemptId, sessionId, sdp, executionVersion, sessionCondition}
+end
+P -> G : apply SDP answer, media flows over WebRTC
+
+== Ready ==
+P -> H : POST .../session-attempts/{attempt_id}/ready {controllerId, expectedVersion}
+H -> R : Ready
+R -> L : is this the current attempt?
+R -> DB : record browser readiness
+H --> P : 200 {sessionCondition ready | pending}
+note right : readiness never marks a question asked,\nheard or answered. A stale attempt gets 409 IRT_NOT_READY.
+note over L : lifecycle moves the execution to RUNNING on successful activation
+
+== Finish with "Selesai" (BR-CORE-070) ==
+Candidate -> P : press Selesai and confirm
+P -> H : POST /candidate/executions/{id}/complete {expectedVersion}
+H -> R : CompleteInterview
+R -> DB : seal remaining stages in order (handoffs)
+R -> DB : close local session records
+R -> L : Complete(progress id)
+L -> DB : commit COMPLETED
+R -> D : close provider session by stored id
+D -> G : session.close
+note right : best effort. A provider failure never\nundoes the completion
+H --> P : 200 execution COMPLETED  (repeat returns the same 200)
+P -> P : release microphone, show COMPLETED
+
+note over R, DB : in progress (T21): the model ending the interview\nitself through a complete_stage tool is not built
+@enduml

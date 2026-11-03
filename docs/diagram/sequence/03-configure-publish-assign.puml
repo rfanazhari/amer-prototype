@@ -1,0 +1,68 @@
+@startuml 03-configure-publish-assign
+title Sequence 03 - Configure, validate, publish and assign (HR)
+skinparam shadowing false
+autonumber
+
+actor HR
+participant "HTTP delivery" as H
+participant "Authority" as Auth
+participant "Configuration use case" as A
+participant "Assignment use case" as AS
+database "PostgreSQL" as DB
+
+note over H, Auth : every call checks origin, admin cookie\nand current HR (ADMIN gets 403); writes need CSRF
+
+== Create instance (BR-CORE-001..003) ==
+HR -> H : GET /admin/agent-templates
+H --> HR : templates (HR Interviewer, Document Analyzer)
+HR -> H : POST /admin/agent-instances\n{templateId, templateVersion, name, configuration}
+H -> Auth : current HR
+H -> A : CreateInstance
+A -> DB : insert instance + initial draft
+H --> HR : 201 instance view
+
+== Draft (BR-CORE-004, 005) ==
+HR -> H : PUT /admin/agent-instances/{id}/draft\n{configuration, expectedDraftVersion}
+H -> A : ReplaceDraft
+A -> DB : compare expected version
+alt version matches
+  A -> DB : store full draft, version + 1
+  H --> HR : 200 draft
+else stale
+  H --> HR : 409 ACP_DRAFT_CONFLICT
+end
+
+== Validate (BR-CORE-006, 007) ==
+HR -> H : POST /admin/agent-instances/{id}/validations\n{expectedDraftVersion}
+H -> A : Validate
+A -> A : deterministic structural and semantic checks\n(no model call)
+A -> DB : store validation for exact draft + template version
+H --> HR : 201 {validationId, eligible, findings}
+note right : returned even when findings block publication
+
+== Publish (BR-CORE-008..012) ==
+HR -> H : POST /admin/agent-instances/{id}/publications\nIdempotency-Key\n{expectedDraftVersion, validationId}
+H -> A : Publish
+A -> DB : BEGIN, lock instance
+alt same key already committed
+  A --> H : original outcome
+  H --> HR : 200 (no new revision)
+else same key, different intent
+  H --> HR : 409
+else new, draft version matches, validation eligible
+  A -> DB : insert immutable revision
+  A -> DB : set active revision pointer
+  A -> DB : store idempotent result, COMMIT
+  H --> HR : 201 revision
+else blocked
+  H --> HR : error (no revision created)
+end
+
+== Assign (BR-CORE-013) ==
+HR -> H : POST /admin/interview-assignments\n{candidateId, instanceId}
+H -> AS : CreateAssignment
+AS -> DB : read current hr-interviewer active revision
+AS -> DB : insert assignment pinning that revision
+H --> HR : 201 {id, candidateId, instanceId, publishedRevision}
+note over AS, DB : a later publication does not move the pin
+@enduml

@@ -1,5 +1,13 @@
 package interviewreport
 
+import (
+	"strings"
+	"unicode/utf8"
+)
+
+// maxBodyLength is the largest accepted statement body in characters.
+const maxBodyLength = 2000
+
 // Kind is one of the three recognized statement kinds.
 type Kind string
 
@@ -43,13 +51,60 @@ type Statement struct {
 // NewStatement validates writer output and builds a statement.
 // It rejects verdict wording in addition to the shape rules applied on restoration.
 func NewStatement(in StatementInput) (Statement, error) {
-	return Statement{}, nil
+	st, err := RestoreStatement(in)
+	if err != nil {
+		return Statement{}, err
+	}
+	if hasVerdictWord(in.Body) {
+		return Statement{}, ErrVerdictWording
+	}
+	return st, nil
 }
 
 // RestoreStatement rebuilds a stored statement.
 // It applies the shape rules only and does not re-apply the writer's verdict wording guard.
 func RestoreStatement(in StatementInput) (Statement, error) {
-	return Statement{}, nil
+	if err := validateShape(in); err != nil {
+		return Statement{}, err
+	}
+	var c *Citation
+	if in.Citation != nil {
+		v := *in.Citation
+		c = &v
+	}
+	return Statement{kind: in.Kind, body: in.Body, presentsAsAnswer: in.PresentsAsAnswer, citation: c}, nil
+}
+
+// validateShape applies the kind, body, citation, and gap rules shared by construction and restoration.
+func validateShape(in StatementInput) error {
+	switch in.Kind {
+	case KindObservation, KindGap, KindUncertainty:
+	default:
+		return ErrInvalidStatement
+	}
+	if strings.TrimSpace(in.Body) == "" || utf8.RuneCountInString(in.Body) > maxBodyLength {
+		return ErrInvalidStatement
+	}
+	if in.Citation != nil && (in.Citation.EntryID == "" || in.Citation.Revision < 1) {
+		return ErrInvalidCitation
+	}
+	if in.Kind == KindGap && (in.PresentsAsAnswer || in.Citation != nil) {
+		return ErrGapShape
+	}
+	if in.PresentsAsAnswer {
+		if in.Kind != KindObservation {
+			return ErrInvalidStatement
+		}
+		if in.Citation == nil {
+			return ErrCitationRequired
+		}
+	}
+	return nil
+}
+
+// valid reports whether the statement was built through a constructor.
+func (s Statement) valid() bool {
+	return validateShape(StatementInput{Kind: s.kind, Body: s.body, PresentsAsAnswer: s.presentsAsAnswer, Citation: s.citation}) == nil
 }
 
 // Kind returns the statement kind.
@@ -62,4 +117,10 @@ func (s Statement) Body() string { return s.body }
 func (s Statement) PresentsAsAnswer() bool { return s.presentsAsAnswer }
 
 // Citation returns a copy of the cited evidence, nil when the statement cites none.
-func (s Statement) Citation() *Citation { return nil }
+func (s Statement) Citation() *Citation {
+	if s.citation == nil {
+		return nil
+	}
+	v := *s.citation
+	return &v
+}

@@ -33,10 +33,11 @@ const (
 // interviewStages is the fixed interview order shown to the model as the plan.
 var interviewStages = []enum.QuestionStage{enum.StageBackground, enum.StageScreening, enum.StageCompensation, enum.StageClosing}
 
-// stageInstructions renders the model context for the snapshot's current stage.
-// It carries the position, the stage plan with planned durations, the current stage's questions, topics,
-// remaining follow-ups, the discussion mode and the scope rules. The ceiling reference, any amount and any
-// verdict request are deliberately never rendered.
+// stageInstructions renders the model context for the snapshot: the position, the whole interview flow with
+// planned durations and questions, the current stage, topics, remaining follow-ups, the discussion mode, how
+// to run and close the interview, and the scope rules. The model paces the stages itself because no system
+// trigger moves them yet (docs todo-gap G7). The ceiling reference, any amount and any verdict request are
+// deliberately never rendered.
 func (u Workflow) stageInstructions(ctx context.Context, s interview.Snapshot) (string, error) {
 	if err := u.verifyJobDescription(ctx, s); err != nil {
 		return "", err
@@ -49,46 +50,42 @@ func (u Workflow) stageInstructions(ctx context.Context, s interview.Snapshot) (
 	if policy := s.Configuration.CompensationPolicy(); policy != nil && policy.DiscussionMode() != "" {
 		mode = policy.DiscussionMode()
 	}
-	var questions []string
-	for _, q := range s.Configuration.MandatoryQuestions() {
-		if q.Stage() == s.CurrentStage {
-			questions = append(questions, q.Text())
-		}
-	}
 	var b strings.Builder
 	b.WriteString("You are an HR interviewer conducting a structured voice interview in Bahasa Indonesia.\n")
-	fmt.Fprintf(&b, "Position: %s\n", interimPosition)
-	plan := make([]string, 0, len(interviewStages))
-	for _, stage := range interviewStages {
-		plan = append(plan, string(stage)+plannedDuration(s.Configuration, stage))
-	}
-	fmt.Fprintf(&b, "Interview plan: %s\n", strings.Join(plan, " → "))
-	fmt.Fprintf(&b, "Current stage: %s%s\n", s.CurrentStage, plannedDuration(s.Configuration, s.CurrentStage))
-	if len(questions) > 0 {
-		b.WriteString("Ask these questions, one at a time. Do not move to another stage yourself; the system tells you when.\n")
-		for _, q := range questions {
-			fmt.Fprintf(&b, "- %s\n", q)
+	fmt.Fprintf(&b, "Position: %s\n\n", interimPosition)
+	b.WriteString("Interview flow (follow this order, do not skip or reorder stages):\n")
+	for i, stage := range interviewStages {
+		fmt.Fprintf(&b, "%d. %s%s\n", i+1, stage, plannedDuration(s.Configuration, stage))
+		asked := false
+		for _, q := range s.Configuration.MandatoryQuestions() {
+			if q.Stage() == stage {
+				fmt.Fprintf(&b, "   - %s\n", q.Text())
+				asked = true
+			}
 		}
-	} else {
-		b.WriteString("There is no scripted question for this stage. Do not move to another stage yourself; the system tells you when.\n")
+		if !asked {
+			b.WriteString("   - No scripted question for this stage.\n")
+		}
+		if stage == enum.StageCompensation {
+			b.WriteString("   You may ask what the candidate expects.\n")
+		}
 	}
+	b.WriteString("\n")
 	if topics := s.Configuration.CompetencyTopics(); len(topics) > 0 {
 		fmt.Fprintf(&b, "Competency topics: %s\n", strings.Join(topics, ", "))
 	}
-	fmt.Fprintf(&b, "Follow-ups remaining: %d\n", p.RemainingFollowUps())
-	fmt.Fprintf(&b, "Compensation discussion mode: %s\n", mode)
-	if s.CurrentStage == enum.StageCompensation {
-		b.WriteString("You may ask what the candidate expects.\n")
+	fmt.Fprintf(&b, "Current stage: %s%s\n", s.CurrentStage, plannedDuration(s.Configuration, s.CurrentStage))
+	fmt.Fprintf(&b, "Follow-ups remaining in the current stage: %d (ask them only about what the candidate just said)\n", p.RemainingFollowUps())
+	fmt.Fprintf(&b, "Compensation discussion mode: %s\n\n", mode)
+	b.WriteString("How to run it:\n")
+	if s.CurrentStage == enum.StageBackground && len(s.Entries) == 0 && len(s.Handoffs) == 0 {
+		b.WriteString("- Start by greeting the candidate, then ask the first question.\n")
+	} else {
+		fmt.Fprintf(&b, "- Continue the interview at the current stage (%s). Do not greet again.\n", s.CurrentStage)
 	}
-	switch {
-	case len(questions) > 0 && s.CurrentStage == enum.StageBackground && len(s.Entries) == 0 && len(s.Handoffs) == 0:
-		b.WriteString("Start by greeting the candidate, then ask the first question.\n")
-	case len(questions) > 0:
-		b.WriteString("Continue the interview with the first question of this stage.\n")
-	}
-	if s.CurrentStage == enum.StageClosing {
-		b.WriteString("This is the last stage. After the candidate finishes, thank them and close the conversation.\n")
-	}
+	b.WriteString("- Ask one question at a time. When a stage's questions have been answered, or its planned time is roughly used, move on with one short sentence that names the next stage (for example \"Baik, kita lanjut ke tahap screening.\") and continue with that stage's first question.\n")
+	b.WriteString("- Planned times are guidance, not a hard limit.\n")
+	b.WriteString("- After the closing stage, thank the candidate and tell them the interview is complete.\n\n")
 	b.WriteString(scopeRules)
 	return b.String(), nil
 }

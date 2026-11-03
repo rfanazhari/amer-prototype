@@ -3,6 +3,15 @@ with-expecter: false
 issue-845-fix: true
 disable-version-string: true
 packages:
+  github.com/rfanazhari/amer-prototype/infrastructure/service/reportbroker:
+    config:
+      dir: test/mocks/reportbrokermocks
+      outpkg: reportbrokermocks
+      filename: '{{.InterfaceName | snakecase}}.go'
+    interfaces:
+      Broker:
+      Outbox:
+      Channel:
   github.com/rfanazhari/amer-prototype/application/repository:
     config:
       dir: test/mocks

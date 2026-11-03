@@ -83,9 +83,9 @@ func newRuntimeProof(t *testing.T, block bool) runtimeProof {
 	t.Cleanup(provider.Close)
 	cfg := appruntime.Config{AccessHTTPOrigin: "http://localhost:8080", AccessCSRFSecret: strings.Repeat("c", 32), OpenAIAPIKey: "fake-key", OpenAILiveURL: provider.URL + "/live/sessions", OpenAILiveAttachURL: "ws" + strings.TrimPrefix(provider.URL, "http") + "/live/sessions"}
 	logs := logmanager.NewApplication(logmanager.WithAppName("irt-proof"), logmanager.WithSkipHeaders(), logmanager.WithMaskingConfig([]logmanager.MaskingConfig{{FieldPattern: "sdp", Type: logmanager.FullMask}, {FieldPattern: "instructions", Type: logmanager.FullMask}, {FieldPattern: "authorization", Type: logmanager.FullMask}}))
-	api, _ := appruntime.NewCandidateInterview(f.db, cfg, logs)
+	api, page := appruntime.NewCandidateInterview(f.db, cfg, logs)
 	t.Cleanup(func() { require.NoError(t, api.(io.Closer).Close()) })
-	f.api = appruntime.HTTPServer(appruntime.Router{Interview: api, Task: http.NotFoundHandler(), Access: http.NotFoundHandler()}, logs)
+	f.api = appruntime.HTTPServer(appruntime.Router{Interview: api, InterviewPage: page, Task: http.NotFoundHandler(), Access: http.NotFoundHandler()}, logs)
 	consent := f.accept(t)
 	started := f.request("POST", "/candidate/executions", `{"consentId":"`+consent+`"}`, "runtime-start")
 	require.Equal(t, 201, started.Code, started.Body.String())
@@ -247,4 +247,25 @@ func TestInterviewRuntimeSingleConnectionPostgres(t *testing.T) {
 	})
 	result := f.attempt("one-connection", "activate", 1)
 	require.Equal(t, 201, result.Code, result.Body.String())
+}
+
+// TestCandidatePageVoiceStartPostgres proves the embedded page is served by production composition and that the
+// exact request shapes the page sends start and ready a voice session over disposable PostgreSQL and a fake provider.
+func TestCandidatePageVoiceStartPostgres(t *testing.T) {
+	f := newRuntimeProof(t, false)
+	page := httptest.NewRecorder()
+	f.api.ServeHTTP(page, httptest.NewRequest(http.MethodGet, "/candidate/interview/page", nil))
+	require.Equal(t, 200, page.Code)
+	require.Contains(t, page.Header().Get("Content-Type"), "text/html")
+	require.Contains(t, page.Body.String(), "/session-attempts")
+	require.Contains(t, page.Body.String(), "Start voice")
+	started := f.attempt("page-start-1", "activate", 1)
+	require.Equal(t, 201, started.Code, started.Body.String())
+	got := answer(t, started)
+	ready := f.request("POST", "/candidate/executions/"+f.id+"/session-attempts/"+got.AttemptID+"/ready", `{"controllerId":"tab-proof","expectedVersion":2}`, "")
+	require.Equal(t, 200, ready.Code, ready.Body.String())
+	require.Equal(t, "ready", answer(t, ready).Condition)
+	require.Equal(t, 200, f.attempt("page-start-1", "activate", 1).Code)
+	require.Equal(t, int32(1), f.calls.Load())
+	require.NotContains(t, page.Body.String(), got.SessionID)
 }

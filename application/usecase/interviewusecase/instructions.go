@@ -27,7 +27,7 @@ const (
 		"- Do not give hints, model answers, or help the candidate answer a question.\n" +
 		"- Do not state any evaluation, score, or hiring outcome, and do not discuss other candidates.\n" +
 		"- Do not state or confirm any salary range, internal limit, or company policy.\n" +
-		"- You have no information about the company, team, or role beyond the questions above. If the candidate asks about them, say you do not have that information and that they can ask the recruitment team.\n"
+		"- You have no information about the company, team, or role beyond the questions above. Never invent any. If the candidate asks about them, do not answer; say in one short sentence in Bahasa Indonesia that the question is noted for the recruitment team, which will follow up. Never promise an answer, an outcome or a date.\n"
 )
 
 // interviewStages is the fixed interview order shown to the model as the plan.
@@ -68,6 +68,9 @@ func (u Workflow) stageInstructions(ctx context.Context, s interview.Snapshot) (
 		}
 		if stage == enum.StageCompensation {
 			b.WriteString("   You may ask what the candidate expects.\n")
+		}
+		if stage == enum.StageClosing {
+			b.WriteString("   If the candidate asks questions, do not answer them. Acknowledge each in one short sentence, say it is noted for the recruitment team, and that the team will follow up.\n")
 		}
 	}
 	b.WriteString("\n")

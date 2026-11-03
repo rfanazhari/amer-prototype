@@ -55,6 +55,7 @@ func NewCandidateInterview(db *gorm.DB, cfg Config, logs *logmanager.Application
 		Start:        candidateinterviewusecase.StartInterview{Current: current, Catalog: catalog, Consents: consents, Controllers: controllers, Lifecycle: lifecycle, Clock: timer},
 		Takeover:     candidateinterviewusecase.Takeover{Current: current, Controllers: controllers, Lifecycle: lifecycle, Clock: timer},
 		Cancel:       candidateinterviewusecase.CancelInterview{Current: current, Controllers: controllers, Lifecycle: lifecycle},
+		Complete:     candidateinterviewusecase.CompleteInterview{Current: current, Controllers: controllers, Lifecycle: lifecycle, Completer: workflow},
 		Accept:       candidateinterviewusecase.AcceptNotice{Current: current, Catalog: catalog, Tx: consents, Consents: consents, Clock: timer},
 		Current:      current,
 		CSRF:         accesscredentials.CSRF{Secret: []byte(cfg.AccessCSRFSecret)},

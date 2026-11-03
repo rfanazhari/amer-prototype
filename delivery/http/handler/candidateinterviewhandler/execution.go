@@ -34,7 +34,12 @@ type cancelRequest struct {
 	ExpectedVersion int64 `json:"expectedVersion"`
 }
 
-// executionRoute returns the execution id and action for the four published execution routes.
+// completeRequest carries the observed execution version for a finish.
+type completeRequest struct {
+	ExpectedVersion int64 `json:"expectedVersion"`
+}
+
+// executionRoute returns the execution id and action for the published execution routes.
 func executionRoute(path string) (string, string, bool) {
 	if path == executionsPath {
 		return "", "start", true
@@ -49,7 +54,7 @@ func executionRoute(path string) (string, string, bool) {
 	if len(parts) == 1 {
 		return parts[0], "poll", true
 	}
-	if len(parts) == 2 && (parts[1] == "takeover" || parts[1] == "cancel") {
+	if len(parts) == 2 && (parts[1] == "takeover" || parts[1] == "cancel" || parts[1] == "complete") {
 		return parts[0], parts[1], true
 	}
 	return "", "", false
@@ -84,6 +89,8 @@ func (h Handler) execution(w http.ResponseWriter, r *http.Request, id, action st
 		h.takeover(w, r, id)
 	case "cancel":
 		h.cancel(w, r, id)
+	case "complete":
+		h.complete(w, r, id)
 	}
 }
 
@@ -161,6 +168,25 @@ func (h Handler) cancel(w http.ResponseWriter, r *http.Request, id string) {
 		return
 	}
 	result, err := h.Cancel.Execute(r.Context(), candidateinterviewusecase.CancelInterviewInput{ExecutionID: id, ControllerID: r.Header.Get(controllerHeader), ExpectedVersion: req.ExpectedVersion})
+	if err != nil {
+		h.sendError(w, r, err, errs.CINDependencyUnavailable)
+		return
+	}
+	respond(w, http.StatusOK, envelope{Status: "success", Data: executionView(*result)})
+}
+
+// complete validates the observed execution version before asking the operation to end the interview as COMPLETED.
+func (h Handler) complete(w http.ResponseWriter, r *http.Request, id string) {
+	var req completeRequest
+	if readJSON(r, &req) != nil || req.ExpectedVersion < 1 || !validTab(r) {
+		fail(w, r, http.StatusBadRequest, errs.InvalidInput)
+		return
+	}
+	r, ok := h.verifyCSRF(w, r)
+	if !ok {
+		return
+	}
+	result, err := h.Complete.Execute(r.Context(), candidateinterviewusecase.CompleteInterviewInput{ExecutionID: id, ControllerID: r.Header.Get(controllerHeader), ExpectedVersion: req.ExpectedVersion})
 	if err != nil {
 		h.sendError(w, r, err, errs.CINDependencyUnavailable)
 		return

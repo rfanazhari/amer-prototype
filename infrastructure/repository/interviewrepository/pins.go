@@ -70,7 +70,8 @@ func (s Pins) Find(ctx context.Context, id string) (interviewport.PinnedContext,
 	return interviewport.PinnedContext{RevisionID: pin.RevisionID, Configuration: revision.Snapshot().Configuration, RunningAt: pin.ActivatedAt.UTC()}, nil
 }
 
-// IsCommitted checks that the exact opaque progress reference names a sealed closing handoff.
+// IsCommitted checks that the exact opaque progress reference names a progress whose four stages are sealed, by
+// resolved coverage or by the model's stated completion.
 func (s Store) IsCommitted(ctx context.Context, id string, ref execution.ProgressRef) (bool, error) {
 	if string(ref) != id {
 		return false, nil
@@ -83,5 +84,5 @@ func (s Store) IsCommitted(ctx context.Context, id string, ref execution.Progres
 	if err != nil {
 		return false, err
 	}
-	return p.ReadyForCompletion(), nil
+	return p.AllStagesSealed(), nil
 }

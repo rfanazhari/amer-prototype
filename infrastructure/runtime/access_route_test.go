@@ -138,6 +138,7 @@ func TestCandidateInterviewRouteDispatch(t *testing.T) {
 		{name: "poll", path: "/candidate/executions/e1", wantJSON: true},
 		{name: "takeover", path: "/candidate/executions/e1/takeover", wantJSON: true},
 		{name: "cancel", path: "/candidate/executions/e1/cancel", wantJSON: true},
+		{name: "complete", path: "/candidate/executions/e1/complete", wantJSON: true},
 		{name: "session attempts mounted", path: "/candidate/executions/e1/session-attempts", wantJSON: true},
 		{name: "session readiness mounted", path: "/candidate/executions/e1/session-attempts/a1/ready", wantJSON: true},
 		{name: "other session action absent", path: "/candidate/executions/e1/session-attempts/a1/other", wantAccess: true},

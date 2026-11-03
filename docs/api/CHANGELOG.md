@@ -1,5 +1,9 @@
 # API changelog
 
+## 0.15.0 — candidate finish (CORE-IRT-021)
+
+Added `POST /candidate/executions/{id}/complete` and the `complete` action in `GET /candidate/interview`. The controlling tab can end a `RUNNING` interview as `COMPLETED`; the remaining stages are sealed in order and the provider session is closed by its stored id. A repeat returns the same result, a `CREATED` interview is `409 CIN_NOT_LIVE`, and a terminal one is `409 CIN_TERMINAL`. No existing route, schema field or error code changed.
+
 ## 0.14.1 — candidate page voice start (CORE-IRT-019)
 
 The embedded candidate interview page now starts the voice session through the existing `session-attempts` and readiness routes. No route, schema, request/response field, status code or error code changed.

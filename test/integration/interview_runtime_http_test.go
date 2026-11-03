@@ -27,6 +27,7 @@ type runtimeProof struct {
 	candidateLifecycleHTTP
 	id      string
 	calls   *atomic.Int32
+	closes  *atomic.Int32
 	entered chan struct{}
 	release chan struct{}
 }
@@ -51,7 +52,7 @@ func newRuntimeProof(t *testing.T, block bool) runtimeProof {
 	validation := insertOwnedValidation(t, store, hrID, 1, true)
 	revision := publishOwned(t, store, hrID, validation, account.ID, uuid.NewString(), testdata.TokenHash)
 	require.NoError(t, f.db.Exec(`UPDATE interview_assignments SET instance_id = ?, published_revision_id = ? WHERE id = ?`, hrID, revision, f.assignmentID).Error)
-	calls := &atomic.Int32{}
+	calls, closes := &atomic.Int32{}, &atomic.Int32{}
 	entered, release := make(chan struct{}, 1), make(chan struct{})
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /live/sessions", func(w http.ResponseWriter, r *http.Request) {
@@ -76,6 +77,9 @@ func newRuntimeProof(t *testing.T, block bool) runtimeProof {
 			var frame []byte
 			if websocket.Message.Receive(c, &frame) != nil {
 				return
+			}
+			if strings.Contains(string(frame), "session.close") {
+				closes.Add(1)
 			}
 		}
 	}))
@@ -103,7 +107,7 @@ func newRuntimeProof(t *testing.T, block bool) runtimeProof {
 		require.NoError(t, f.db.Exec(`DELETE FROM interview_executions WHERE id = ?`, id).Error)
 		require.NoError(t, f.db.Exec(`DELETE FROM agent_executions WHERE id = ?`, id).Error)
 	})
-	return runtimeProof{cfg: cfg, candidateLifecycleHTTP: f, id: id, calls: calls, entered: entered, release: release}
+	return runtimeProof{cfg: cfg, candidateLifecycleHTTP: f, id: id, calls: calls, closes: closes, entered: entered, release: release}
 }
 
 // attempt sends one fully authenticated setup request through production composition.
@@ -268,4 +272,38 @@ func TestCandidatePageVoiceStartPostgres(t *testing.T) {
 	require.Equal(t, 200, f.attempt("page-start-1", "activate", 1).Code)
 	require.Equal(t, int32(1), f.calls.Load())
 	require.NotContains(t, page.Body.String(), got.SessionID)
+}
+
+// TestCandidateFinishPostgres proves the finish route completes a running interview through production composition:
+// stages sealed, the execution COMPLETED, sessions closed locally, and the provider told to close its session.
+func TestCandidateFinishPostgres(t *testing.T) {
+	t.Run("a running interview completes and a repeat is idempotent", func(t *testing.T) {
+		f := newRuntimeProof(t, false)
+		started := f.attempt("finish-1", "activate", 1)
+		require.Equal(t, 201, started.Code, started.Body.String())
+		version := answer(t, started).Version
+
+		done := f.request("POST", "/candidate/executions/"+f.id+"/complete", fmt.Sprintf(`{"expectedVersion":%d}`, version), "")
+
+		require.Equal(t, 200, done.Code, done.Body.String())
+		require.Equal(t, "COMPLETED", data(t, done).State)
+		var state string
+		require.NoError(t, f.db.Raw(`SELECT state FROM agent_executions WHERE id = ?`, f.id).Scan(&state).Error)
+		require.Equal(t, "COMPLETED", state)
+		require.EqualValues(t, 4, f.count(t, `SELECT count(*) FROM interview_handoffs WHERE execution_id = ?`, f.id))
+		require.Zero(t, f.count(t, `SELECT count(*) FROM interview_voice_sessions WHERE execution_id = ? AND closed_at IS NULL`, f.id))
+		require.Eventually(t, func() bool { return f.closes.Load() == 1 }, 3*time.Second, 20*time.Millisecond)
+		again := f.request("POST", "/candidate/executions/"+f.id+"/complete", fmt.Sprintf(`{"expectedVersion":%d}`, version), "")
+		require.Equal(t, 200, again.Code, again.Body.String())
+		require.Equal(t, "COMPLETED", data(t, again).State)
+		require.EqualValues(t, 4, f.count(t, `SELECT count(*) FROM interview_handoffs WHERE execution_id = ?`, f.id))
+	})
+	t.Run("an interview that has not started cannot be completed", func(t *testing.T) {
+		f := newRuntimeProof(t, false)
+
+		done := f.request("POST", "/candidate/executions/"+f.id+"/complete", `{"expectedVersion":1}`, "")
+
+		require.Equal(t, 409, done.Code, done.Body.String())
+		require.Zero(t, f.count(t, `SELECT count(*) FROM interview_handoffs WHERE execution_id = ?`, f.id))
+	})
 }

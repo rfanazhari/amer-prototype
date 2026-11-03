@@ -26,6 +26,7 @@ type Handler struct {
 	Start        candidateinterviewusecase.StartInterviewOperation
 	Takeover     candidateinterviewusecase.TakeoverOperation
 	Cancel       candidateinterviewusecase.CancelInterviewOperation
+	Complete     candidateinterviewusecase.CompleteInterviewOperation
 	Attempt      interviewusecase.AttemptOperation
 	Ready        interviewusecase.ReadyOperation
 	Get          candidateinterviewquery.GetInterviewOperation

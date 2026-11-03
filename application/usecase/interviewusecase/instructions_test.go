@@ -212,11 +212,13 @@ func TestWorkflowInstructionsScopeRules(t *testing.T) {
 		"Do not give hints, model answers",
 		"Do not state any evaluation, score, or hiring outcome",
 		"Do not state or confirm any salary range, internal limit, or company policy",
-		"You have no information about the company, team, or role beyond the questions above",
+		"You have no information about the company, team, or role beyond the questions above. Never invent any.",
+		"say in one short sentence in Bahasa Indonesia that the question is noted for the recruitment team, which will follow up",
 	} {
 		assert.Contains(t, text, rule)
 	}
-	assert.True(t, strings.HasSuffix(strings.TrimSpace(text), "they can ask the recruitment team."), "scope rules come last")
+	assert.NotContains(t, text, "they can ask the recruitment team")
+	assert.True(t, strings.HasSuffix(strings.TrimSpace(text), "Never promise an answer, an outcome or a date."), "scope rules come last")
 }
 
 // TestWorkflowCreateCarriesInstructions proves the provider session is created with the same instructions that are later supplied.
@@ -322,7 +324,7 @@ func TestWorkflowInstructionsFlowGuidance(t *testing.T) {
 		"Planned times are guidance, not a hard limit.",
 		"After the closing stage, thank the candidate and tell them the interview is complete.",
 		"You may ask what the candidate expects.",
-		"4. closing (~30s)\n   - No scripted question for this stage.",
+		"4. closing (~30s)\n   - No scripted question for this stage.\n   If the candidate asks questions, do not answer them. Acknowledge each in one short sentence, say it is noted for the recruitment team, and that the team will follow up.",
 	} {
 		assert.Contains(t, text, part)
 	}

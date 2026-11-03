@@ -1,8 +1,8 @@
 # T8 verification — CORE-IRT-008
 
 Task marked Done by the owner for the operations, handlers and contract only. Done: the session-attempt and readiness operations, their HTTP handlers, public error codes,
-translations, OpenAPI, API changelog and endpoint note. **Deferred to a follow-up task (ID to be assigned): composition and mounting.** The routes are not
-reachable in the running process; T7's removal ships with that follow-up.
+translations, OpenAPI, API changelog and endpoint note. **Deferred to T18 / `CORE-IRT-018` (assigned 2026-11-03): composition and mounting.** The routes are not
+reachable in the running process. T7 has since removed the prototype routes; T18 will mount their replacement.
 
 ## Design mapping and assessment
 
@@ -27,7 +27,7 @@ function used by both operations. Findings deferred, each needing a decision or 
 3. **Atomicity.** The command is stored after the provider answer exists. A crash between the two leaves a session without
    a command. Design section 4 wants the command with the session shell in one transaction.
 4. **Revision reader and wiring.** `RevisionReader`, `ProgressStore` (with `PinReader`), the driver and its key, and
-   `infrastructure/runtime/voice.go` (`isCandidateExecutionPath`) are not composed.
+   `infrastructure/runtime/router.go` (`isCandidateExecutionPath`) are not composed.
 
 ## Test paths
 

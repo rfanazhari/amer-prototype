@@ -49,9 +49,9 @@ Keep both identities on any later revision. Add new numbers. Do not reuse these.
 
 ### Schema, store, and authority
 
-- [ ] **T3. Add manual migration 000011 and raise the release floor** — Schema — L
+- [ ] **T3. Add manual migration 000012 and raise the release floor** — Schema — L
   - Ticket: `CORE-IRP-003` — depends: none — ref: design §3.
-  - DoD: `migrations/pgsql/000011_interview_reporting.up.sql` and `.down.sql` create and drop only the seven tables, checks, foreign keys, and indexes in design §3. `schema.ReleaseVersion` is 11. Both new files are in `checksums.json`. `ownedPublicTables` and `RuntimeGrantTables` include the new tables. `../../../../design/database-migrations.md` says clean version 11. Versions 1–10 are unchanged. No seed and no AutoMigrate. A disposable PostgreSQL database migrates from clean 10 to clean 11, then down and up, and proves the constraints, including one active generation and an answer without evidence. `make test.architecture` passes. If `TEST_DATABASE_URL` is unset, say the database proof was skipped and run it with `make test.docker` or an authorized URL before calling T3 done.
+  - DoD: `migrations/pgsql/000012_interview_reporting.up.sql` and `.down.sql` create and drop only the seven tables, checks, foreign keys, and indexes in design §3. `schema.ReleaseVersion` is 12. Both new files are in `checksums.json`. `ownedPublicTables` and `RuntimeGrantTables` include the new tables. `../../../../design/database-migrations.md` says clean version 12. Versions 1–11 are unchanged. No seed and no AutoMigrate. A disposable PostgreSQL database migrates from clean 11 to clean 12, then down and up, and proves the constraints, including one active generation and an answer without evidence. `make test.architecture` passes. If `TEST_DATABASE_URL` is unset, say the database proof was skipped and run it with `make test.docker` or an authorized URL before calling T3 done.
 
 - [ ] **T4. Map report rows and the two locked claims** — Infrastructure — L
   - Ticket: `CORE-IRP-004` — depends: T1, T2, T3 — ref: design §3 transactions.
@@ -83,7 +83,7 @@ Keep both identities on any later revision. Add new numbers. Do not reuse these.
 
 - [ ] **T10. Claim attempts inside the accepted budget** — Application / infrastructure — L
   - Ticket: `CORE-IRP-010` — depends: T1, T4 — ref: design §5 worker, §6 attempt path.
-  - DoD: Controlled clock proves a 60-second attempt cap, a 5-second retry delay, no third attempt, and expiry at 5 minutes from job creation including time spent queued. The writer port is a fake. Accepted output commits statements and the generation outcome without updating interview tables. Rejected output stores no statements. An old fencing token does not commit. `make test` passes. The consumer is not registered in the process.
+  - DoD: Controlled clock proves a 60-second attempt cap, a 5-second retry delay, no third attempt, and expiry at 5 minutes from the first claim with final evidence including time spent queued after that claim, a `waiting` job that claims no attempt, and give-up at 30 minutes from admission (Q4). The writer port is a fake. Accepted output commits statements and the generation outcome without updating interview tables. Rejected output stores no statements. An old fencing token does not commit. `make test` passes. The consumer is not registered in the process.
 
 - [ ] **T11. Prove RabbitMQ behavior apart from sqlmock** — Infrastructure — L
   - Ticket: `CORE-IRP-011` — depends: T9, T10 — ref: design §5, §7.

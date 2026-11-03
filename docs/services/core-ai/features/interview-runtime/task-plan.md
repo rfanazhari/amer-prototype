@@ -4,7 +4,7 @@
 
 Capability group: **IRT — Interview Runtime**. Ticket prefix: `CORE-IRT`. These are repository planning IDs. No external tracker tickets have been created.
 
-Stable map: `T1` → `CORE-IRT-001` through `T19` → `CORE-IRT-019`. Later revisions add ids. They do not renumber these.
+Stable map: `T1` → `CORE-IRT-001` through `T21` → `CORE-IRT-021`. Later revisions add ids. They do not renumber these.
 
 Companion dependencies, not implemented by this plan:
 
@@ -15,7 +15,7 @@ Companion dependencies, not implemented by this plan:
 
 ## Legend
 
-- ID: `T1`..`T19`, stable
+- ID: `T1`..`T21`, stable
 - Complexity: S (< 2h) | M (2–4h) | L (> 4h)
 - Status: `[ ]` Todo | `[~]` In Progress | `[x]` Done | `~~obsolete~~`
 - ref: [technical-design.md](technical-design.md) section
@@ -172,11 +172,38 @@ Ready when design §3 and §9 Q1 contain an explicit event map taken from a revi
   - ready when: T13 and T14 are done and T18 has mounted the workflow with the real lifecycle fence and proved T10's handoff/rollback integration. Live provider/browser setup is available for the deliberate disconnect.
   - DoD: one deliberate disconnect after a committed checkpoint resumes the same execution id, opens a new voice session, repeats no uncommitted utterance as if it were stored, and a fixture event from the old attempt does not change coverage. The test does not claim recovery of unrelated realtime failures. Two episodes remain the stored budget; this task executes one.
 
-### Blocked on the next-stage retry budget (Q2)
+### Interview instruction content
+
+- [x] **T20. Give the interviewer its stage context and scope rules** — Application — M
+  - Ticket ID: `CORE-IRT-020`
+  - Evidence: RED `db616e1`, GREEN `d831c27`; follow-up RED `7c3c058`, GREEN `16fd127`; closing-questions RED `ca413bd`, GREEN `664f782`. `stageInstructions` renders a fixed position, the whole four-stage flow with planned durations and every stage's questions, the current stage, topics, remaining follow-ups, the discussion mode, rules to greet once, name each stage when moving on and close the interview, and interview-only scope rules; `createSession` sends the same text in the provider create request. The model, not the system, paces the stages (todo-gap G7). `make test`, `test.all`, `test.contract`, `test.architecture`, `lint`, `test.security` and `test.docker` pass. Not proven: that the provider applies it or that the model obeys the scope rules; that needs a reviewed live session. Gaps: [todo-gap](todo-gap.md).
+  - depends: T8, T18 — ref: design §6.
+  - DoD: public workflow tests prove position, plan, stage guidance, greeting only at the first stage, scope rules last, create-time delivery equal to the supplied context, and no ceiling id.
+
+### Interview completion by the model
+
+- [~] **T21. Let the model end the interview, stage by stage** — Application / infrastructure / delivery — L
+  - Ticket ID: `CORE-IRT-021`
+  - depends: T18, T19, T20 — ref: design §3, §5, §6; [todo-gap](todo-gap.md) G7, G8, G9, G12, G13. Closes G12 and, with it, G7 for completion. Fixes G13.
+  - Evidence, application part: RED `f9d0a62`, GREEN `22fa5f3`. `Progress.Attest` seals the current stage with a handoff and makes the successor current without resolved coverage, `AllStagesSealed` reports four sealed stages, and `Workflow.CompleteStage` validates order and the hard deadline, treats an earlier stage as a no-op, and on `closing` seals, closes the local session records and asks the lifecycle to complete. `make test`, `test.all`, `test.contract`, `test.architecture`, `lint`, `test.security` and `test.docker` pass. Not done: the delegation payload, the sideband reader, the tool and the live proof, which wait for the spike below. Nothing calls `CompleteStage` yet.
+  - Evidence, finish control: slice 1 RED `9d6d892`, GREEN `cad85a7` and fix `8955cd1` (`CompleteInterview`, provider close by stored session id with sideband reattach); slice 2 RED `0e7e475`, GREEN `a152da8` (`POST /candidate/executions/{id}/complete`, action `complete`, OpenAPI 0.15.0, PostgreSQL run with a fake provider ends `COMPLETED`); slice 3 RED `6eb5b13`, GREEN `61f8396` (page **Selesai** button with confirmation, microphone release, COMPLETED text; 27 browser scenarios). Not yet done: a live session pressing Selesai, and the model trigger (spike, sideband reader).
+  - Why: a live session showed stages advance only in conversation, nothing stores progress, and the interview can end only by the candidate pressing Cancel, so a finished interview is recorded `CANCELLED`. The owner chose a model-triggered ending (2026-11-03).
+  - Step 0, verification only, ready now: one sanitized live spike on the owner's account. Create a session with Responses delegation and one function tool, confirm the call event reaches the sideband, return a result, close with `session.close` and `session.closed`, and confirm the interviewer's behavior is not degraded by delegation. Record event types only; no key, SDP, text or session ids. It needs no ticket of its own, runs from a temporary harness outside the repository, and the owner runs it because it sends the key to the provider and bills the backend model.
+  - Blocked until: the spike result is written into design §3 and todo-gap G8, and the owner decides G9 (what makes a stage complete and what `Authorize` becomes without coverage).
+  - Scope after unblock:
+    - Add `delegation` and the `complete_stage` tool to the create request. The tool takes only a fixed stage name from the four stages; no free text from the model.
+    - Read the sideband for the documented call events and error events, with a bounded lifetime that honors the shutdown budget. Execute each call once, with the sideband as sole owner.
+    - Validate each call: the stage is the next one, no stage is skipped, the 15-minute deadline has not passed, and a repeated call is idempotent. A rejected call returns a tool result that tells the model to continue.
+    - A `closing` call completes the interview through the lifecycle (`COMPLETED`, not `CANCELLED`), closes the provider session, and returns the tool result so the model can say goodbye. The candidate page shows a completed state.
+    - Replace the post-attach `session.update` instructions with the documented append event within 500 tokens, and size recovery context to fit (G13).
+    - Update the candidate-page contract, the notice wording only if the owner agrees, and the design.
+  - DoD: public workflow tests through mocked ports cover valid order, skipped stage, repeated call, deadline, rejected call and completion; sqlmock tests cover what is persisted; page tests cover the completed state; a PostgreSQL run with a fake provider shows an interview ending as `COMPLETED` and writing nothing on a rejected call; one reviewed live session ends by the model's call. Not claimed: that a stage was answered, transcript, scoring or report content. If the spike shows delegation is unsuitable, replace the trigger with a candidate-visible finish control and record the decision.
+
+### Next-stage retry budget (Q2 decided 2026-11-03)
 
 - [ ] **T16. Enforce the post-handoff activation budget** — Application — M
   - Ticket ID: `CORE-IRT-016`
-  - depends: T10 — ref: design §9 Q2 — blocked by: Q2.
+  - depends: T10 — ref: design §9 Q2 — Q2 decided: 2 attempts × 30 seconds within 90 seconds per stage, no reserve.
   - ready when: design §9 records the attempt count and whether any finalization reserve exists inside the 15 minutes.
   - DoD: the recorded numbers are what the coordinator enforces. Exhaustion fails through the lifecycle and does not open a different stage. If the decision says there is no separate reserve, the only outer timer remains 15 minutes from running, and the test shows that.
 
@@ -207,6 +234,7 @@ T8 → T17
 T2, T3, T5, T6, T8, T9, T10, T11 → T18
 T18 → T17
 T17, T18 → T19
+T18, T19, T20 → T21
 T18 → T13
 T18 → T15
 
@@ -227,3 +255,9 @@ T1–T11 retain their Done scopes. T18 is Done and resolves integration Q3. T12'
 | v3 | 2026-11-03 | Complete T18 with durable authority, joined transactions, reservation/replay, schema 11 and real PostgreSQL proof | Resolve integration Q3 only; preserve Q1/Q2, T17 live acceptance and earlier task evidence limits |
 | v4 | 2026-11-03 | Add T19 / CORE-IRT-019 for candidate-page voice start (microphone, SDP, ready) | T17 proved the mounted routes only through a temporary harness; the production page had no owner for the browser side. Number proposed, pending owner ticket confirmation. Q1/Q2 unchanged |
 | v5 | 2026-11-03 | Complete T17 with one reviewed live interview-path session | Q5 live acceptance recorded through the mounted route; Q1/Q2, T12–T16 and T19 unchanged |
+| v6 | 2026-11-03 | Add T20 / CORE-IRT-020 for interview instruction content and create-time delivery; Q2 decided so T16 is ready | Live session showed an off-context interviewer. T20 changes prompt content only; Q1 and T12–T15 unchanged |
+| v7 | 2026-11-03 | T20 follow-up: one prompt with the whole flow and named transitions | No code moves stages today (todo-gap G7); the prompt must not wait for a system signal |
+| v8 | 2026-11-03 | T20 follow-up: closing-stage candidate questions are noted for the recruitment team, not answered | Live session; the note is wording only until the end-of-interview transcript exists (todo-gap G11) |
+| v9 | 2026-11-03 | Add T21 / CORE-IRT-021 for model-triggered stage and interview completion | A live session showed no code moves stages or ends the interview; the owner chose a model-triggered ending. Blocked on one provider spike and on todo-gap G9. Q1, Q2 and T12–T16 unchanged |
+| v10 | 2026-11-03 | T21 application part: model-attested stage sealing and interview completion through `CompleteStage` | Owner decided G9 (a model statement with order, stage clock and deadline checks is enough). The provider-facing part waits for the spike |
+| v11 | 2026-11-03 | T21 candidate-visible finish control (route, action, page button) closes G12 for the normal ending | Owner approved the Selesai flow after a finished interview could not close. The model trigger stays for the spike |

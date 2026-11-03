@@ -86,7 +86,7 @@ Remaining safe order:
 2. Investigate S1 evidence for T12 and obtain the Q2 numeric decision independently. Event counts are insufficient; the finality map still requires reviewed observations and fixture identities/order/corrections.
 3. After T18, execute T17 on the mounted route; review its sanitized note to finish the task. T17 does not require that note before starting and does not resolve Q1 by itself.
 4. After T12 and T18, implement T13, then T14, then T15 with the real fence and committed checkpoint. T18's fake-provider reconnect checks do not close T15's deliberate live proof.
-5. T16 waits on Q2. Mocked application work can follow that decision; production exhaustion proof uses T18's lifecycle adapter. No post-handoff retry number is invented in T18.
+5. T16 is ready: Q2 is decided (2 × 30 seconds within 90 seconds per stage, no finalization reserve). Mocked application work can follow that decision; production exhaustion proof uses T18's lifecycle adapter. No post-handoff retry number is invented in T18.
 
 Do not open the provider session from a migration or from a domain test.
 

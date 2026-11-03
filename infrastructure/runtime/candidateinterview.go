@@ -19,6 +19,7 @@ import (
 	"github.com/rfanazhari/amer-prototype/infrastructure/service/accesscredentials"
 	"github.com/rfanazhari/amer-prototype/infrastructure/service/agentreference"
 	"github.com/rfanazhari/amer-prototype/infrastructure/service/candidatelifecycle"
+	"github.com/rfanazhari/amer-prototype/infrastructure/service/candidateprogress"
 	"github.com/rfanazhari/amer-prototype/infrastructure/service/clock"
 	"github.com/rfanazhari/amer-prototype/infrastructure/service/interviewlifecycle"
 	"github.com/rfanazhari/amer-prototype/infrastructure/service/interviewvoice"
@@ -50,6 +51,7 @@ func NewCandidateInterview(db *gorm.DB, cfg Config, logs *logmanager.Application
 		Get: candidateinterviewquery.GetInterview{
 			Current: current, Catalog: catalog, Consents: consents,
 			Controllers: controllers, Lifecycle: lifecycle, Clock: timer,
+			Progress: candidateprogress.Reader{Store: progress},
 		},
 		GetExecution: candidateinterviewquery.GetExecution{Current: current, Controllers: controllers, Lifecycle: lifecycle},
 		Start:        candidateinterviewusecase.StartInterview{Current: current, Catalog: catalog, Consents: consents, Controllers: controllers, Lifecycle: lifecycle, Clock: timer},

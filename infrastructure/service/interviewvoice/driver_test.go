@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -35,6 +36,7 @@ type fakeProvider struct {
 	body      string
 	request   map[string]any
 	auth      string
+	mu        sync.Mutex
 	attachKey string
 	attachID  string
 	push      []string
@@ -56,8 +58,10 @@ func newProvider(t *testing.T, status int, body string, push ...string) *fakePro
 		assert.NoError(t, err)
 	})
 	mux.Handle("GET /sessions/{id}/attach", websocket.Handler(func(c *websocket.Conn) {
+		p.mu.Lock()
 		p.attachKey = c.Request().Header.Get("Authorization")
 		p.attachID = c.Request().PathValue("id")
+		p.mu.Unlock()
 		for _, m := range p.push {
 			assert.NoError(t, websocket.Message.Send(c, m))
 		}
@@ -75,6 +79,13 @@ func newProvider(t *testing.T, status int, body string, push ...string) *fakePro
 	p.server = httptest.NewServer(mux)
 	t.Cleanup(p.server.Close)
 	return p
+}
+
+// attached returns the credential and provider id of the latest attach under the lock the handler writes with.
+func (p *fakeProvider) attached() (key, id string) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.attachKey, p.attachID
 }
 
 // driver builds a Driver aimed at the fake provider.
@@ -240,8 +251,9 @@ func TestDriverAttach(t *testing.T) {
 			t.Cleanup(func() { _ = d.Close(context.Background(), tt.session) })
 			require.NoError(t, d.Control(context.Background(), service.InterviewVoiceControl{Session: tt.session, Command: "ping"}))
 			<-p.received
-			assert.Equal(t, "Bearer "+testKey, p.attachKey)
-			assert.Equal(t, providerID, p.attachID)
+			key, id := p.attached()
+			assert.Equal(t, "Bearer "+testKey, key)
+			assert.Equal(t, providerID, id)
 		})
 	}
 }
@@ -373,7 +385,8 @@ func TestDriverCloseReattaches(t *testing.T) {
 
 			require.NoError(t, err)
 			if !tt.wantAttach {
-				assert.Empty(t, p.attachID)
+				_, id := p.attached()
+				assert.Empty(t, id)
 				return
 			}
 			select {
@@ -382,8 +395,9 @@ func TestDriverCloseReattaches(t *testing.T) {
 			case <-time.After(2 * time.Second):
 				t.Fatal("no session.close reached the provider")
 			}
-			assert.Equal(t, providerID, p.attachID)
-			assert.Equal(t, "Bearer "+testKey, p.attachKey)
+			key, id := p.attached()
+			assert.Equal(t, providerID, id)
+			assert.Equal(t, "Bearer "+testKey, key)
 		})
 	}
 }

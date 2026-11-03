@@ -22,14 +22,32 @@ async function fixture(view, test, options = {}) {
   w.setTimeout = w.setInterval = (fn, delay) => { check(delay === 2000, 'poll must wait two seconds'); timers.set(++timerID, fn); return timerID; };
   w.clearTimeout = w.clearInterval = id => timers.delete(id);
   w.confirm = () => false;
+  const media = {requests: 0, tracks: [], pcs: [], sdp: 'v=0 fixture-offer-sdp'};
+  Object.defineProperty(w.navigator, 'mediaDevices', {configurable: true, value: {getUserMedia: async () => {
+    media.requests++;
+    if (options.micDenied) throw Object.assign(new Error('denied'), {name: 'NotAllowedError'});
+    const track = {stopped: false, stop() { this.stopped = true; }};
+    media.tracks.push(track);
+    return {getTracks: () => [track]};
+  }}});
+  w.RTCPeerConnection = class {
+    constructor() { this.iceGatheringState = 'complete'; this.closed = false; this.added = []; media.pcs.push(this); }
+    addTrack(track) { this.added.push(track); }
+    createDataChannel(label) { this.label = label; return {}; }
+    async createOffer() { return {type: 'offer', sdp: media.sdp}; }
+    async setLocalDescription(description) { this.localDescription = description; }
+    async setRemoteDescription(description) { this.remoteDescription = description; }
+    close() { this.closed = true; }
+  };
   w.document.open(); w.document.write(source); w.document.close();
   await flush();
   const el = id => w.document.getElementById(id);
   const click = async id => { check(el(id) && !el(id).hidden && !el(id).disabled, id + ' must be offered'); el(id).click(); await flush(); };
   const reload = async () => { timers.clear(); w.document.open(); w.document.write(source); w.document.close(); await flush(); };
   const poll = async () => { check(timers.size === 1, 'one active poll'); const fn = timers.values().next().value; timers.clear(); fn(); await flush(); };
-  try { await test({w, calls, timers, el, click, poll, reply, reload}); } finally { frame.remove(); }
-  check(calls.every(c => !/report|session-attempts|\/ready/.test(c.url)), 'no sibling routes');
+  try { await test({w, calls, timers, el, click, poll, reply, reload, media}); } finally { frame.remove(); }
+  check(calls.every(c => !(options.voice ? /report/ : /report|session-attempts|\/ready/).test(c.url)), 'no sibling routes');
+  check(!options.voice ? media.requests === 0 : true, 'no microphone without the voice scenario');
   check(calls.every(c => c.credentials === 'include'), 'include session cookie');
   results.push(options.name);
 }
@@ -167,6 +185,85 @@ function screen(state = null, current = true) {
     const starts = calls.filter(c => c.method === 'POST');
     check(starts[0].headers['Idempotency-Key'] === starts[1].headers['Idempotency-Key'], 'network retry keeps intent');
   }, {name: 'start-network-retry', fetch: url => url === '/candidate/executions' && Promise.reject(new Error('network'))});
+  const attemptsPath = '/candidate/executions/execution-1/session-attempts';
+  const voiceReplies = (url, reply, overrides = {}) => {
+    if (url === attemptsPath) return (overrides.attempt && overrides.attempt()) || reply({attemptId: 'attempt-1', sessionId: 'session-1', sdp: 'fixture-answer-sdp', executionVersion: 8, sessionCondition: 'pending'}, 201);
+    if (url === attemptsPath + '/attempt-1/ready') return reply({sessionCondition: 'ready'});
+  };
+  const open = ({el, media}) => media.tracks.every(t => !t.stopped) && media.pcs.every(pc => !pc.closed);
+  const released = ({media}) => media.tracks.length > 0 && media.tracks.every(t => t.stopped) && media.pcs.every(pc => pc.closed);
+  await fixture(screen('RUNNING', false), async ({el, media, calls}) => {
+    check(el('voice').hidden, 'a read-only tab never offers voice');
+    check(media.requests === 0 && !calls.some(c => /session-attempts/.test(c.url)), 'read-only tab requests nothing');
+  }, {name: 'voice-hidden-read-only', voice: true});
+  const voiceable = screen('RUNNING');
+  await fixture(voiceable, async ({w, el, click, calls, media}) => {
+    check(!el('voice').hidden, 'controlling tab is offered voice');
+    check(media.requests === 0 && !calls.some(c => /session-attempts/.test(c.url)), 'voice starts only after the candidate clicks');
+    await click('voice');
+    check(media.requests === 1, 'microphone requested once');
+    const attempt = calls.find(c => c.url === attemptsPath);
+    const body = JSON.parse(attempt.body);
+    check(attempt.method === 'POST' && attempt.credentials === 'include', 'cookie-authenticated POST');
+    check(attempt.headers['X-CSRF-Token'] === 'fixture-csrf' && attempt.headers['X-Interview-Controller'] === body.controllerId, 'CSRF token and tab controller');
+    check(body.intent === 'activate' && body.expectedVersion === 7 && body.sdp === media.sdp && body.idempotencyKey, 'activate body with execution version, offer and key');
+    check(media.pcs.length === 1 && media.pcs[0].added.length === 1 && media.pcs[0].label === 'oai-events', 'microphone track and event channel');
+    check(media.pcs[0].remoteDescription.type === 'answer' && media.pcs[0].remoteDescription.sdp === 'fixture-answer-sdp', 'returned answer applied');
+    const ready = calls.find(c => c.url === attemptsPath + '/attempt-1/ready');
+    check(ready && JSON.parse(ready.body).expectedVersion === 8 && JSON.parse(ready.body).controllerId === body.controllerId, 'readiness uses returned version and controller');
+    check(el('voice-status').textContent.toLowerCase().includes('ready') && el('voice').hidden, 'ready state replaces the start control');
+    check(open({el, media}), 'media stays open while the interview is live');
+    const visible = w.document.body.textContent + JSON.stringify(Object.entries(w.sessionStorage));
+    check(!visible.includes('fixture-offer-sdp') && !visible.includes('fixture-answer-sdp') && !visible.includes('session-1'), 'SDP and session id never reach DOM or storage');
+  }, {name: 'voice-success', voice: true, fetch: (url, init, reply) => voiceReplies(url, reply)});
+  await fixture(screen('RUNNING'), async ({el, click, calls, media}) => {
+    await click('voice');
+    check(!calls.some(c => /session-attempts/.test(c.url)), 'no setup request without a microphone');
+    check(!el('error').hidden && el('error').textContent.toLowerCase().includes('microphone'), 'safe microphone explanation');
+    check(!el('voice').hidden && !el('voice').disabled, 'candidate can retry after fixing permission');
+  }, {name: 'voice-permission-denied', voice: true, micDenied: true});
+  await fixture(screen('RUNNING'), async ({el, click, calls, media}) => {
+    await click('voice');
+    check(released({media}), 'refused setup releases microphone and connection');
+    check(!calls.some(c => c.url.endsWith('/ready')), 'no readiness after refusal');
+    check(calls.filter(c => c.url === '/candidate/interview').length >= 2, 'conflict refreshes the interview');
+    check(!el('error').hidden && !/session|attempt|provider/i.test(el('error').textContent), 'safe conflict explanation');
+  }, {name: 'voice-conflict', voice: true, fetch: (url, init, reply) => voiceReplies(url, reply, {attempt: () => reply({}, 409)})});
+  let attemptNumber = 0;
+  await fixture(screen('RUNNING'), async ({el, click, calls, media}) => {
+    await click('voice');
+    check(released({media}) && !el('error').hidden, 'unavailable provider releases media and explains');
+    media.tracks.length = 0; media.pcs.length = 0;
+    await click('voice');
+    const attempts = calls.filter(c => c.url === attemptsPath);
+    check(attempts.length === 2 && JSON.parse(attempts[0].body).idempotencyKey === JSON.parse(attempts[1].body).idempotencyKey, 'retry after unavailable reuses the key');
+    check(el('voice-status').textContent.toLowerCase().includes('ready'), 'retry reaches ready');
+  }, {name: 'voice-unavailable-retry', voice: true, fetch: (url, init, reply) => voiceReplies(url, reply, {attempt: () => ++attemptNumber === 1 && reply({}, 503)})});
+  const cancelling = screen('RUNNING');
+  await fixture(cancelling, async ({w, el, click, media}) => {
+    await click('voice');
+    check(open({el, media}), 'voice is live before cancel');
+    w.confirm = () => true;
+    await click('cancel');
+    check(released({media}), 'cancel releases microphone and connection');
+  }, {name: 'voice-cancel-releases', voice: true, fetch: (url, init, reply) => {
+    if (url.endsWith('/cancel')) return reply(screen('CANCELLED').execution);
+    return voiceReplies(url, reply);
+  }});
+  const takenOver = screen('RUNNING');
+  await fixture(takenOver, async ({el, click, poll, media}) => {
+    await click('voice');
+    takenOver.execution.isCurrentController = false; takenOver.actions = ['takeover'];
+    await poll();
+    check(released({media}) && el('voice').hidden, 'losing control releases voice and hides the control');
+  }, {name: 'voice-control-lost', voice: true, fetch: (url, init, reply) => voiceReplies(url, reply)});
+  const finishing = screen('RUNNING');
+  await fixture(finishing, async ({click, poll, media}) => {
+    await click('voice');
+    finishing.execution.state = 'COMPLETED'; finishing.actions = [];
+    await poll();
+    check(released({media}), 'terminal outcome releases voice');
+  }, {name: 'voice-terminal-releases', voice: true, fetch: (url, init, reply) => voiceReplies(url, reply)});
   document.getElementById('result').textContent = 'PASS ' + results.length + ' browser scenarios: ' + results.join(', ');
 })().catch(error => { document.getElementById('result').textContent = 'FAIL ' + error.message; });
 </script></body></html>

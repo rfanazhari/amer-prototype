@@ -22,11 +22,11 @@ func TestInterviewPageShellDocument(t *testing.T) {
 	require.Equal(t, "no-store", rec.Header().Get("Cache-Control"))
 	require.Equal(t, "no-referrer", rec.Header().Get("Referrer-Policy"))
 	body := rec.Body.String()
-	for _, needle := range []string{"/candidate/session", "/candidate/interview", "/candidate/consents", "X-CSRF-Token", "credentials", "include"} {
+	for _, needle := range []string{"/candidate/session", "/candidate/interview", "/candidate/consents", "X-CSRF-Token", "credentials", "include", "getUserMedia", "RTCPeerConnection", "/session-attempts", "/ready"} {
 		require.Contains(t, body, needle)
 	}
 	lower := strings.ToLower(body)
-	for _, absent := range []string{"report", "getusermedia", "rtcpeerconnection", "salary", "/voice-session"} {
+	for _, absent := range []string{"report", "salary", "/voice-session"} {
 		require.NotContains(t, lower, absent)
 	}
 }

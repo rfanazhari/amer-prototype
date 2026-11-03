@@ -26,7 +26,7 @@ func (u Workflow) createSession(ctx context.Context, req SessionRequest, version
 	if err != nil {
 		return service.InterviewVoiceCreated{}, err
 	}
-	created, err := u.Driver.Create(ctx, service.InterviewVoiceCreate{Session: session, SDP: normalizeSDP(req.SDP)})
+	created, err := u.Driver.Create(ctx, service.InterviewVoiceCreate{Session: session, SDP: normalizeSDP(req.SDP), Instructions: instructions})
 	if err != nil {
 		return service.InterviewVoiceCreated{}, setupError(req, err)
 	}

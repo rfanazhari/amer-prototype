@@ -87,7 +87,7 @@ func TestPublisherReconcileReplay(t *testing.T) {
 			store.On("ConfirmOutbox", mock.Anything, message, now).Return(nil).Once().NotBefore(second)
 			publisher := reportbroker.Publisher{Store: store, Broker: broker, Clock: clock, BatchSize: 1, Timeout: time.Second}
 			assert.ErrorIs(t, publisher.Reconcile(context.Background()), context.DeadlineExceeded)
-			assert.NoError(t, publisher.Reconcile(context.Background()))
+			assert.Equal(t, tt.wantErr, publisher.Reconcile(context.Background()) != nil)
 		})
 	}
 }

@@ -77,7 +77,7 @@ Keep both identities on any later revision. Add new numbers. Do not reuse these.
 
 ### Durable dispatch
 
-- [ ] **T9. Publish confirmed outbox messages without a dead-letter topology** — Infrastructure — L
+- [x] **T9. Publish confirmed outbox messages without a dead-letter topology** — Infrastructure — L
   - Ticket: `CORE-IRP-009` — depends: T4 — ref: design §5 publisher and reconciler.
   - DoD: `reportbroker` publishes persistent messages that contain only `jobKind`, `jobId`, and `messageId`. Publisher confirms set `confirmed_at`. A lost confirm can leave a duplicate and does not mark the generation succeeded. The reconciler republishes unconfirmed rows. No dead-letter exchange, queue, or routing argument is declared. Dependency `github.com/rabbitmq/amqp091-go` is pinned in `../../../../../go.mod`. `make test.security` is run for that module. Unit tests fake the broker. `make test` and `make lint` pass.
 

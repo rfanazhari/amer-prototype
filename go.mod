@@ -12,6 +12,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.9.2
 	github.com/nicksnyder/go-i18n/v2 v2.4.0
+	github.com/rabbitmq/amqp091-go v1.13.0
 	github.com/stretchr/testify v1.11.1
 	golang.org/x/crypto v0.58.0
 	golang.org/x/net v0.62.0
@@ -54,7 +55,6 @@ require (
 	github.com/oasdiff/yaml3 v0.0.14 // indirect
 	github.com/oliveagle/jsonpath v0.0.0-20180606110733-2e52cf6e6852 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
-	github.com/rabbitmq/amqp091-go v1.11.0 // indirect
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.3 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/stretchr/objx v0.5.2 // indirect

@@ -21,7 +21,7 @@ After Interview Runtime has completed an interview execution under Execution Lif
 - Consent, voice sessions, stage transitions, checkpoints, or transcript capture.
 - Assignment revoke, artifact upload, and document-execution routes.
 - An admin or HR screen. The candidate final screen and its payload.
-- A dead-letter topology. Platform technical design §6 leaves that Open; this design does not name a dead-letter exchange, queue, or routing key.
+- Dead-letter topology for other job kinds. Interview Reporting uses the owner-approved Q1 isolation topology below.
 - A report-model invocation schema. Platform technical design §14 still lists document and report model selection as unfinished.
 - Using the Task in-process completion queue, or connecting Redis, for report work.
 
@@ -47,7 +47,7 @@ After Interview Runtime has completed an interview execution under Execution Lif
 
 The skill Backend Service Standard, Design Assessment, and Master Data, Migrations, and Seed Planning references were applied. Project instructions override the bundled golang-migrate "introduce a runner" default because `../../../../../cmd/migrate` and `infrastructure/database/schema` already own the stream. They also override the bundled "no tests under `delivery/`" line: this repository proves HTTP mapping with mocked operation interfaces inside handler packages, which is what `AGENTS.md` requires.
 
-Binding behavior is the capability rules, the separate report lifecycle, the completion-plus-outbox transaction, HR-only access, citation and verdict limits, the salary-ceiling exclusion, the candidate exclusion, and the accepted attempt budget. Package layout below is an internal choice. Dead-letter topology and the report-model contract stay deferred.
+Binding behavior is the capability rules, the separate report lifecycle, the completion-plus-outbox transaction, HR-only access, citation and verdict limits, the salary-ceiling exclusion, the candidate exclusion, and the accepted attempt budget. Package layout below is an internal choice. Q1 isolation is approved below; the report-model contract stays deferred.
 
 ## 2. API / Interface Contract Changes
 
@@ -173,7 +173,7 @@ Every proof below is planned. None is observed evidence, and none marks BR-CORE-
 | `application/usecase/interviewreportusecase`, `application/query/interviewreportquery`, `../../../../../application/dto` | New | Admission coordination, regeneration, detached HR view |
 | `application/repository/interviewreportport`, `../../../../../application/service` policy and `InterviewReportAuthority` | New ports; policy file modified | Transactions, evidence, writer, and HR predicates. No GORM |
 | `infrastructure/repository/interviewreportrepository` | New | GORM maps and the two raw claim statements |
-| `infrastructure/service/reportbroker` | New | RabbitMQ publish, confirm, consume. No dead-letter declaration |
+| `infrastructure/service/reportbroker` | New | RabbitMQ publish, confirm, consume, and Q1 isolation declaration |
 | `../../../../../infrastructure/service/accessauthority` | Modified | Same `Authority` struct implements the report interface |
 | `delivery/http/handler/interviewreporthandler` | New | Strict JSON, cookie, CSRF, `IRP_*` mapping |
 | `../../../../../infrastructure/runtime`, `infrastructure/database/schema` | Modified | Route and worker wiring is T15 and blocked. Version floor becomes 12 in T3 |
@@ -206,13 +206,13 @@ Authorization is inside the use case and the query, not only in the handler. The
 | One `Authority` struct, new report interface | A second authorizer would duplicate session expiry, revocation, and ADMIN denial. Overloading `AgentConfigurationAuthority.Authorize` would let a report operation pass through the configuration catalog by mistake. Two methods on one struct keep one session lookup and separate operation lists | User instruction; verified `authority.go` and `policy.go`; BR-CORE-022 | Retained |
 | Shared transaction through context, GORM hidden | The completion write and the outbox insert are one commit in platform §5. Passing `*gorm.DB` into application breaks the import rule. Two independent commits can leave a completed interview with no durable job, or a job whose interview rolled back | Platform §5 interview-completion row; `dependencies_test.go`; AGENTS.md | Retained |
 | Generic outbox table with a single allowed `job_kind` | TD-09 is the platform mechanism for this background work. A report-only queue table would be a second mechanism when document work arrives. A universal workflow coordinator is the structure the platform overview rejected, so the table stores publish intent only | TD-09; platform §2 rejection of a universal coordinator | Retained. Widening `job_kind` is a later migration |
-| RabbitMQ for report jobs, not for voice | The candidate must not wait on the report, and the live loop already has its own session path. Reusing the Task in-process queue would drop the job on process death and would couple Task capacity to HR write-up | TD-09; BR-CORE-047; verified Task queue and absent AMQP client | Retained. Dead-letter topology deferred |
+| RabbitMQ for report jobs, not for voice | The candidate must not wait on the report, and the live loop already has its own session path. Reusing the Task in-process queue would drop the job on process death and would couple Task capacity to HR write-up | TD-09; BR-CORE-047; verified Task queue and absent AMQP client | Retained. Q1 report dead-letter topology approved 2026-11-03 |
 | Per-job attempt budget | The §10 wording starts the five minutes at job creation; Q4 moves the start to the first claim with final evidence. A lifetime cap of two attempts per interview would make an explicit regeneration after one failure unable to run, which contradicts BR-CORE-085 | Later technical design §10 wins over a looser reading of "total" | Retained |
 | Phrase guard for verdicts, no model classifier | The output type has no verdict field. Free text can still say "hire". A small word-boundary list is enforceable without the open model contract. It will miss paraphrases | BR-CORE-084 | Retained as a bounded guard. A model-output classifier stays inside the blocked provider task |
 | Do not resolve the salary ceiling value | Configuration stores `salaryCeilingRef` and responses expose only `salaryCeilingConfigured`. No value table exists. Inventing a store to scan report text would expand scope. Exclusion from the writer input, columns, logs, and HTTP body is the enforceable rule | Sibling BR-CORE-071; verified configuration DTO | Retained. A value scan is deferred until a value store exists; no task is executable for it |
 | Consumer not started until writer and evidence adapter exist | Starting the consumer against a missing provider would spend the two attempts and the five-minute window on an empty client | §10 budget; §14 model contract Open; no transcript table | Deferred. Blocks T15 only |
 
-Assessment gate: each rule in the table above has an owner, an enforcement path, and a planned proof. The dead-letter consumer behavior and the production writer are the deferred choices. Independent schema, domain, repository, HTTP mapping, and publisher work stay executable.
+Assessment gate: each rule in the table above has an owner, an enforcement path, and a planned proof. The production writer remains deferred; Q1 consumer isolation was approved on 2026-11-03. Independent schema, domain, repository, HTTP mapping, and publisher work stay executable.
 
 ## 5. Flow Sequence
 
@@ -224,6 +224,10 @@ Assessment gate: each rule in the table above has an owner, an enforcement path,
 4. The store inserts the report if needed, generation 1 as `pending`, the job with `wait_deadline_at = created_at + 30 minutes` and no attempt window yet, and one outbox row.
 5. The caller commits. The candidate final screen can show the interview outcome without reading the report.
 6. After commit, the publisher reads the outbox and publishes. Broker failure leaves the row unconfirmed. The interview stays completed.
+
+### Malformed-message isolation (Q1 decided 2026-11-03)
+
+Before intake, `reportbroker.Topology.Declare` declares durable direct exchange `interview-report.dlx`, durable quorum queue `interview-report.invalid`, and their binding with key `malformed`. It then declares the caller-named source quorum queue with this DLX/key, `x-dead-letter-strategy=at-least-once`, `x-overflow=reject-publish`, and `x-delivery-limit=-1`. The last setting preserves database-error recovery without quarantining valid jobs after broker redeliveries. There is no automatic replay, TTL, or return binding on quarantine. Inspect and replay manually after correcting the producer; quarantine bodies must not be logged. Declaration failures prevent intake. Callers own a bounded connection and channel lifecycle. Existing classic queues require an intentional operator cutover; declaration cannot convert them in place. T15 still owns production registration.
 
 ### Worker
 
@@ -339,7 +343,7 @@ Authorization runs before lookup, so ADMIN does not learn whether the assignment
 
 Domain and application errors are typed values the handler maps with the precedence table. Store corruption and driver failures wrap `errs.Technical` and become `INTERNAL_ERROR` without the cause in the response. Unique-index loss on the active generation becomes `IRP_GENERATION_ACTIVE` after the transaction rolls back. A unique command loss with the same fingerprint is reloaded and returned as replay. The same command key with a different fingerprint is `IRP_IDEMPOTENCY_CONFLICT`.
 
-The consumer does not acknowledge a message when the database cannot be read. It acknowledges a message whose job is already terminal or whose attempt is already active. It does not acknowledge a body it cannot parse, and it does not requeue that body in a loop. The isolation of that body is T12 and is blocked. Until T12, the test consumer used by T11 publishes only well-formed job messages.
+The consumer does not acknowledge a message when the database cannot be read. It acknowledges a message whose job is already terminal or whose attempt is already active. It does not acknowledge a body it cannot parse, and it does not requeue that body in a loop. Q1 isolation (T12) uses `Reject(false)` for unparseable JSON or an invalid `jobKind`/missing job or message identity/mismatched AMQP message identity, before the worker runs. A successful rejection settles the delivery without a success ACK and lets intake continue; rejection failure propagates so the caller closes the channel. The broker routes it to `interview-report.dlx` → key `malformed` → `interview-report.invalid` with at-least-once dead-lettering; duplicate quarantine deliveries are possible. No report or interview state changes. Database failures keep the T11 recovery path and are never deliberately rejected into malformed quarantine.
 
 Logs may include assignment id, execution id, generation id, job id, outbox id, attempt number, and state. They exclude cookies, CSRF tokens, statement bodies, transcript text, provider payloads, and salary fields.
 
@@ -352,7 +356,7 @@ Logs may include assignment id, execution id, generation id, job id, outbox id, 
 - [ ] Salary ceiling value and reference are absent from schema, writer input, logs, and the HR response.
 - [ ] Attempt budget is 2 attempts, 60 seconds, 5-second delay, 5 minutes from the first claim with final evidence (Q4), plus a 30 minute wait for evidence from admission.
 - [ ] RabbitMQ plus outbox dispatch this work only. Voice and Task queues stay as they are.
-- [ ] Dead-letter topology is not invented. The malformed-message task stays blocked.
+- [x] Q1 dead-letter topology is owner approved; T12 isolates malformed messages without automatic replay.
 - [ ] Migration `000012` is manual SQL. `ReleaseVersion` becomes 12. No AutoMigrate and no seed.
 - [ ] OpenAPI, `docs/api/interview-reporting.md`, and `../../../../api/CHANGELOG.md` change together.
 - [ ] No admin or HR UI, and no ownership of revoke, artifacts, or document-executions.
@@ -362,7 +366,7 @@ Logs may include assignment id, execution id, generation id, job id, outbox id, 
 
 | ID | Decision | Owner | Blocks | Ready when |
 |---|---|---|---|---|
-| Q1 | Exact dead-letter topology | Platform technical design §6, still Open | T12 only | The topology is written into §5 and §7 of this document: exchange, queue binding, and what happens to a malformed body. This design must not guess those names |
+| Q1 | **Decided 2026-11-03 by owner:** `interview-report.dlx` → `malformed` → `interview-report.invalid`; durable direct exchange and quorum quarantine, source quorum with at-least-once dead-lettering | Platform technical design §6 | T12 unblocked | §5 and §7 specify reject-without-requeue before worker invocation, manual replay only, and unchanged database-error recovery. T15 registration remains separate |
 | Q2 | Report model and invocation schema | Platform technical design §14 checklist | T13 and, with Q3, T15 | A provider, model, and structured request/response are approved and copied into §6. The attempt budget stays as already accepted |
 | Q3 | Finalized evidence identity and storage | Interview Runtime. Its provider event mapping is still Open, and no transcript table exists | T14 and, with Q2, T15 | Runtime exposes stable finalized entry id, revision, execution id, and optional question id through a read adapter. This feature does not design voice or stages |
 | Q4 | **Decided 2026-11-03: option 2.** Order between completion, the end-of-interview transcript and report admission. Interview Runtime records transcription at the end of the interview, and no provider transcript fetch has been confirmed, so the transcript is treated as asynchronous. | Interview Reporting with Interview Runtime | T14, T15 and the §5 and §10 budget | Admission stays at completion (§5). A job whose evidence port reports nothing finalized is `waiting`: it claims no attempt, the 60 second attempt clock and the 5 minute job window start only at the first claim after evidence is final, and the reconciler rechecks every 30 seconds. Give-up rule: 30 minutes after admission with no final evidence, the generation is `failed` with reason `evidence_unavailable` and the job `expired`; HR can regenerate later, which returns 409 `IRP_EVIDENCE_UNAVAILABLE` until evidence exists. The 30 minutes and 30 seconds are proposed defaults, adjustable by the owner. Option 3 stays valid if transcription proves synchronous. Still unresolved: the owner of the end-of-interview transcription step (Interview Runtime todo-gap G14), because this feature excludes transcript capture. |

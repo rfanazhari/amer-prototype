@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/rfanazhari/amer-prototype/application/service"
+	"github.com/rfanazhari/amer-prototype/domain/enum"
 )
 
 // Authority resolves a trusted administrative principal and current HR configuration authority.
@@ -28,6 +29,12 @@ func (a Authority) Principal(ctx context.Context) (service.AdminPrincipal, error
 
 // Authorize rechecks the bound session and permits only current HR configuration operations.
 func (a Authority) Authorize(ctx context.Context, principal service.AdminPrincipal, operation, resource string) error {
+	_ = resource
+	return a.authorize(ctx, principal, service.KnownAgentConfigurationOperation(operation), service.AllowsAgentConfiguration)
+}
+
+// authorize rechecks the bound session, then applies the supplied operation and role decisions.
+func (a Authority) authorize(ctx context.Context, principal service.AdminPrincipal, knownOperation bool, allows func(enum.Role) bool) error {
 	session, account, err := a.Sessions.Resolve(ctx)
 	if err != nil {
 		return err
@@ -38,9 +45,8 @@ func (a Authority) Authorize(ctx context.Context, principal service.AdminPrincip
 	if err := authorizeCurrent(session, account, trustedNow(a.Clock)); err != nil {
 		return err
 	}
-	if !service.KnownAgentConfigurationOperation(operation) || !service.AllowsAgentConfiguration(account.Role) {
+	if !knownOperation || !allows(account.Role) {
 		return service.ErrForbidden
 	}
-	_ = resource
 	return nil
 }

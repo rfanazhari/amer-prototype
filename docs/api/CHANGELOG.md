@@ -1,5 +1,9 @@
 # API changelog
 
+## 0.16.0 — HR interview report contract (CORE-IRP-008)
+
+Added the handler contracts for `GET /admin/interview-assignments/{id}/report` and `POST /admin/interview-assignments/{id}/report-generations`. Current HR, administrative cookie and matching Origin are required; POST also requires CSRF, an empty JSON object and one idempotency key. Fresh generation is `201`, replay is `200`. Added seven localized `IRP_*` codes. Responses contain observations, gaps and uncertainties with no verdict or salary fields. Routes remain unmounted pending T15. Candidate and voice contracts are unchanged. See [interview-reporting.md](interview-reporting.md).
+
 ## 0.15.0 — candidate finish (CORE-IRT-021)
 
 Added `POST /candidate/executions/{id}/complete` and the `complete` action in `GET /candidate/interview`. The controlling tab can end a `RUNNING` interview as `COMPLETED`; the remaining stages are sealed in order and the provider session is closed by its stored id. A repeat returns the same result, a `CREATED` interview is `409 CIN_NOT_LIVE`, and a terminal one is `409 CIN_TERMINAL`. No existing route, schema field or error code changed.

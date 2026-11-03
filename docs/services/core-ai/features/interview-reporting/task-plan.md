@@ -39,63 +39,68 @@ Keep both identities on any later revision. Add new numbers. Do not reuse these.
 
 ### Sequential foundation
 
-- [ ] **T1. Encode the report lifecycle and statement rules** — Domain — M
+- [x] **T1. Encode the report lifecycle and statement rules** — Domain — M
   - Ticket: `CORE-IRP-001` — depends: none — ref: design §3–§4, §6 path contracts.
   - DoD: `domain/aggregate/interviewreport` owns the report root, generation entity, statement value, and the budget constants (2, 60 seconds, 5 seconds, 5 minutes). Public tests cover an active-generation refusal, a new generation after failure, citation rejection, gap shape, verdict word boundaries, and restoration that does not call a provider. The type has no interview-status mutation. `make test` and `make test.architecture` pass. Declarations are documented. No SQL and no HTTP.
 
-- [ ] **T2. Add report ports and the HR predicate** — Application — M
+- [x] **T2. Add report ports and the HR predicate** — Application — M
   - Ticket: `CORE-IRP-002` — depends: T1 — ref: design §2, §4.
   - DoD: Operation interfaces for admit, regenerate, and read take injected ports and return detached DTOs. `InTransaction` hides the database handle. `AllowsInterviewReport` is HR-only. `InterviewReportAuthority` is a separate interface from `AgentConfigurationAuthority`. Evidence and writer ports are interfaces with no production adapter. `make mocks` regenerates the new interfaces. `make test` and `make test.architecture` pass.
 
 ### Schema, store, and authority
 
-- [ ] **T3. Add manual migration 000012 and raise the release floor** — Schema — L
+- [x] **T3. Add manual migration 000012 and raise the release floor** — Schema — L
   - Ticket: `CORE-IRP-003` — depends: none — ref: design §3.
   - DoD: `migrations/pgsql/000012_interview_reporting.up.sql` and `.down.sql` create and drop only the seven tables, checks, foreign keys, and indexes in design §3. `schema.ReleaseVersion` is 12. Both new files are in `checksums.json`. `ownedPublicTables` and `RuntimeGrantTables` include the new tables. `../../../../design/database-migrations.md` says clean version 12. Versions 1–11 are unchanged. No seed and no AutoMigrate. A disposable PostgreSQL database migrates from clean 11 to clean 12, then down and up, and proves the constraints, including one active generation and an answer without evidence. `make test.architecture` passes. If `TEST_DATABASE_URL` is unset, say the database proof was skipped and run it with `make test.docker` or an authorized URL before calling T3 done.
 
-- [ ] **T4. Map report rows and the two locked claims** — Infrastructure — L
+- [x] **T4. Map report rows and the two locked claims** — Infrastructure — L
   - Ticket: `CORE-IRP-004` — depends: T1, T2, T3 — ref: design §3 transactions.
   - DoD: GORM models live only in `interviewreportrepository`. Explicit `Select` writes persist a zero attempt count and a null failure reason. Raw SQL is only the job claim and the outbox claim, each with `FOR UPDATE SKIP LOCKED`, and the design's reason is still accurate. sqlmock may lock the statement text. `make test`, `make lint`, and `make test.architecture` pass.
 
-- [ ] **T5. Prove admission atomicity and report failure isolation on PostgreSQL** — Infrastructure — L
+- [x] **T5. Prove admission atomicity and report failure isolation on PostgreSQL** — Infrastructure — L
   - Ticket: `CORE-IRP-005` — depends: T4 — ref: design §3 proof plan, §5 completion flow.
   - DoD: One real PostgreSQL transaction uses a test stand-in to set `interview_assignments.completed_at` and then `Admit`. Commit leaves generation, job, and outbox. A forced outbox failure rolls back `completed_at` and the report rows. A later generation-failure transaction leaves `interview_assignments` and `interview_executions` unchanged, compared column for column. `Admit` does not itself update those tables, and it errors when `completed_at` is null. These tests are not sqlmock. `make test.integration` passes against an authorized database, or the skip is reported and `make test.docker` is the run that counts. RabbitMQ is not part of this task.
 
-- [ ] **T6. Authorize reports on the existing authority adapter** — Infrastructure / application — M
+- [x] **T6. Authorize reports on the existing authority adapter** — Infrastructure / application — M
   - Ticket: `CORE-IRP-006` — depends: T2 — ref: design §4 authority decision, BR-CORE-022.
   - DoD: `accessauthority.Authority` implements `InterviewReportAuthority` using the same session resolver and clock. Report `Authorize` calls `AllowsInterviewReport` and the report operation names. Configuration `Authorize` is unchanged. Tests: current HR allowed, ADMIN forbidden, expired, revoked, disabled, and unbound sessions denied, candidate session does not become an admin principal. No new authorizer type. `make test` and `make test.architecture` pass.
 
 ### HR contract
 
-- [ ] **T7. Implement read and explicit regeneration** — Application — L
+- [x] **T7. Implement read and explicit regeneration** — Application — L
   - Ticket: `CORE-IRP-007` — depends: T1, T4, T6 — ref: design §5–§6.
   - DoD: GET returns the previous succeeded account, or null, plus the newest generation. POST replay returns the original generation. A new key while a generation is active inserts nothing. A new key after failure inserts the next generation, job, and outbox without changing `completed_at`. Evidence denial uses the port and inserts nothing. Idempotency fingerprint matches design §6. Tests use a fake evidence port. `make test` passes.
 
-- [ ] **T8. Map the two HR routes and publish the contract** — Delivery / API — L
+- [x] **T8. Map the two HR routes and publish the contract** — Delivery / API — L
   - Ticket: `CORE-IRP-008` — depends: T7 — ref: design §2, §6–§7.
   - DoD: Handler tests with mocked operations cover the error precedence, CSRF on POST, cookie and Origin, 201 versus 200, and a body with no verdict or salary field. ADMIN is forbidden before the operation runs. `../../../../api/openapi.yaml`, `docs/api/interview-reporting.md`, and `docs/api/CHANGELOG.md` change together. `pkg/errs` and both translation files contain the `IRP_*` messages from design §6. Candidate and voice paths are unchanged. Routes are not mounted in `infrastructure/runtime`. `make test`, `make test.contract`, `make test.architecture`, and `make lint` pass.
 
 ### Durable dispatch
 
-- [ ] **T9. Publish confirmed outbox messages without a dead-letter topology** — Infrastructure — L
+- [x] **T9. Publish confirmed outbox messages without a dead-letter topology** — Infrastructure — L
   - Ticket: `CORE-IRP-009` — depends: T4 — ref: design §5 publisher and reconciler.
   - DoD: `reportbroker` publishes persistent messages that contain only `jobKind`, `jobId`, and `messageId`. Publisher confirms set `confirmed_at`. A lost confirm can leave a duplicate and does not mark the generation succeeded. The reconciler republishes unconfirmed rows. No dead-letter exchange, queue, or routing argument is declared. Dependency `github.com/rabbitmq/amqp091-go` is pinned in `../../../../../go.mod`. `make test.security` is run for that module. Unit tests fake the broker. `make test` and `make lint` pass.
 
-- [ ] **T10. Claim attempts inside the accepted budget** — Application / infrastructure — L
+- [x] **T10. Claim attempts inside the accepted budget** — Application / infrastructure — L
   - Ticket: `CORE-IRP-010` — depends: T1, T4 — ref: design §5 worker, §6 attempt path.
   - DoD: Controlled clock proves a 60-second attempt cap, a 5-second retry delay, no third attempt, and expiry at 5 minutes from the first claim with final evidence including time spent queued after that claim, a `waiting` job that claims no attempt, and give-up at 30 minutes from admission (Q4). The writer port is a fake. Accepted output commits statements and the generation outcome without updating interview tables. Rejected output stores no statements. An old fencing token does not commit. `make test` passes. The consumer is not registered in the process.
+  - Execution (2026-11-03): `CORE-IRP-010`; domain budget, worker, fenced outcome storage, and bounded reconciliation implemented. Owner approved additive migration `000013_interview_report_retry_window` to allow retries to retain their first-claim window; release floor is 13 and migrations 1–12 are unchanged. `make test`, `make check`, and isolated PostgreSQL verification pass. Consumer remains unregistered. The schema correction refines design §3; see the version-13 migration runbook.
 
-- [ ] **T11. Prove RabbitMQ behavior apart from sqlmock** — Infrastructure — L
+- [x] **T11. Prove RabbitMQ behavior apart from sqlmock** — Infrastructure — L
   - Ticket: `CORE-IRP-011` — depends: T9, T10 — ref: design §5, §7.
   - DoD: Against the Compose `rabbitmq` profile, tests show a confirm, a redelivery after the consumer stops before ack, a duplicate that does not create a second attempt, a broker outage that still leaves the committed outbox row unpublished, and a database error that is not acknowledged. Messages are well-formed. The test report states that sqlmock was not used for these assertions. `make test.security` still passes with the broker module. Document the broker URL handling so the password is not printed.
+  - Execution (2026-11-03): `CORE-IRP-011`; `make test.report-broker` passes six real RabbitMQ/PostgreSQL scenarios, including active and terminal duplicates. No sqlmock or broker mocks are used for these assertions. `make test` and `make check` pass (including lint and security). Consumer remains unregistered; malformed-message isolation stays T12. See [T11 verification and safe URL handling](t11-verification.md).
+
+### Malformed-message isolation
+
+- [x] **T12. Isolate malformed broker messages** — Infrastructure — M
+  - Ticket: `CORE-IRP-012` — depends: T11 — ref: design §7, §9 Q1.
+  - Q1 decided by owner (2026-11-03): durable direct `interview-report.dlx`, durable quorum `interview-report.invalid`, routing key `malformed`; source quorum with at-least-once dead-lettering and reject without requeue. Platform §6 and feature §5/§7 are synchronized.
+  - DoD: A malformed body is isolated using that approved topology, is not acknowledged as success, and is not requeued forever. Well-formed job handling from T11 still passes. Interview rows do not change.
+
+  - Execution (2026-11-03): `CORE-IRP-012`; malformed JSON/identity is rejected before worker invocation, with no success ACK or automatic replay. Mockery unit tests, `make test`, `make check`, and isolated `make test.report-broker` pass, including T11 regressions and column-for-column interview isolation. Runtime remains unregistered. See [T12 verification](t12-verification.md) and [ticket](ticket-t12.md).
 
 ### Blocked / deferred
-
-- [ ] **T12. Isolate malformed broker messages** — Infrastructure — M
-  - Ticket: `CORE-IRP-012` — depends: T11 — ref: design §7, §9 Q1.
-  - Blocked by: dead-letter topology, platform technical design §6, owner is that platform document.
-  - Ready when: Q1 is decided and design §5 and §7 name the approved exchange, queue, and malformed-body action. Do not invent those names in this task.
-  - DoD: A malformed body is isolated using that approved topology, is not acknowledged as success, and is not requeued forever. Well-formed job handling from T11 still passes. Interview rows do not change.
 
 - [ ] **T13. Add the report writer client** — Infrastructure — L
   - Ticket: `CORE-IRP-013` — depends: T10 — ref: design §4, §9 Q2.
@@ -127,7 +132,7 @@ T6 → T7 → T8
 T4 → T9 → T11
 T1 → T10
 T4 → T10 → T11
-T11 → T12 (blocked on Q1)
+T11 → T12 (Q1 decided; Done)
 T10 → T13 (blocked on Q2)
 T2 → T14 (blocked on Q3)
 T5 → T15

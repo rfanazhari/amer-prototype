@@ -15,6 +15,10 @@ const (
 	AgentConfigurationRead = "read"
 	// AgentConfigurationReplay is the internal ACP publication-replay operation name.
 	AgentConfigurationReplay = "replay"
+	// InterviewReportRead is the internal interview report read operation name.
+	InterviewReportRead = "read"
+	// InterviewReportRegenerate is the internal interview report regeneration operation name.
+	InterviewReportRegenerate = "regenerate"
 )
 
 // AllowsAccountProvisioning reports whether the current role may create HR accounts.
@@ -30,6 +34,16 @@ func AllowsAgentConfiguration(role enum.Role) bool {
 // AllowsCandidateAdministration reports whether the current role may create or read candidates and issue invitations.
 func AllowsCandidateAdministration(role enum.Role) bool {
 	return role == enum.HR
+}
+
+// AllowsInterviewReport reports whether the current role may read or regenerate interview reports.
+func AllowsInterviewReport(role enum.Role) bool {
+	return role == enum.HR
+}
+
+// KnownInterviewReportOperation reports whether operation is a recognized interview report action.
+func KnownInterviewReportOperation(operation string) bool {
+	return operation == InterviewReportRead || operation == InterviewReportRegenerate
 }
 
 // KnownAgentConfigurationOperation reports whether operation is a recognized ACP action.

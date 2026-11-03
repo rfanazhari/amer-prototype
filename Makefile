@@ -39,7 +39,7 @@ docker.config:
 docker.up:
 	docker compose build app
 	docker compose up -d --wait database
-	@schema_status="$$(docker compose run --rm --no-deps migrate status)" && test "$$schema_status" = 'version=11 dirty=false' || (echo 'Prepare schema first: make docker.migrate MIGRATION_VERSION=11 (existing volumes: see database-migrations runbook)' >&2; exit 1)
+	@schema_status="$$(docker compose run --rm --no-deps migrate status)" && test "$$schema_status" = 'version=13 dirty=false' || (echo 'Prepare schema first: make docker.migrate MIGRATION_VERSION=13 (existing volumes: see database-migrations runbook)' >&2; exit 1)
 	docker compose up -d
 
 docker.down:
@@ -66,6 +66,10 @@ test.integration:
 
 test.docker:
 	python3 scripts/verify_compose.py
+
+.PHONY: test.report-broker
+test.report-broker:
+	python3 scripts/verify_report_broker.py
 
 .PHONY: docker.verify
 docker.verify:

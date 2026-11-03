@@ -1,0 +1,75 @@
+@startuml 09-report-generation
+title Sequence 09 - Interview report admission, dispatch and HR access
+skinparam shadowing false
+autonumber
+
+actor HR
+participant "HTTP delivery" as H
+participant "Authority" as Auth
+participant "Execution Lifecycle" as L
+participant "Report store" as S
+database "PostgreSQL" as DB
+queue "RabbitMQ" as MQ
+participant "Publisher / reconciler" as Pub
+participant "Report consumer" as W
+participant "Evidence reader" as E
+participant "Report writer model" as M
+
+== Admission at completion (BR-CORE-080, 081) - store built, caller not wired ==
+L -> DB : open tx, set completed_at
+L -> S : Admit(assignment id, execution id) before commit
+S -> DB : read completed_at (null returns error, caller aborts)
+S -> DB : insert report if needed, generation 1 pending,\njob (wait deadline = admission + 30 min), one outbox row
+L -> DB : COMMIT
+note right : candidate sees the interview outcome\nwithout reading the report
+
+== Dispatch (built: IRP T9) ==
+Pub -> DB : claim unconfirmed outbox rows
+Pub -> MQ : publish (persistent, publisher confirm)
+alt confirmed
+  Pub -> DB : record confirmed publication
+else broker failure
+  note right : row stays unconfirmed, interview stays COMPLETED
+end
+note over Pub : confirmation never marks a report succeeded
+
+group IN PROGRESS / NOT DELIVERED - worker (IRP T10..T14)
+  MQ -> W : {jobKind, jobId, messageId}
+  W -> DB : load job
+  alt job terminal or an active attempt exists
+    W -> MQ : ack, no provider call
+  else evidence not final
+    W -> DB : stay waiting, no attempt (recheck every 30 s,\ngive up 30 min after admission)
+  else
+    W -> DB : claim attempt 1 or 2 (cap 60 s), commit
+    W -> E : read finalized evidence
+    W -> M : generate observations, gaps, uncertainty
+    alt accepted
+      W -> DB : commit statements with generation outcome
+    else rejected or failed
+      W -> DB : fail attempt; retry after 5 s if budget allows,\nthrough a new outbox row
+    end
+    W -> MQ : ack after durable handling
+  end
+  note right : malformed bodies go to the dead-letter\nexchange interview-report.dlx
+end
+
+group NOT MOUNTED - HR routes (handlers built, IRP T8; registration is T15)
+  HR -> H : GET /admin/interview-assignments/{id}/report
+  H -> Auth : current HR (ADMIN gets 403 before lookup)
+  H -> DB : newest generation + latest succeeded account
+  H --> HR : 200 (account is null if none succeeded)
+
+  HR -> H : POST .../report-generations  Idempotency-Key
+  H -> Auth : current HR
+  H -> S : Regenerate
+  alt same key and fingerprint
+    S --> H : original generation
+  else other key while one is active
+    S --> H : conflict
+  else terminal generation, evidence available
+    S -> DB : insert next generation, job, outbox row in one tx
+  end
+  H --> HR : response
+end
+@enduml

@@ -24,6 +24,10 @@ type sliceView struct {
 		IsCurrentController bool   `json:"isCurrentController"`
 		ControllerVersion   int64  `json:"controllerVersion"`
 	} `json:"execution"`
+	Progress *struct {
+		Phase      string `json:"phase"`
+		Connection string `json:"connection"`
+	} `json:"progress"`
 	Actions []string `json:"actions"`
 }
 
@@ -143,6 +147,42 @@ func TestCandidateInterviewSlicePostgres(t *testing.T) {
 		view := f.screen(t, "tab-one")
 		require.Equal(t, "COMPLETED", view.Execution.State)
 		require.Empty(t, view.Actions)
-		require.Zero(t, f.count(t, `SELECT count(*) FROM pg_tables WHERE schemaname = 'public' AND tablename LIKE '%report%'`), "no report table exists")
+		require.Zero(t, f.count(t, `SELECT count(*) FROM pg_tables WHERE schemaname = 'public' AND tablename LIKE '%report%' AND tablename NOT IN ('interview_reports','interview_report_generations','interview_report_statements','interview_report_commands','interview_report_jobs','interview_report_attempts')`), "no report table exists beyond the version 12 reporting tables")
+		require.Zero(t, f.count(t, `SELECT count(*) FROM interview_reports`), "no report exists for the candidate-completed interview")
 	})
+}
+
+// TestCandidateInterviewLiveProgressPostgres proves, through production composition with the runtime mounted,
+// that the candidate view carries only the candidate-safe progress and that a replaced tab cannot advance runtime.
+func TestCandidateInterviewLiveProgressPostgres(t *testing.T) {
+	f := newRuntimeProof(t, false)
+	before := f.screen(t, "tab-proof")
+	require.Nil(t, before.Progress, "no runtime session yet, so no progress")
+
+	started := f.attempt("slice-progress", "activate", 1)
+	require.Equal(t, http.StatusCreated, started.Code, started.Body.String())
+	got := answer(t, started)
+	notReady := f.screen(t, "tab-proof")
+	require.Nil(t, notReady.Progress, "a session that is not browser-ready is not a summary")
+
+	ready := f.request("POST", "/candidate/executions/"+f.id+"/session-attempts/"+got.AttemptID+"/ready", `{"controllerId":"tab-proof","expectedVersion":2}`, "")
+	require.Equal(t, http.StatusOK, ready.Code, ready.Body.String())
+	live := f.screen(t, "tab-proof")
+	require.NotNil(t, live.Progress)
+	require.Equal(t, "Background", live.Progress.Phase)
+	require.Equal(t, "connected", live.Progress.Connection)
+	raw := f.as("tab-proof", http.MethodGet, "/candidate/interview", "", "").Body.String()
+	for _, leaked := range []string{"transcript", "coverage", "handoff", "providerSession", "provider-1", "sdp"} {
+		require.NotContains(t, raw, leaked)
+	}
+
+	took := f.as("tab-two", http.MethodPost, "/candidate/executions/"+f.id+"/takeover", `{"controllerId":"tab-two","expectedVersion":`+strconv.FormatInt(f.screen(t, "tab-two").Execution.ControllerVersion, 10)+`}`, "")
+	require.Equal(t, http.StatusOK, took.Code, took.Body.String())
+	before2 := f.count(t, `SELECT count(*) FROM interview_session_commands WHERE execution_id = ?`, f.id)
+	replaced := f.attempt("slice-replaced", "reconnect", got.Version)
+	require.Equal(t, http.StatusConflict, replaced.Code, replaced.Body.String())
+	replacedReady := f.request("POST", "/candidate/executions/"+f.id+"/session-attempts/"+got.AttemptID+"/ready", `{"controllerId":"tab-proof","expectedVersion":2}`, "")
+	require.Equal(t, http.StatusConflict, replacedReady.Code, replacedReady.Body.String())
+	require.Equal(t, before2, f.count(t, `SELECT count(*) FROM interview_session_commands WHERE execution_id = ?`, f.id))
+	require.Equal(t, int32(1), f.calls.Load(), "the provider was not called for the replaced tab")
 }

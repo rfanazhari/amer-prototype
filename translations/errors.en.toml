@@ -168,3 +168,24 @@ other = "the interview session request conflicts with the current interview stat
 
 [IRT_NOT_READY]
 other = "the interview session is not ready"
+
+[IRP_UNAUTHENTICATED]
+other = "administrative session is missing or no longer valid"
+
+[IRP_FORBIDDEN]
+other = "interview report is forbidden"
+
+[IRP_IDEMPOTENCY_CONFLICT]
+other = "report request identity is already used with a different intent"
+
+[IRP_NOT_COMPLETED]
+other = "interview report is available only after the interview is completed"
+
+[IRP_EVIDENCE_UNAVAILABLE]
+other = "interview report needs the finalized interview record"
+
+[IRP_GENERATION_ACTIVE]
+other = "a report generation is already active"
+
+[IRP_DEPENDENCY_UNAVAILABLE]
+other = "interview report could not be stored"

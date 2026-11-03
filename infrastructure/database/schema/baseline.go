@@ -221,6 +221,26 @@ func (d *driver) extendBaseline(v int) (int, error) {
 			return 0, errors.New("partial interview runtime integration schema")
 		}
 	}
+	reporting, err := d.countNamedTables(
+		"interview_reports",
+		"interview_report_generations",
+		"interview_report_statements",
+		"interview_report_commands",
+		"interview_report_jobs",
+		"interview_report_attempts",
+		"outbox_messages",
+	)
+	if err != nil {
+		return 0, err
+	}
+	if reporting == 7 {
+		if v != 11 {
+			return 0, errors.New("interview reporting schema requires interview runtime integration")
+		}
+		v = 12
+	} else if reporting != 0 {
+		return 0, errors.New("partial interview reporting schema")
+	}
 	return v, nil
 }
 

@@ -2,8 +2,8 @@
   "openapi": "3.0.3",
   "info": {
     "title": "amer-prototype Task API",
-    "version": "0.15.0",
-    "description": "Task reference feature, identity/access, and HR agent configuration. All active responses use the standard JSON envelope. Unknown routes return 404; unsupported methods return 405. Task and health remain unauthenticated. Request bodies are limited to 1 MiB. System-owned timestamps, IDs and status are rejected as request fields. Completion events are volatile and process-local. Administrative, candidate, and configuration routes use origin, cookies, and CSRF as documented in identity-access.md, agent-configuration.md and candidate-interview.md."
+    "version": "0.16.0",
+    "description": "Task reference feature, identity/access, and HR agent configuration. All active responses use the standard JSON envelope. Unknown routes return 404; unsupported methods return 405. Task and health remain unauthenticated. Request bodies are limited to 1 MiB. System-owned timestamps, IDs and status are rejected as request fields. Completion events are volatile and process-local. Administrative, candidate, and configuration routes use origin, cookies, and CSRF as documented in identity-access.md, agent-configuration.md and candidate-interview.md. Interview reporting HR routes are specified and handler-tested but remain unmounted pending T15; see interview-reporting.md."
   },
   "servers": [
     {
@@ -4666,6 +4666,510 @@
           }
         }
       }
+    },
+    "/admin/interview-assignments/{id}/report": {
+      "get": {
+        "operationId": "readInterviewReport",
+        "tags": [
+          "admin-hr"
+        ],
+        "summary": "Read the newest generation and previous succeeded report.",
+        "description": "Handler contract only: not mounted in runtime until T15. HR only. No query parameters. Authentication precedes HR/CSRF, then input, then assignment lookup. ADMIN is forbidden before the operation runs. No request body. Report remains the previous succeeded account while a newer generation is active or failed; otherwise null.",
+        "security": [
+          {
+            "AdminCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Nonzero hyphenated UUID, normalized to lowercase after authentication."
+          },
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Must equal the configured administrative origin."
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "example": "id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Newest generation and latest succeeded account, or null.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InterviewReportEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "INVALID_INPUT: malformed id, forbidden query/body, content type or idempotency key.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "IRP_UNAUTHENTICATED: missing, candidate, expired, revoked, disabled or unbound administrative session.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "IRP_FORBIDDEN: non-HR, missing/mismatched Origin, or invalid POST CSRF.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND: unknown assignment.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "METHOD_NOT_ALLOWED.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "IRP_NOT_COMPLETED.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "INTERNAL_ERROR: corrupt stored report or unclassified technical failure; no internal details.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "IRP_DEPENDENCY_UNAVAILABLE: store unavailable before commit.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/interview-assignments/{id}/report-generations": {
+      "post": {
+        "operationId": "regenerateInterviewReport",
+        "tags": [
+          "admin-hr"
+        ],
+        "summary": "Request a report generation or replay the original generation.",
+        "description": "Handler contract only: not mounted in runtime until T15. HR only. No query parameters. Authentication precedes HR/CSRF, then input, then assignment lookup. ADMIN is forbidden before the operation runs. Requires an empty JSON object. Same key/intent replays before completion, finalized evidence and active-generation checks. Fingerprint is lowercase hex SHA-256 of compact UTF-8 JSON [\"regenerate-interview-report/v1\",\"<assignment-uuid-lowercase>\"]. A committed outbox succeeds even when the broker is unavailable.",
+        "security": [
+          {
+            "AdminCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Nonzero hyphenated UUID, normalized to lowercase after authentication."
+          },
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Must equal the configured administrative origin."
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "example": "id"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "One valid token bound to the administrative session."
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+              "maxLength": 128
+            },
+            "description": "Exactly one value, no trimming; duplicate headers rejected. Scoped to the current HR subject."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Original generation replay.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportGenerationEnvelope"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "New pending generation after commit.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportGenerationEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "INVALID_INPUT: malformed id, forbidden query/body, content type or idempotency key.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "IRP_UNAUTHENTICATED: missing, candidate, expired, revoked, disabled or unbound administrative session.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "IRP_FORBIDDEN: non-HR, missing/mismatched Origin, or invalid POST CSRF.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND: unknown assignment.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "METHOD_NOT_ALLOWED.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "IRP_IDEMPOTENCY_CONFLICT, IRP_NOT_COMPLETED, IRP_EVIDENCE_UNAVAILABLE or IRP_GENERATION_ACTIVE, in that precedence; exact replay precedes eligibility checks.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "INTERNAL_ERROR: corrupt stored report or unclassified technical failure; no internal details.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "IRP_DEPENDENCY_UNAVAILABLE: store unavailable before commit.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmptyObject"
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -4870,7 +5374,14 @@
                   "ACP_VALIDATION_CONFLICT",
                   "ACP_PUBLICATION_BLOCKED",
                   "ACP_DEPENDENCY_UNAVAILABLE",
-                  "ACP_PUBLICATION_UNCERTAIN"
+                  "ACP_PUBLICATION_UNCERTAIN",
+                  "IRP_UNAUTHENTICATED",
+                  "IRP_FORBIDDEN",
+                  "IRP_IDEMPOTENCY_CONFLICT",
+                  "IRP_NOT_COMPLETED",
+                  "IRP_EVIDENCE_UNAVAILABLE",
+                  "IRP_GENERATION_ACTIVE",
+                  "IRP_DEPENDENCY_UNAVAILABLE"
                 ]
               },
               "message": {
@@ -6416,6 +6927,201 @@
                 ]
               }
             }
+          }
+        }
+      },
+      "ReportGeneration": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "number",
+          "state",
+          "failureReason",
+          "createdAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "number": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "running",
+              "succeeded",
+              "failed"
+            ]
+          },
+          "failureReason": {
+            "type": "string",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+          }
+        }
+      },
+      "ReportObservation": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "body",
+          "evidenceEntryId",
+          "evidenceRevision"
+        ],
+        "properties": {
+          "body": {
+            "type": "string"
+          },
+          "evidenceEntryId": {
+            "type": "string"
+          },
+          "evidenceRevision": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "ReportGap": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "body",
+          "questionId"
+        ],
+        "properties": {
+          "body": {
+            "type": "string"
+          },
+          "questionId": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "ReportUncertainty": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "body"
+        ],
+        "properties": {
+          "body": {
+            "type": "string"
+          },
+          "evidenceEntryId": {
+            "type": "string"
+          },
+          "evidenceRevision": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "ReportAccount": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "generationId",
+          "observations",
+          "gaps",
+          "uncertainties"
+        ],
+        "properties": {
+          "generationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "observations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReportObservation"
+            }
+          },
+          "gaps": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReportGap"
+            }
+          },
+          "uncertainties": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReportUncertainty"
+            }
+          }
+        },
+        "nullable": true
+      },
+      "InterviewReport": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "assignmentId",
+          "executionId",
+          "generation",
+          "report"
+        ],
+        "properties": {
+          "assignmentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "executionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "generation": {
+            "$ref": "#/components/schemas/ReportGeneration"
+          },
+          "report": {
+            "$ref": "#/components/schemas/ReportAccount"
+          }
+        }
+      },
+      "ReportGenerationEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "status",
+          "data"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "success"
+            ]
+          },
+          "data": {
+            "$ref": "#/components/schemas/ReportGeneration"
+          }
+        }
+      },
+      "InterviewReportEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "status",
+          "data"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "success"
+            ]
+          },
+          "data": {
+            "$ref": "#/components/schemas/InterviewReport"
           }
         }
       }

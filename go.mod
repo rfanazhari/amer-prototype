@@ -12,6 +12,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.9.2
 	github.com/nicksnyder/go-i18n/v2 v2.4.0
+	github.com/rabbitmq/amqp091-go v1.13.0
 	github.com/stretchr/testify v1.11.1
 	golang.org/x/crypto v0.58.0
 	golang.org/x/net v0.62.0

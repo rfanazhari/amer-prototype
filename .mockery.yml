@@ -3,6 +3,24 @@ with-expecter: false
 issue-845-fix: true
 disable-version-string: true
 packages:
+  github.com/rabbitmq/amqp091-go:
+    config:
+      dir: test/mocks/reportbrokermocks
+      outpkg: reportbrokermocks
+      filename: acknowledger.go
+    interfaces:
+      Acknowledger:
+  github.com/rfanazhari/amer-prototype/infrastructure/service/reportbroker:
+    config:
+      dir: test/mocks/reportbrokermocks
+      outpkg: reportbrokermocks
+      filename: '{{.InterfaceName | snakecase}}.go'
+    interfaces:
+      Broker:
+      Outbox:
+      Channel:
+      JobExecutor:
+      TopologyChannel:
   github.com/rfanazhari/amer-prototype/application/repository:
     config:
       dir: test/mocks
@@ -50,6 +68,7 @@ packages:
       InterviewDriver:
       InterviewSummarizer:
       InterviewCompleter:
+      InterviewReportAuthority:
   github.com/rfanazhari/amer-prototype/application/usecase/taskusecase:
     config:
       dir: test/mocks
@@ -222,3 +241,37 @@ packages:
       AttemptOperation:
       ReadyOperation:
       SessionStarter:
+  github.com/rfanazhari/amer-prototype/application/repository/interviewreportport:
+    config:
+      dir: test/mocks
+      outpkg: mocks
+      filename: 'interview_report_{{.InterfaceName | snakecase}}.go'
+      mockname: 'InterviewReport{{.InterfaceName}}'
+    interfaces:
+      Transaction:
+      CompletionMarker:
+      ReportReader:
+      AdmissionWriter:
+      WorkerStore:
+      AssignmentReader:
+      AssignmentLocker:
+      RegenerationStore:
+      Evidence:
+      Writer:
+  github.com/rfanazhari/amer-prototype/application/usecase/interviewreportusecase:
+    config:
+      dir: test/mocks
+      outpkg: mocks
+      filename: 'interview_report_{{.InterfaceName | snakecase}}.go'
+      mockname: 'InterviewReport{{.InterfaceName}}'
+    interfaces:
+      AdmitOperation:
+      RegenerateOperation:
+  github.com/rfanazhari/amer-prototype/application/query/interviewreportquery:
+    config:
+      dir: test/mocks
+      outpkg: mocks
+      filename: 'interview_report_{{.InterfaceName | snakecase}}.go'
+      mockname: 'InterviewReport{{.InterfaceName}}'
+    interfaces:
+      ReadOperation:

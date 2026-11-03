@@ -1,0 +1,51 @@
+@startuml 06-takeover-cancel-revocation
+title Sequence 06 - Tab takeover, candidate cancel and HR revocation
+skinparam shadowing false
+autonumber
+
+actor Candidate
+actor HR
+participant "Tab A (controller)" as TA
+participant "Tab B" as TB
+participant "HTTP delivery" as H
+participant "Interview use case" as A
+participant "Access use case" as AC
+participant "Execution Lifecycle" as L
+database "PostgreSQL" as DB
+
+== Takeover (BR-CORE-044) ==
+Candidate -> TB : open second tab
+TB -> H : GET /candidate/executions/{id}
+H --> TB : isCurrentController false (read-only)
+Candidate -> TB : take over
+TB -> H : POST .../takeover {controllerId, expectedVersion}\nX-Interview-Controller
+H -> A : Takeover
+A -> DB : update controller (versioned)
+alt version matches
+  H --> TB : 200 {isCurrentController true, controllerVersion + 1}
+else stale
+  H --> TB : 409 CIN_CONTROLLER_CONFLICT
+end
+TA -> H : any controlled action
+H --> TA : 403 CIN_NOT_CONTROLLER
+
+== Early stop (BR-CORE-045) ==
+Candidate -> TB : confirm cancel
+TB -> H : POST .../cancel {expectedVersion}
+H -> A : Cancel
+A -> L : Cancel (reason candidate_early_stop)
+L -> DB : lock execution, commit CANCELLED
+H --> TB : 200 execution CANCELLED
+note right : terminal state is never relabelled
+
+== HR revocation (BR-CORE-038, 055) ==
+HR -> H : POST /admin/interview-assignments/{id}/revocation\n(cookie, origin, CSRF, empty body)
+H -> AC : RevokeAssignmentAccess
+AC -> DB : set access_revoked_at (trusted clock) only while null
+AC -> L : CancelNonterminal (reason access_revoked)
+L -> DB : CANCELLED, unless already terminal
+H --> HR : 200
+Candidate -> H : next candidate request
+H --> Candidate : 401, access removed
+note over AC, L : a COMPLETED interview is not restarted\nor cancelled (BR-CORE-039).\nSession expiry mid-interview has no driver yet (Q7).
+@enduml

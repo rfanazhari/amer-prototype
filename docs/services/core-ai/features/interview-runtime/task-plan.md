@@ -4,7 +4,7 @@
 
 Capability group: **IRT — Interview Runtime**. Ticket prefix: `CORE-IRT`. These are repository planning IDs. No external tracker tickets have been created.
 
-Stable map: `T1` → `CORE-IRT-001` through `T18` → `CORE-IRT-018`. Later revisions add ids. They do not renumber these.
+Stable map: `T1` → `CORE-IRT-001` through `T19` → `CORE-IRT-019`. Later revisions add ids. They do not renumber these.
 
 Companion dependencies, not implemented by this plan:
 
@@ -15,7 +15,7 @@ Companion dependencies, not implemented by this plan:
 
 ## Legend
 
-- ID: `T1`..`T18`, stable
+- ID: `T1`..`T19`, stable
 - Complexity: S (< 2h) | M (2–4h) | L (> 4h)
 - Status: `[ ]` Todo | `[~]` In Progress | `[x]` Done | `~~obsolete~~`
 - ref: [technical-design.md](technical-design.md) section
@@ -125,11 +125,24 @@ T18 resolves integration Q3 with the durable adapter, persisted attempt authorit
 
 ### Live interview-path acceptance
 
-- [ ] **T17. Record one live interview-path voice session** — Verification — M
+- [x] **T17. Record one live interview-path voice session** — Verification — M
   - Ticket ID: `CORE-IRT-017`
+  - Evidence: [T17 verification](t17-verification.md). One live session through the mounted `session-attempts` route: 201, SDP answer applied, connected, retained session id present, sideband attach succeeded, readiness 200, spoken provider reply confirmed by the owner. Run through a temporary local harness with disposable PostgreSQL (candidate-page voice is T19). The sanitized note was reviewed and approved by the owner `rfanazhari` on 2026-11-03. No key, SDP, transcript or session id is recorded. Q1 is not resolved.
   - depends: T8, T18 — ref: design §9 Q5, scope freeze `H-01` — Q3 resolved by T18; Q5 is the live acceptance evidence this task produces.
   - ready when: T18 has mounted and verified the route, and the live provider/browser setup is available. Execute the session and obtain review of the sanitized note as part of this task, not as a prerequisite to starting it.
   - DoD: the note identifies the route, the retained session id's presence (not the id value), SDP exchanged, and sideband attach. It does not paste the key, SDP, or transcript. It does not mark Q1 resolved. Event-count output from `../../../../../test/livevoice` alone does not satisfy the DoD.
+
+### Candidate page voice integration
+
+- [ ] **T19. Start the voice session from the candidate interview page** — Delivery (browser) — L
+  - Ticket ID: `CORE-IRT-019`
+  - Evidence: partial. RED `db64fec`, GREEN `1a81e7b`: `page.html` starts voice from a Start voice click through the existing routes; `python3 scripts/test_candidate_interview_ui.py` passes 25 headless-Chrome scenarios (8 voice, API/WebRTC fakes), page shell Go test, `make test.all`, `test.contract`, `test.architecture`, `lint` and `test.security` pass. Still pending: production-composition run against disposable PostgreSQL with a fake provider (`make test.docker`) and one reviewed live session through this page. Not Done.
+  - depends: T18 (routes mounted), T17 (live route proof) — ref: design §9 Q5; Candidate Interview page contract (`BR-CORE-040`–`047`) for consent, takeover and cancel.
+  - Scope:
+    - After the interview is created and the tab holds control, request the microphone, build an `RTCPeerConnection` with the microphone track and the `oai-events` data channel, wait for ICE gathering, and call `POST /candidate/executions/{id}/session-attempts` with cookie, CSRF, controller header, a per-start idempotency key, `intent: activate`, the current execution version and the SDP.
+    - Apply the returned answer, then call the attempt `ready` route. Retry only the same idempotency key. Map 409/503 and permission-denied to safe candidate-visible states. Cancel, takeover and page close release local media and the connection.
+    - Keep SDP, instructions, keys and session ids out of the DOM, `sessionStorage`, logs and console. Update the candidate-page contract documentation. No backend or migration change unless a contract gap is found first.
+  - DoD: browser tests with mocked fetch cover permission denied, 201 then ready, 409, 503, cancel and takeover cleanup. The embedded page is served by the production composition against disposable PostgreSQL and a fake provider; a live provider session through this page is recorded like T17 and reviewed. Q1, transcript, scoring and report behavior are not claimed.
 
 ### Blocked on provider event finality (Q1)
 
@@ -193,6 +206,7 @@ T5 → T11
 T8 → T17
 T2, T3, T5, T6, T8, T9, T10, T11 → T18
 T18 → T17
+T17, T18 → T19
 T18 → T13
 T18 → T15
 
@@ -202,7 +216,7 @@ T6 → T13
 T10 → T15
 ```
 
-T1–T11 retain their Done scopes. T18 is Done and resolves integration Q3. T12's S1 evidence collection can proceed as investigation, but the finality map remains blocked until reviewed evidence exists. T13–T15 stay blocked on Q1; T17 requires live provider/browser acceptance. T16 stays blocked on Q2 and can use T18's real lifecycle adapter when that policy is settled.
+T1–T11 retain their Done scopes. T18 is Done and resolves integration Q3. T12's S1 evidence collection can proceed as investigation, but the finality map remains blocked until reviewed evidence exists. T13–T15 stay blocked on Q1; T17 is Done with reviewed live evidence; Q1 stays open. T16 stays blocked on Q2 and can use T18's real lifecycle adapter when that policy is settled.
 
 ## Revision History
 
@@ -211,3 +225,5 @@ T1–T11 retain their Done scopes. T18 is Done and resolves integration Q3. T12'
 | v1 | 2026-11-02 | Initial plan, all tasks todo | Mode A. No interview-runtime implementation is claimed. |
 | v2 | 2026-11-03 | Add T18 / CORE-IRT-018 for T8's deferred integration; update T13/T15/T17 dependencies and T17 start condition | Preserve T1–T11 Done scopes while giving adapter, authority, command/migration, wiring and real PostgreSQL proof a named owner. Q1/Q2 remain open |
 | v3 | 2026-11-03 | Complete T18 with durable authority, joined transactions, reservation/replay, schema 11 and real PostgreSQL proof | Resolve integration Q3 only; preserve Q1/Q2, T17 live acceptance and earlier task evidence limits |
+| v4 | 2026-11-03 | Add T19 / CORE-IRT-019 for candidate-page voice start (microphone, SDP, ready) | T17 proved the mounted routes only through a temporary harness; the production page had no owner for the browser side. Number proposed, pending owner ticket confirmation. Q1/Q2 unchanged |
+| v5 | 2026-11-03 | Complete T17 with one reviewed live interview-path session | Q5 live acceptance recorded through the mounted route; Q1/Q2, T12–T16 and T19 unchanged |
